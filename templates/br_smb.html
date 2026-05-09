@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Diagnóstico de 5 min: quanto seu negócio perde por lead frio | Anuvia</title>
+  <meta name="description" content="Diagnóstico personalizado em 5 minutos: descubra quanto seu funil comercial está deixando dinheiro na mesa e receba um plano de 30 dias com 3 ações priorizadas.">
+  <meta property="og:title" content="Diagnóstico de 5 min: quanto seu negócio perde por lead frio">
+  <meta property="og:description" content="Para SMBs brasileiros. 5 perguntas, IA gera análise personalizada e plano de 30 dias.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://diagnostico.anuvia.com.br">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; -webkit-font-smoothing: antialiased; }
+    .gradient-bg { background: radial-gradient(ellipse at top, rgba(99,102,241,0.18), transparent 60%), #0f172a; }
+    .card-glass { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; }
+    .option-btn { transition: all 0.15s; cursor: pointer; }
+    .option-btn:hover { background: rgba(99,102,241,0.12); border-color: rgba(99,102,241,0.5); }
+    .option-btn.selected { background: rgba(99,102,241,0.18); border-color: #6366f1; color: #c7d2fe; }
+    .step { display: none; }
+    .step.active { display: block; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .progress-bar { transition: width 0.4s ease; }
+    .spinner {
+      width: 48px; height: 48px;
+      border: 4px solid rgba(99,102,241,0.2);
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    /* Tailwind prose-invert fallback (no plugin loaded) */
+    .prose strong { color: #fff; font-weight: 600; }
+    .prose p { margin-bottom: 0.75rem; }
+    .prose ul { list-style: disc; padding-left: 1.5rem; margin: 0.75rem 0; }
+    .prose li { margin: 0.25rem 0; }
+  </style>
+</head>
+<body class="gradient-bg text-slate-100 min-h-screen">
+
+  <!-- Hero -->
+  <section id="hero" class="px-6 pt-12 pb-8 max-w-3xl mx-auto">
+    <div class="text-center mb-8">
+      <p class="inline-block text-xs uppercase tracking-widest text-indigo-300 bg-indigo-500/10 border border-indigo-500/30 rounded-full px-3 py-1 mb-5">
+        Para SMBs brasileiros • Grátis • 5 minutos
+      </p>
+      <h1 class="text-3xl md:text-5xl font-bold tracking-tight leading-tight mb-5">
+        Quanto seu negócio<br>perde por lead frio?
+      </h1>
+      <p class="text-slate-300 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
+        Responda 6 perguntas sobre seu funil comercial. Em 30 segundos a IA da Anuvia
+        gera seu <strong class="text-white">diagnóstico personalizado</strong> e um
+        <strong class="text-white">plano de 30 dias</strong> com 3 ações priorizadas.
+      </p>
+    </div>
+
+    <div class="card-glass p-5 mb-8 text-sm text-slate-300 max-w-xl mx-auto">
+      <p class="text-slate-400 text-xs uppercase tracking-wider mb-2">📊 Caso real</p>
+      <p>
+        Uma <strong class="text-white">clínica em São Paulo</strong> aplicou esse plano e em
+        60 dias <strong class="text-white">dobrou o nº de leads que viram consulta</strong>,
+        com a mesma equipe e o mesmo orçamento de tráfego.
+      </p>
+    </div>
+
+    <div class="text-center">
+      <button onclick="startWizard()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-lg font-medium px-8 py-4 rounded-xl shadow-lg shadow-indigo-900/50 transition">
+        Começar diagnóstico →
+      </button>
+      <p class="text-xs text-slate-500 mt-3">Sem cadastro pra começar. Pedimos contato só no fim.</p>
+    </div>
+  </section>
+
+  <!-- Wizard -->
+  <section id="wizard" class="hidden px-6 py-8 max-w-2xl mx-auto">
+    <div class="mb-6">
+      <div class="flex justify-between text-xs text-slate-400 mb-2">
+        <span id="step-label">Pergunta 1 de 7</span>
+        <button onclick="goBack()" id="back-btn" class="hidden hover:text-slate-200">← Voltar</button>
+      </div>
+      <div class="h-1 bg-slate-800 rounded-full overflow-hidden">
+        <div id="progress-bar" class="progress-bar h-full bg-indigo-500" style="width: 14%"></div>
+      </div>
+    </div>
+
+    <div id="form-container" class="card-glass p-6 md:p-8">
+
+      <!-- Step 1 -->
+      <div class="step active" data-step="1">
+        <h2 class="text-xl md:text-2xl font-semibold mb-1">Que tipo de negócio você toca?</h2>
+        <p class="text-slate-400 text-sm mb-6">Isso ajuda a calibrar o diagnóstico ao seu setor.</p>
+        <div class="space-y-2" data-field="business_type">
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Clínica / consultório (saúde, estética, odonto)</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Agência / consultoria</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Ecommerce / loja online</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Escritório técnico / profissional liberal</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Indústria / fabricante</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Outro</button>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="step" data-step="2">
+        <h2 class="text-xl md:text-2xl font-semibold mb-1">Qual o tamanho da equipe?</h2>
+        <p class="text-slate-400 text-sm mb-6">Considerando todos: comercial, atendimento, operação.</p>
+        <div class="space-y-2" data-field="team_size">
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Só eu</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">2 a 5 pessoas</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">6 a 15 pessoas</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">16 a 50 pessoas</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Mais de 50</button>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="step" data-step="3">
+        <h2 class="text-xl md:text-2xl font-semibold mb-1">Quantos leads novos você recebe por mês?</h2>
+        <p class="text-slate-400 text-sm mb-6">Soma de todos os canais (WhatsApp, formulário, ligação, indicação...).</p>
+        <div class="space-y-2" data-field="leads_per_month">
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Menos de 30</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">30 a 100</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">100 a 300</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">300 a 1000</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Mais de 1000</button>
+        </div>
+      </div>
+
+      <!-- Step 4 -->
+      <div class="step" data-step="4">
+        <h2 class="text-xl md:text-2xl font-semibold mb-1">Qual o canal principal de captação?</h2>
+        <p class="text-slate-400 text-sm mb-6">De onde vem a maior parte dos seus leads.</p>
+        <div class="space-y-2" data-field="main_channel">
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Instagram orgânico</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Google Ads</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Meta Ads (Facebook / Instagram)</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Indicação / networking</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Site / SEO</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">WhatsApp Business / chat</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Outros / vários</button>
+        </div>
+      </div>
+
+      <!-- Step 5 -->
+      <div class="step" data-step="5">
+        <h2 class="text-xl md:text-2xl font-semibold mb-1">Qual seu tempo médio até o primeiro contato com um lead novo?</h2>
+        <p class="text-slate-400 text-sm mb-6">Essa é uma das métricas mais correlacionadas com conversão.</p>
+        <div class="space-y-2" data-field="response_time">
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Em menos de 5 minutos</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Entre 5 e 30 minutos</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Entre 30 minutos e 2 horas</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Entre 2 e 24 horas</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Mais de 24 horas, ou nem sempre acontece</button>
+        </div>
+      </div>
+
+      <!-- Step 6 -->
+      <div class="step" data-step="6">
+        <h2 class="text-xl md:text-2xl font-semibold mb-1">Qual a sua maior dor comercial hoje?</h2>
+        <p class="text-slate-400 text-sm mb-6">Escolha a que mais aperta. Vamos focar o plano nisso.</p>
+        <div class="space-y-2" data-field="main_pain">
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Perco leads pra concorrência por demora pra responder</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Não tenho organização clara do funil — leads se perdem</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Time perde tempo respondendo as mesmas perguntas básicas</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Conversão baixa de quem responde — não consigo qualificar bem</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Falta tempo pra prospectar / fazer outbound</button>
+          <button class="option-btn w-full text-left p-4 rounded-lg border border-slate-700">Outro</button>
+        </div>
+      </div>
+
+      <!-- Step 7 -->
+      <div class="step" data-step="7">
+        <h2 class="text-xl md:text-2xl font-semibold mb-1">Pra onde envio seu diagnóstico?</h2>
+        <p class="text-slate-400 text-sm mb-6">Vou mostrar agora na tela e mandar uma cópia pro seu email + WhatsApp.</p>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm text-slate-300 mb-1.5">Nome <span class="text-rose-400">*</span></label>
+            <input id="f-name" type="text" required class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-3 text-slate-100 focus:border-indigo-500 focus:outline-none transition" placeholder="Como gostaria de ser chamado">
+          </div>
+          <div>
+            <label class="block text-sm text-slate-300 mb-1.5">Email <span class="text-rose-400">*</span></label>
+            <input id="f-email" type="email" required class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-3 text-slate-100 focus:border-indigo-500 focus:outline-none transition" placeholder="seu@email.com">
+          </div>
+          <div>
+            <label class="block text-sm text-slate-300 mb-1.5">WhatsApp <span class="text-rose-400">*</span></label>
+            <input id="f-whatsapp" type="tel" required class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-3 text-slate-100 focus:border-indigo-500 focus:outline-none transition" placeholder="(11) 99999-9999">
+            <p class="text-xs text-slate-500 mt-1.5">Vou te chamar pessoalmente pra alinhar próximos passos.</p>
+          </div>
+          <div>
+            <label class="block text-sm text-slate-300 mb-1.5">Empresa <span class="text-slate-500 text-xs">(opcional)</span></label>
+            <input id="f-company" type="text" class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-3 text-slate-100 focus:border-indigo-500 focus:outline-none transition" placeholder="Nome do seu negócio">
+          </div>
+          <div id="form-error" class="hidden text-rose-400 text-sm bg-rose-950/30 border border-rose-900/50 rounded-lg p-3"></div>
+          <button id="submit-btn" onclick="submitForm()" class="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-wait text-white text-lg font-medium px-6 py-4 rounded-xl shadow-lg shadow-indigo-900/50 transition">
+            Gerar meu diagnóstico →
+          </button>
+          <p class="text-xs text-slate-500 text-center">
+            Ao enviar, você concorda em receber o diagnóstico por email e mensagem da Anuvia.
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Loading -->
+  <section id="loading" class="hidden px-6 py-16 max-w-2xl mx-auto text-center">
+    <div class="spinner mx-auto mb-6"></div>
+    <h2 class="text-xl font-semibold mb-2">Analisando seu funil...</h2>
+    <p class="text-slate-400 text-sm">Geralmente leva 20-40 segundos. A IA está calibrando o diagnóstico ao seu negócio específico.</p>
+  </section>
+
+  <!-- Result -->
+  <section id="result" class="hidden px-6 py-8 max-w-3xl mx-auto"></section>
+
+  <footer class="mt-16 mb-8 text-center text-slate-500 text-xs">
+    <p>Anuvia • <a href="https://anuvia.com.br" class="hover:text-slate-300">anuvia.com.br</a></p>
+  </footer>
+
+<script>
+const TOTAL_STEPS = 7;
+let currentStep = 1;
+const formData = {};
+const stepHistory = [];
+
+function startWizard() {
+  document.getElementById('hero').classList.add('hidden');
+  document.getElementById('wizard').classList.remove('hidden');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function showStep(n) {
+  document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
+  const step = document.querySelector(`.step[data-step="${n}"]`);
+  if (step) step.classList.add('active');
+  document.getElementById('step-label').textContent = `Pergunta ${n} de ${TOTAL_STEPS}`;
+  document.getElementById('progress-bar').style.width = (n / TOTAL_STEPS * 100) + '%';
+  document.getElementById('back-btn').classList.toggle('hidden', stepHistory.length === 0);
+  currentStep = n;
+}
+
+function goBack() {
+  if (stepHistory.length > 0) {
+    const prev = stepHistory.pop();
+    showStep(prev);
+  }
+}
+
+// Wire up option buttons (steps 1-6)
+document.querySelectorAll('.step:not([data-step="7"]) .option-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const stepEl = btn.closest('.step');
+    const field = stepEl.querySelector('[data-field]').dataset.field;
+    formData[field] = btn.textContent.trim();
+    // Visual feedback
+    stepEl.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    // Advance after a tiny pause for the user to see the selection
+    setTimeout(() => {
+      stepHistory.push(currentStep);
+      if (currentStep < TOTAL_STEPS) showStep(currentStep + 1);
+    }, 200);
+  });
+});
+
+async function submitForm() {
+  const errEl = document.getElementById('form-error');
+  errEl.classList.add('hidden');
+
+  formData.name = document.getElementById('f-name').value.trim();
+  formData.email = document.getElementById('f-email').value.trim();
+  formData.whatsapp = document.getElementById('f-whatsapp').value.trim();
+  formData.company = document.getElementById('f-company').value.trim() || null;
+
+  if (!formData.name || formData.name.length < 2) {
+    errEl.textContent = 'Por favor coloca seu nome.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  if (!formData.email || !formData.email.includes('@')) {
+    errEl.textContent = 'Email inválido.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  if (!formData.whatsapp || formData.whatsapp.replace(/\D/g, '').length < 10) {
+    errEl.textContent = 'WhatsApp inválido. Use formato (XX) XXXXX-XXXX.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  // Show loading screen
+  document.getElementById('wizard').classList.add('hidden');
+  document.getElementById('loading').classList.remove('hidden');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  try {
+    const r = await fetch('/api/diagnose', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(formData),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || `Erro ${r.status}`);
+    }
+    const data = await r.json();
+    document.getElementById('loading').classList.add('hidden');
+    const resultEl = document.getElementById('result');
+    resultEl.innerHTML = data.deliverable_html;
+    resultEl.classList.remove('hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (e) {
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('wizard').classList.remove('hidden');
+    showStep(7);
+    btn.disabled = false;
+    btn.textContent = 'Gerar meu diagnóstico →';
+    errEl.textContent = 'Algo deu errado: ' + (e.message || 'tente novamente em instantes');
+    errEl.classList.remove('hidden');
+  }
+}
+</script>
+</body>
+</html>
