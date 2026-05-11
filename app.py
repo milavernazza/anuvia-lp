@@ -15,7 +15,7 @@ The lead row triggers the Supabase Database Webhook -> n8n /webhook/lead-enrichm
 score >= 80). No additional wiring needed here.
 """
 
-import base64
+import asyncio
 import json
 import logging
 import os
@@ -43,16 +43,15 @@ ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 SLACK_WEBHOOK = os.environ.get("SLACK_NEW_LEAD_WEBHOOK", "")  # optional, fallback to n8n
 
-# Easyappointments (cal.anuvia.com.br) — for embedded discovery booking.
-EASY_URL = os.environ.get(
-    "EASYAPPOINTMENTS_URL", "https://cal.anuvia.com.br/index.php/api/v1"
+# Easyappointments (cal.anuvia.com.br) — uses public booking endpoints
+# (no API token needed; same flow that the public booking page uses).
+EASY_BASE = os.environ.get(
+    "EASYAPPOINTMENTS_BASE_URL", "https://cal.anuvia.com.br"
 ).rstrip("/")
-EASY_TOKEN = os.environ.get("EASYAPPOINTMENTS_TOKEN", "")
-EASY_USER = os.environ.get("EASYAPPOINTMENTS_USER", "")
-EASY_PASS = os.environ.get("EASYAPPOINTMENTS_PASS", "")
-# BR_SMB defaults: provider 2 (Mila), service 1 (Discovery — Growth Mesh BR, 30min)
+# BR_SMB defaults: provider 2 (Mila), service 2 (Discovery Growth Mesh BR, 30min)
 EASY_PROVIDER_ID = int(os.environ.get("EASYAPPOINTMENTS_PROVIDER_ID", "2"))
-EASY_SERVICE_ID_BR_SMB = int(os.environ.get("EASYAPPOINTMENTS_SERVICE_ID_BR_SMB", "1"))
+EASY_SERVICE_ID_BR_SMB = int(os.environ.get("EASYAPPOINTMENTS_SERVICE_ID_BR_SMB", "2"))
+EASY_SERVICE_DURATION_MIN = int(os.environ.get("EASYAPPOINTMENTS_SERVICE_DURATION_MIN", "30"))
 TZ_SP = ZoneInfo("America/Sao_Paulo")
 
 if not SUPA_KEY:
@@ -74,19 +73,11 @@ ANTHROPIC_HEADERS = {
 }
 
 
-def easy_headers() -> dict:
-    """Build Easyappointments auth headers. Prefer Bearer token, fallback to Basic."""
-    h = {"Content-Type": "application/json", "Accept": "application/json"}
-    if EASY_TOKEN:
-        h["Authorization"] = f"Bearer {EASY_TOKEN}"
-    elif EASY_USER and EASY_PASS:
-        creds = base64.b64encode(f"{EASY_USER}:{EASY_PASS}".encode()).decode()
-        h["Authorization"] = f"Basic {creds}"
-    return h
-
-
-def easy_auth_configured() -> bool:
-    return bool(EASY_TOKEN) or (EASY_USER and EASY_PASS)
+EASY_FORM_HEADERS = {
+    "Content-Type": "application/x-www-form-urlencoded",
+    "Accept": "application/json, text/javascript, */*; q=0.01",
+    "X-Requested-With": "XMLHttpRequest",
+}
 
 
 # ----------------------------------------------------------------------------
@@ -296,7 +287,7 @@ async def fire_slack_notification(
 
 @app.get("/health")
 async def health() -> dict:
-    return {"status": "ok", "easy_auth": easy_auth_configured()}
+    return {"status": "ok"}
 
 
 # ----------------------------------------------------------------------------
@@ -315,28 +306,33 @@ def working_days(start_date: datetime, count: int) -> list[datetime]:
     return days
 
 
+def _coarse_slots(slots: list[str], step_min: int = 30, max_per_day: int = 8) -> list[str]:
+    """Easyappointments returns 15-min granularity by default. Snap to half-hours
+    and cap to `max_per_day` (spread evenly across morning/afternoon)."""
+    if not slots:
+        return []
+    half = [s for s in slots if s.endswith(":00") or s.endswith(":30")]
+    if not half:
+        half = slots[: max_per_day]
+    if len(half) <= max_per_day:
+        return half
+    # Evenly sample across the day
+    step = len(half) / max_per_day
+    return [half[int(i * step)] for i in range(max_per_day)]
+
+
 @app.get("/api/slots")
 async def api_slots(funnel: str = "BR_SMB", days: int = 5) -> JSONResponse:
-    """Return available 30-min slots for the next `days` working days.
-
-    Each day -> {date: 'YYYY-MM-DD', label: 'Seg, 12 mai', slots: ['09:00', '09:30', ...]}.
-    """
-    if not easy_auth_configured():
-        raise HTTPException(
-            status_code=503, detail="Booking não configurado (EASYAPPOINTMENTS_TOKEN ausente)."
-        )
-
+    """Return available slots for the next `days` working days using
+    Easyappointments' public booking endpoint (no auth)."""
     service_id = EASY_SERVICE_ID_BR_SMB  # extend later when other funnels go live
     days = max(1, min(days, 10))
 
-    # Start from tomorrow in São Paulo TZ
     today_sp = datetime.now(TZ_SP).date()
     tomorrow_sp = today_sp + timedelta(days=1)
     start_dt = datetime.combine(tomorrow_sp, datetime.min.time(), tzinfo=TZ_SP)
-
     targets = working_days(start_dt, days)
 
-    # Easyappointments availability endpoint returns ["09:00", "09:30", ...] for that date.
     pt_weekdays = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
     pt_months = [
         "jan", "fev", "mar", "abr", "mai", "jun",
@@ -345,30 +341,33 @@ async def api_slots(funnel: str = "BR_SMB", days: int = 5) -> JSONResponse:
 
     out = []
     async with httpx.AsyncClient(timeout=20) as client:
-        for d in targets:
+        async def fetch(d: datetime) -> list[str]:
             ymd = d.strftime("%Y-%m-%d")
-            url = (
-                f"{EASY_URL}/availabilities"
-                f"?providerId={EASY_PROVIDER_ID}&serviceId={service_id}&date={ymd}"
-            )
             try:
-                r = await client.get(url, headers=easy_headers())
-                if r.status_code == 401 or r.status_code == 403:
-                    raise HTTPException(
-                        status_code=503,
-                        detail="Booking auth falhou no Easyappointments. Cheque token.",
-                    )
+                r = await client.post(
+                    f"{EASY_BASE}/index.php/booking/get_available_hours",
+                    headers=EASY_FORM_HEADERS,
+                    data={
+                        "service_id": service_id,
+                        "provider_id": EASY_PROVIDER_ID,
+                        "selected_date": ymd,
+                        "manage_mode": "false",
+                        "csrfToken": "",
+                    },
+                )
                 r.raise_for_status()
                 slots = r.json()
-                if not isinstance(slots, list):
-                    slots = []
-            except HTTPException:
-                raise
+                return slots if isinstance(slots, list) else []
             except Exception:
-                log.exception("easy availability fetch failed for %s", ymd)
-                slots = []
+                log.exception("get_available_hours failed for %s", ymd)
+                return []
+
+        all_slots = await asyncio.gather(*(fetch(d) for d in targets))
+        for d, raw_slots in zip(targets, all_slots):
+            slots = _coarse_slots(raw_slots, step_min=30, max_per_day=8)
             label = f"{pt_weekdays[d.weekday()]}, {d.day} {pt_months[d.month - 1]}"
-            out.append({"date": ymd, "label": label, "slots": slots})
+            out.append({"date": d.strftime("%Y-%m-%d"), "label": label, "slots": slots})
+
     return JSONResponse({"days": out})
 
 
@@ -380,14 +379,10 @@ class BookingRequest(BaseModel):
 
 @app.post("/api/book")
 async def api_book(payload: BookingRequest) -> JSONResponse:
-    """Book a discovery using the lead's existing data (no re-asking)."""
-    if not easy_auth_configured():
-        raise HTTPException(
-            status_code=503, detail="Booking não configurado."
-        )
-
-    # 1. Fetch lead
-    async with httpx.AsyncClient(timeout=20) as client:
+    """Book a discovery using the lead's existing data (no re-asking).
+    Uses Easyappointments public booking endpoint (no auth required)."""
+    async with httpx.AsyncClient(timeout=30) as client:
+        # 1. Fetch lead
         r = await client.get(
             f"{SUPA_URL}/leads?id=eq.{payload.lead_id}&limit=1",
             headers=SUPA_HEADERS,
@@ -399,17 +394,15 @@ async def api_book(payload: BookingRequest) -> JSONResponse:
             raise HTTPException(status_code=404, detail="Lead não encontrado")
         lead = rows[0]
 
-        # 2. Build appointment payload
-        # Service duration: BR_SMB Growth Mesh = 30 min
+        # 2. Build appointment times in SP local (Easyappointments wants local)
         start_dt = datetime.strptime(
             f"{payload.date} {payload.time}", "%Y-%m-%d %H:%M"
         ).replace(tzinfo=TZ_SP)
-        end_dt = start_dt + timedelta(minutes=30)
-        # Easyappointments expects local time strings (not ISO with tz)
+        end_dt = start_dt + timedelta(minutes=EASY_SERVICE_DURATION_MIN)
         start_str = start_dt.strftime("%Y-%m-%d %H:%M:%S")
         end_str = end_dt.strftime("%Y-%m-%d %H:%M:%S")
 
-        # Split name into first / last (Easyappointments requires both)
+        # Easyappointments requires firstName + lastName non-empty.
         name_parts = (lead.get("name") or "Lead").strip().split(maxsplit=1)
         first_name = name_parts[0]
         last_name = name_parts[1] if len(name_parts) > 1 else "."
@@ -422,43 +415,45 @@ async def api_book(payload: BookingRequest) -> JSONResponse:
             f"Estimativa perdida: {diag.get('diagnostic_estimate', '?')}"
         )
 
-        body = {
-            "providerId": EASY_PROVIDER_ID,
-            "serviceId": EASY_SERVICE_ID_BR_SMB,
-            "start": start_str,
-            "end": end_str,
-            "customer": {
-                "firstName": first_name,
-                "lastName": last_name,
-                "email": lead.get("email"),
-                "phone": lead.get("phone_e164"),
-                "timezone": "America/Sao_Paulo",
-            },
-            "notes": notes,
+        # 3. Submit to Easyappointments public booking endpoint.
+        # Uses nested form fields: post_data[appointment][...], post_data[customer][...]
+        form = {
+            "post_data[appointment][start_datetime]": start_str,
+            "post_data[appointment][end_datetime]": end_str,
+            "post_data[appointment][id_users_provider]": str(EASY_PROVIDER_ID),
+            "post_data[appointment][id_services]": str(EASY_SERVICE_ID_BR_SMB),
+            "post_data[appointment][notes]": notes,
+            "post_data[appointment][is_unavailability]": "false",
+            "post_data[customer][first_name]": first_name,
+            "post_data[customer][last_name]": last_name,
+            "post_data[customer][email]": lead.get("email") or "",
+            "post_data[customer][phone_number]": lead.get("phone_e164") or "",
+            "post_data[customer][timezone]": "America/Sao_Paulo",
+            "post_data[manage_mode]": "false",
+            "csrfToken": "",
         }
-
-        # 3. POST to Easyappointments
         try:
             br = await client.post(
-                f"{EASY_URL}/appointments",
-                headers=easy_headers(),
-                json=body,
+                f"{EASY_BASE}/index.php/booking/register",
+                headers=EASY_FORM_HEADERS,
+                data=form,
             )
-            if br.status_code in (401, 403):
-                raise HTTPException(
-                    status_code=503,
-                    detail="Auth do Easyappointments falhou. Cheque token.",
-                )
+            body_text = br.text[:400]
             if br.status_code >= 400:
-                log.error("easy book failed: %s %s", br.status_code, br.text[:300])
+                log.error("easy register failed: %s %s", br.status_code, body_text)
                 raise HTTPException(
                     status_code=502, detail="Falha ao agendar no calendário."
                 )
             booking = br.json()
+            if not isinstance(booking, dict) or "appointment_id" not in booking:
+                log.error("easy register unexpected response: %s", body_text)
+                raise HTTPException(
+                    status_code=502, detail="Resposta do calendário inválida."
+                )
         except HTTPException:
             raise
         except Exception:
-            log.exception("easy book exception")
+            log.exception("easy register exception")
             raise HTTPException(status_code=502, detail="Erro ao agendar.")
 
         # 4. Update lead stage to meeting_booked
@@ -481,7 +476,8 @@ async def api_book(payload: BookingRequest) -> JSONResponse:
                             f":calendar: Discovery agendada via LP\n"
                             f"*{lead.get('name')}* — {lead.get('company') or '(sem empresa)'}\n"
                             f"📅 {payload.date} {payload.time} (SP)\n"
-                            f"📞 {lead.get('phone_e164')}  ✉️ {lead.get('email')}"
+                            f"📞 {lead.get('phone_e164')}  ✉️ {lead.get('email')}\n"
+                            f"Easyappointments id: {booking.get('appointment_id')}"
                         )
                     },
                     timeout=10,
@@ -501,7 +497,8 @@ async def api_book(payload: BookingRequest) -> JSONResponse:
 
     return JSONResponse({
         "ok": True,
-        "appointment_id": booking.get("id") if isinstance(booking, dict) else None,
+        "appointment_id": booking.get("appointment_id"),
+        "appointment_hash": booking.get("appointment_hash"),
         "pretty": pretty,
         "iso": start_str,
     })
