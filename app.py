@@ -632,11 +632,19 @@ async def diagnose(payload: DiagnosticForm) -> JSONResponse:
 
 
 def render_deliverable(form: DiagnosticForm, diag: dict, lead_id: Optional[str]) -> str:
-    """Build the HTML block shown to the user after submit."""
+    """Build the HTML block shown to the user after submit.
+
+    Editorial light theme — no emojis, serif headlines, generous whitespace.
+    """
     plano = diag.get("plano_30_dias", [])
     plano_html = "".join(
-        f'<li><strong>Semana {p.get("semana", "?")}:</strong> {p.get("acao", "")} '
-        f'<span class="text-slate-400 text-sm block mt-1">{p.get("porque", "")}</span></li>'
+        f'''
+        <div class="mb-7">
+          <p class="eyebrow mb-1.5">Semana {p.get("semana", "?")}</p>
+          <p class="text-slate-900 leading-relaxed mb-1">{p.get("acao", "")}</p>
+          <p class="text-sm text-slate-500 leading-relaxed">{p.get("porque", "")}</p>
+        </div>
+        '''
         for p in plano
     )
     fortes = diag.get("pontos_fortes", [])
@@ -644,64 +652,70 @@ def render_deliverable(form: DiagnosticForm, diag: dict, lead_id: Optional[str])
     fortes_html = "".join(f"<li>{f}</li>" for f in fortes)
     fracos_html = "".join(f"<li>{f}</li>" for f in fracos)
 
-    # Markdown the resumo in case Claude returns it formatted
     resumo_html = md_lib.markdown(diag.get("diagnostico_resumo", ""))
 
     score = diag.get("score_maturidade", 0)
     estimativa = diag.get("estimativa_perdida", "")
     proximo = diag.get("proximo_passo", "")
+    first_name = form.name.split()[0]
 
-    # Embedded booking widget — replaces the old external Easyappointments redirect.
-    # We pass lead_id via data attribute and let the JS in br_smb.html handle slots.
     booking_html = (
         f'<div id="booking-widget" data-lead-id="{lead_id or ""}"></div>'
         if lead_id
         else (
-            '<p class="text-slate-400 text-sm text-center">'
-            "Não conseguimos preparar o agendamento agora. Te chamo no WhatsApp pra alinhar.</p>"
+            '<p class="text-sm text-slate-500 text-center">'
+            "Não conseguimos preparar o agendamento agora. Vou te chamar pelo WhatsApp pra alinhar.</p>"
         )
     )
 
     return f"""
-<div class="space-y-6">
-  <div class="text-center">
-    <p class="text-slate-300 text-sm uppercase tracking-wider mb-2">Seu diagnóstico, {form.name.split()[0]}</p>
-    <div class="inline-flex items-baseline gap-2">
-      <span class="text-6xl font-bold text-indigo-400">{score}</span>
-      <span class="text-slate-400">/ 100 maturidade comercial</span>
+<article class="prose-anuvia">
+  <header class="text-center mb-12">
+    <p class="eyebrow mb-4">Análise personalizada · {first_name}</p>
+    <p class="h-serif text-7xl md:text-8xl mb-2 leading-none">{score}<span class="text-3xl md:text-4xl text-slate-400 align-top">/100</span></p>
+    <p class="text-sm text-slate-500 tracking-wide">Maturidade do funil comercial</p>
+  </header>
+
+  <div class="rule"></div>
+
+  <section class="mb-10">
+    <p class="eyebrow mb-4">Análise</p>
+    <div class="text-slate-800 leading-[1.75] text-lg">{resumo_html}</div>
+  </section>
+
+  <div class="rule"></div>
+
+  <section class="mb-10">
+    <p class="eyebrow mb-4">Estimativa de oportunidade não capturada</p>
+    <p class="h-serif text-2xl md:text-3xl text-slate-900 leading-snug">{estimativa}</p>
+  </section>
+
+  <div class="rule"></div>
+
+  <section class="grid md:grid-cols-2 gap-10 mb-10">
+    <div>
+      <p class="eyebrow mb-4">Pontos fortes</p>
+      <ul class="text-slate-700">{fortes_html}</ul>
     </div>
-  </div>
-
-  <div class="card-glass p-5">
-    <h3 class="text-lg font-semibold mb-3">Análise</h3>
-    <div class="prose prose-invert prose-sm max-w-none text-slate-200">{resumo_html}</div>
-  </div>
-
-  <div class="card-glass p-5 border-l-4 border-amber-500">
-    <h3 class="text-lg font-semibold mb-2 text-amber-300">💸 Estimativa de oportunidade perdida</h3>
-    <p class="text-slate-200">{estimativa}</p>
-  </div>
-
-  <div class="grid md:grid-cols-2 gap-4">
-    <div class="card-glass p-5">
-      <h3 class="text-base font-semibold mb-3 text-emerald-300">✅ Pontos fortes</h3>
-      <ul class="space-y-2 text-slate-200 text-sm list-disc list-inside">{fortes_html}</ul>
+    <div>
+      <p class="eyebrow mb-4">Pontos de atenção</p>
+      <ul class="text-slate-700">{fracos_html}</ul>
     </div>
-    <div class="card-glass p-5">
-      <h3 class="text-base font-semibold mb-3 text-rose-300">⚠️ Pontos fracos</h3>
-      <ul class="space-y-2 text-slate-200 text-sm list-disc list-inside">{fracos_html}</ul>
-    </div>
-  </div>
+  </section>
 
-  <div class="card-glass p-5">
-    <h3 class="text-lg font-semibold mb-3">📋 Plano de 30 dias</h3>
-    <ol class="space-y-4 text-slate-200">{plano_html}</ol>
-  </div>
+  <div class="rule"></div>
 
-  <div class="card-glass p-6 bg-indigo-950/40 border border-indigo-700/50">
-    <h3 class="text-base font-semibold mb-2 text-indigo-200 text-center">🚀 Próximo passo</h3>
-    <p class="text-slate-200 text-center mb-5">{proximo}</p>
+  <section class="mb-10">
+    <p class="eyebrow mb-5">Plano sugerido — próximos 30 dias</p>
+    {plano_html}
+  </section>
+
+  <div class="rule"></div>
+
+  <section class="card p-8 md:p-10 mt-10">
+    <p class="eyebrow text-center mb-5">Próximo passo</p>
+    <p class="h-serif text-xl md:text-2xl text-slate-900 leading-snug text-center mb-8 max-w-2xl mx-auto">{proximo}</p>
     {booking_html}
-  </div>
-</div>
+  </section>
+</article>
 """
