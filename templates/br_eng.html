@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Readiness Assessment Anuvia — onde sua empresa está pra IA em produção</title>
+  <meta name="description" content="Avaliação personalizada de maturidade em IA, IoT, MLOps. Receba seu score + roadmap de 90 dias em 5 minutos. Para times de engenharia, dados e tecnologia de empresas brasileiras.">
+  <meta property="og:title" content="AI Readiness Assessment — Anuvia">
+  <meta property="og:description" content="Onde sua empresa está em IA aplicada — e o roadmap de 90 dias pra avançar.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://roadmap.anuvia.com.br">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            serif: ['"Playfair Display"', 'Georgia', 'serif'],
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    body { background: #fafaf9; color: #0f172a; font-family: 'Inter', -apple-system, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    .h-serif { font-family: 'Playfair Display', Georgia, serif; font-weight: 600; letter-spacing: -0.02em; }
+    .card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 4px; }
+    .eyebrow { font-size: 11px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: #64748b; }
+    .num-marker { font-family: 'Playfair Display', Georgia, serif; font-style: italic; font-size: 14px; color: #94a3b8; }
+    .option-btn { transition: all 0.12s ease; background: #ffffff; border: 1px solid #e2e8f0; color: #0f172a; cursor: pointer; text-align: left; }
+    .option-btn:hover { background: #f8fafc; border-color: #94a3b8; }
+    .option-btn.selected { background: #0f172a; border-color: #0f172a; color: #ffffff; }
+    .input { background: #ffffff; border: 1px solid #cbd5e1; color: #0f172a; transition: border-color 0.12s ease, box-shadow 0.12s ease; }
+    .input::placeholder { color: #94a3b8; }
+    .input:focus { border-color: #0f172a; outline: none; box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08); }
+    .btn-primary { background: #0f172a; color: #ffffff; border: 1px solid #0f172a; transition: all 0.15s ease; letter-spacing: 0.01em; }
+    .btn-primary:hover { background: #1e293b; border-color: #1e293b; }
+    .btn-primary:disabled { opacity: 0.5; cursor: wait; }
+    .progress { background: #e2e8f0; height: 2px; border-radius: 0; overflow: hidden; }
+    .progress > div { background: #0f172a; height: 100%; transition: width 0.4s ease; }
+    .step { display: none; }
+    .step.active { display: block; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    .spinner { width: 32px; height: 32px; border: 2px solid #e2e8f0; border-top-color: #0f172a; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    .spinner-sm { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #ffffff; border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .day-pill, .slot-pill { transition: all 0.12s ease; cursor: pointer; background: #ffffff; border: 1px solid #e2e8f0; color: #0f172a; }
+    .day-pill:hover, .slot-pill:hover { background: #f8fafc; border-color: #94a3b8; }
+    .day-pill.selected { background: #0f172a; border-color: #0f172a; color: #ffffff; }
+    .day-pill.empty, .slot-pill.empty { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+    .prose-anuvia p { margin-bottom: 0.85rem; line-height: 1.7; color: #1f2937; }
+    .prose-anuvia strong { color: #0f172a; font-weight: 600; }
+    .prose-anuvia ul { list-style: none; padding-left: 0; margin: 0.75rem 0; }
+    .prose-anuvia li { margin: 0.4rem 0; padding-left: 1.25rem; position: relative; line-height: 1.65; }
+    .prose-anuvia li::before { content: ""; position: absolute; left: 0; top: 0.8em; width: 8px; height: 1px; background: #94a3b8; }
+    .rule { height: 1px; background: #e2e8f0; margin: 2.5rem 0; }
+  </style>
+</head>
+<body>
+
+  <section id="hero" class="px-6 pt-20 md:pt-28 pb-16 max-w-3xl mx-auto">
+    <p class="eyebrow mb-6">Anuvia · AI Readiness Assessment</p>
+    <h1 class="h-serif text-4xl md:text-6xl leading-[1.05] mb-7">
+      Quão pronta sua empresa<br>está pra IA<br><em class="font-normal">em produção?</em>
+    </h1>
+    <p class="text-lg md:text-xl text-slate-700 max-w-2xl leading-relaxed mb-10">
+      Em 5 minutos, um assessment técnico do estado atual de IA na sua operação — gaps reais de talento, dados e infra, e um roadmap de 90 dias calibrado ao seu setor e maturidade. Sem demo de software, sem framework abstrato, sem agenda comercial.
+    </p>
+    <button onclick="startWizard()" class="btn-primary px-7 py-3.5 text-base font-medium rounded-sm">
+      Começar assessment
+    </button>
+    <p class="text-sm text-slate-500 mt-4">Os contatos são pedidos apenas no final, depois que o assessment estiver pronto.</p>
+  </section>
+
+  <section class="px-6 pb-20 max-w-3xl mx-auto">
+    <div class="border-l-2 border-slate-300 pl-6 py-2">
+      <p class="h-serif italic text-xl md:text-2xl text-slate-700 leading-snug mb-3">
+        “A análise expôs em 5 minutos o que três consultorias não conseguiram em três meses — onde estava o gargalo real e o que de fato dava ROI nos primeiros 90 dias.”
+      </p>
+      <p class="eyebrow">Head of data · indústria · São Paulo</p>
+    </div>
+  </section>
+
+  <section id="wizard" class="hidden px-6 pt-12 pb-16 max-w-2xl mx-auto">
+    <div class="mb-8">
+      <div class="flex justify-between items-baseline text-xs text-slate-500 mb-2">
+        <span class="eyebrow"><span class="num-marker" id="step-num">Pergunta 1 — 7</span></span>
+        <button onclick="goBack()" id="back-btn" class="hidden text-sm text-slate-500 hover:text-slate-900 transition">← Voltar</button>
+      </div>
+      <div class="progress"><div id="progress-bar" style="width: 14%"></div></div>
+    </div>
+
+    <div id="form-container">
+
+      <div class="step active" data-step="1">
+        <h2 class="h-serif text-2xl md:text-3xl mb-3">Qual o setor da empresa?</h2>
+        <p class="text-slate-600 mb-8 leading-relaxed">Padrões de adoção de IA variam muito por setor — calibra o assessment.</p>
+        <div class="space-y-2.5" data-field="setor">
+          <button class="option-btn w-full p-4 rounded-sm">Software / SaaS</button>
+          <button class="option-btn w-full p-4 rounded-sm">Indústria / manufatura</button>
+          <button class="option-btn w-full p-4 rounded-sm">Healthcare / biotech</button>
+          <button class="option-btn w-full p-4 rounded-sm">Financeiro / fintech</button>
+          <button class="option-btn w-full p-4 rounded-sm">Logística / supply chain</button>
+          <button class="option-btn w-full p-4 rounded-sm">Energia / utilities</button>
+          <button class="option-btn w-full p-4 rounded-sm">Varejo / ecommerce em escala</button>
+          <button class="option-btn w-full p-4 rounded-sm">Outro</button>
+        </div>
+      </div>
+
+      <div class="step" data-step="2">
+        <h2 class="h-serif text-2xl md:text-3xl mb-3">Quantos colaboradores no total?</h2>
+        <p class="text-slate-600 mb-8 leading-relaxed">Tamanho impacta governança, integração com legado e disponibilidade de talento técnico.</p>
+        <div class="space-y-2.5" data-field="tamanho_empresa">
+          <button class="option-btn w-full p-4 rounded-sm">Até 50 colaboradores</button>
+          <button class="option-btn w-full p-4 rounded-sm">51 a 200</button>
+          <button class="option-btn w-full p-4 rounded-sm">201 a 1.000</button>
+          <button class="option-btn w-full p-4 rounded-sm">1.001 a 5.000</button>
+          <button class="option-btn w-full p-4 rounded-sm">Mais de 5.000</button>
+        </div>
+      </div>
+
+      <div class="step" data-step="3">
+        <h2 class="h-serif text-2xl md:text-3xl mb-3">Qual a maturidade de IA hoje?</h2>
+        <p class="text-slate-600 mb-8 leading-relaxed">Sem julgamento — empresas com pilotos isolados muitas vezes estão melhor posicionadas que outras com IA "no PowerPoint".</p>
+        <div class="space-y-2.5" data-field="maturidade_ia">
+          <button class="option-btn w-full p-4 rounded-sm">Ainda não usamos IA na operação</button>
+          <button class="option-btn w-full p-4 rounded-sm">Experimentando (POCs, ChatGPT pra produtividade)</button>
+          <button class="option-btn w-full p-4 rounded-sm">Pilotos isolados em produção</button>
+          <button class="option-btn w-full p-4 rounded-sm">Múltiplos sistemas com IA em produção</button>
+          <button class="option-btn w-full p-4 rounded-sm">IA é core da operação</button>
+        </div>
+      </div>
+
+      <div class="step" data-step="4">
+        <h2 class="h-serif text-2xl md:text-3xl mb-3">Caso de uso prioritário nos próximos 12 meses?</h2>
+        <p class="text-slate-600 mb-8 leading-relaxed">O roadmap vai focar nessa direção.</p>
+        <div class="space-y-2.5" data-field="caso_uso">
+          <button class="option-btn w-full p-4 rounded-sm">Automação de processos operacionais (RPA + IA)</button>
+          <button class="option-btn w-full p-4 rounded-sm">AI / ML em produto pra usuário final</button>
+          <button class="option-btn w-full p-4 rounded-sm">IoT / dados de sensores em campo</button>
+          <button class="option-btn w-full p-4 rounded-sm">MLOps / governança de modelos em produção</button>
+          <button class="option-btn w-full p-4 rounded-sm">Análise e forecasting com LLMs / agentes</button>
+          <button class="option-btn w-full p-4 rounded-sm">Ainda explorando o caso certo</button>
+        </div>
+      </div>
+
+      <div class="step" data-step="5">
+        <h2 class="h-serif text-2xl md:text-3xl mb-3">Qual o maior bloqueio hoje pra avançar?</h2>
+        <p class="text-slate-600 mb-8 leading-relaxed">A resposta honesta aqui muda completamente o roadmap recomendado.</p>
+        <div class="space-y-2.5" data-field="bloqueio">
+          <button class="option-btn w-full p-4 rounded-sm">Falta de talento técnico interno</button>
+          <button class="option-btn w-full p-4 rounded-sm">Dados não estão prontos / qualidade baixa</button>
+          <button class="option-btn w-full p-4 rounded-sm">Integração com sistemas legados é dolorosa</button>
+          <button class="option-btn w-full p-4 rounded-sm">Não sei priorizar entre N possibilidades</button>
+          <button class="option-btn w-full p-4 rounded-sm">Falta clareza sobre ROI / business case</button>
+          <button class="option-btn w-full p-4 rounded-sm">Aprovação interna / governança travada</button>
+        </div>
+      </div>
+
+      <div class="step" data-step="6">
+        <h2 class="h-serif text-2xl md:text-3xl mb-3">Orçamento típico pra um projeto técnico interno (12 meses)?</h2>
+        <p class="text-slate-600 mb-8 leading-relaxed">Calibra a escala das recomendações — não é qualificação comercial.</p>
+        <div class="space-y-2.5" data-field="orcamento">
+          <button class="option-btn w-full p-4 rounded-sm">Até R$ 100 mil</button>
+          <button class="option-btn w-full p-4 rounded-sm">R$ 100 mil a R$ 500 mil</button>
+          <button class="option-btn w-full p-4 rounded-sm">R$ 500 mil a R$ 2 milhões</button>
+          <button class="option-btn w-full p-4 rounded-sm">Acima de R$ 2 milhões</button>
+          <button class="option-btn w-full p-4 rounded-sm">Ainda não definido</button>
+        </div>
+      </div>
+
+      <div class="step" data-step="7">
+        <h2 class="h-serif text-2xl md:text-3xl mb-3">Para onde envio seu assessment?</h2>
+        <p class="text-slate-600 mb-8 leading-relaxed">Você verá o resultado na tela agora. Uma cópia vai pro seu email, e eu te chamo no WhatsApp pra alinhar a discovery técnica.</p>
+        <div class="space-y-5">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-2">Nome <span class="text-slate-400">*</span></label>
+            <input id="f-name" type="text" required class="input w-full px-4 py-3 rounded-sm" placeholder="Como gostaria de ser chamado">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-2">Email corporativo <span class="text-slate-400">*</span></label>
+            <input id="f-email" type="email" required class="input w-full px-4 py-3 rounded-sm" placeholder="voce@empresa.com.br">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-2">WhatsApp <span class="text-slate-400">*</span></label>
+            <input id="f-whatsapp" type="tel" required class="input w-full px-4 py-3 rounded-sm" placeholder="(11) 99999-9999">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-2">Empresa <span class="text-slate-400 text-xs font-normal">(opcional)</span></label>
+            <input id="f-company" type="text" class="input w-full px-4 py-3 rounded-sm" placeholder="Nome da empresa">
+          </div>
+          <div id="form-error" class="hidden text-sm text-red-700 bg-red-50 border border-red-200 rounded-sm p-3"></div>
+          <button id="submit-btn" onclick="submitForm()" class="btn-primary w-full px-6 py-4 text-base font-medium rounded-sm mt-2">
+            Gerar meu assessment
+          </button>
+          <p class="text-xs text-slate-500 text-center">Ao enviar, você concorda em receber o assessment por email e contato pelo WhatsApp.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section id="loading" class="hidden px-6 py-24 max-w-2xl mx-auto text-center">
+    <div class="spinner mx-auto mb-7"></div>
+    <h2 class="h-serif text-2xl mb-3">Analisando o assessment</h2>
+    <p class="text-slate-600">Cerca de 30 segundos. Calibrando o roadmap ao seu contexto específico.</p>
+  </section>
+
+  <section id="result" class="hidden px-6 py-16 max-w-3xl mx-auto"></section>
+
+  <footer class="border-t border-slate-200 mt-20 py-10 px-6">
+    <div class="max-w-3xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
+      <p class="h-serif text-lg">Anuvia</p>
+      <p class="text-sm text-slate-500">
+        <a href="https://anuvia.com.br" class="hover:text-slate-900 transition">anuvia.com.br</a>
+      </p>
+    </div>
+  </footer>
+
+<script>
+const TOTAL_STEPS = 7;
+let currentStep = 1;
+const formData = {};
+const stepHistory = [];
+
+function startWizard() {
+  document.getElementById('hero').classList.add('hidden');
+  document.getElementById('wizard').classList.remove('hidden');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function showStep(n) {
+  document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
+  const step = document.querySelector(`.step[data-step="${n}"]`);
+  if (step) step.classList.add('active');
+  document.getElementById('step-num').textContent = `Pergunta ${n} — 7`;
+  document.getElementById('progress-bar').style.width = (n / TOTAL_STEPS * 100) + '%';
+  document.getElementById('back-btn').classList.toggle('hidden', stepHistory.length === 0);
+  currentStep = n;
+}
+
+function goBack() {
+  if (stepHistory.length > 0) {
+    const prev = stepHistory.pop();
+    showStep(prev);
+  }
+}
+
+document.querySelectorAll('.step:not([data-step="7"]) .option-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const stepEl = btn.closest('.step');
+    const field = stepEl.querySelector('[data-field]').dataset.field;
+    formData[field] = btn.textContent.trim();
+    stepEl.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    setTimeout(() => {
+      stepHistory.push(currentStep);
+      if (currentStep < TOTAL_STEPS) showStep(currentStep + 1);
+    }, 200);
+  });
+});
+
+async function submitForm() {
+  const errEl = document.getElementById('form-error');
+  errEl.classList.add('hidden');
+
+  formData.name = document.getElementById('f-name').value.trim();
+  formData.email = document.getElementById('f-email').value.trim();
+  formData.whatsapp = document.getElementById('f-whatsapp').value.trim();
+  formData.company = document.getElementById('f-company').value.trim() || null;
+
+  if (!formData.name || formData.name.length < 2) { errEl.textContent = 'Por favor coloque seu nome.'; errEl.classList.remove('hidden'); return; }
+  if (!formData.email || !formData.email.includes('@')) { errEl.textContent = 'Email inválido.'; errEl.classList.remove('hidden'); return; }
+  if (!formData.whatsapp || formData.whatsapp.replace(/\D/g, '').length < 10) { errEl.textContent = 'WhatsApp inválido. Use formato (XX) XXXXX-XXXX.'; errEl.classList.remove('hidden'); return; }
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  document.getElementById('wizard').classList.add('hidden');
+  document.getElementById('loading').classList.remove('hidden');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  try {
+    const r = await fetch('/api/diagnose', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(formData),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || `Erro ${r.status}`);
+    }
+    const data = await r.json();
+    document.getElementById('loading').classList.add('hidden');
+    const resultEl = document.getElementById('result');
+    resultEl.innerHTML = data.deliverable_html;
+    resultEl.classList.remove('hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    initBookingWidget();
+  } catch (e) {
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('wizard').classList.remove('hidden');
+    showStep(7);
+    btn.disabled = false;
+    btn.textContent = 'Gerar meu assessment';
+    errEl.textContent = 'Algo deu errado: ' + (e.message || 'tente novamente em instantes');
+    errEl.classList.remove('hidden');
+  }
+}
+
+let bookingState = { leadId: null, days: [], selectedDate: null };
+
+async function initBookingWidget() {
+  const widget = document.getElementById('booking-widget');
+  if (!widget) return;
+  bookingState.leadId = widget.dataset.leadId || null;
+  if (!bookingState.leadId) {
+    widget.innerHTML = '<p class="text-sm text-slate-500 text-center">Não conseguimos preparar o agendamento. Vou te chamar pelo WhatsApp.</p>';
+    return;
+  }
+
+  widget.innerHTML = `
+    <p class="eyebrow text-center mb-5">Discovery técnica de 45 minutos com Mila Vernazza</p>
+    <div id="booking-loading" class="text-center py-6">
+      <div class="spinner mx-auto"></div>
+      <p class="text-sm text-slate-500 mt-3">Carregando horários disponíveis...</p>
+    </div>
+    <div id="booking-content" class="hidden">
+      <p class="eyebrow mb-3">Próximos dias</p>
+      <div id="day-row" class="flex flex-wrap gap-2 mb-6"></div>
+      <div id="slot-section" class="hidden">
+        <p class="eyebrow mb-3">Horários disponíveis</p>
+        <div id="slot-grid" class="grid grid-cols-3 sm:grid-cols-4 gap-2"></div>
+      </div>
+      <div id="booking-error" class="hidden mt-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded-sm p-3"></div>
+    </div>
+    <div id="booking-success" class="hidden text-center py-6">
+      <p class="h-serif text-xl mb-2" id="booking-success-msg"></p>
+      <p class="text-sm text-slate-500">Você vai receber confirmação por email e lembrete por WhatsApp.</p>
+    </div>
+  `;
+
+  try {
+    const r = await fetch('/api/slots?days=5', { cache: 'no-store' });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || `Erro ${r.status}`);
+    }
+    const data = await r.json();
+    bookingState.days = data.days || [];
+    document.getElementById('booking-loading').classList.add('hidden');
+    document.getElementById('booking-content').classList.remove('hidden');
+    renderDays();
+  } catch (e) {
+    document.getElementById('booking-loading').innerHTML = `<p class="text-sm text-slate-500">Não consegui carregar os horários. Vou te chamar pelo WhatsApp pra alinhar.</p>`;
+  }
+}
+
+function renderDays() {
+  const row = document.getElementById('day-row');
+  row.innerHTML = '';
+  for (const day of bookingState.days) {
+    const btn = document.createElement('button');
+    const empty = !day.slots || day.slots.length === 0;
+    btn.className = 'day-pill px-4 py-3 rounded-sm text-sm font-medium' + (empty ? ' empty' : '');
+    btn.innerHTML = `${day.label}<span class="block text-xs text-slate-500 mt-0.5">${empty ? 'sem horário' : day.slots.length + ' horários'}</span>`;
+    btn.dataset.date = day.date;
+    if (!empty) btn.addEventListener('click', () => selectDay(day.date));
+    row.appendChild(btn);
+  }
+}
+
+function selectDay(date) {
+  bookingState.selectedDate = date;
+  document.querySelectorAll('#day-row .day-pill').forEach(b => {
+    b.classList.toggle('selected', b.dataset.date === date);
+    const inner = b.querySelector('span');
+    if (inner) inner.style.color = b.classList.contains('selected') ? '#cbd5e1' : '#64748b';
+  });
+  const day = bookingState.days.find(d => d.date === date);
+  const grid = document.getElementById('slot-grid');
+  const sect = document.getElementById('slot-section');
+  grid.innerHTML = '';
+  if (!day || !day.slots.length) { sect.classList.add('hidden'); return; }
+  for (const slot of day.slots) {
+    const btn = document.createElement('button');
+    btn.className = 'slot-pill px-3 py-2 rounded-sm text-sm font-medium';
+    btn.textContent = slot;
+    btn.addEventListener('click', () => confirmBooking(date, slot, btn));
+    grid.appendChild(btn);
+  }
+  sect.classList.remove('hidden');
+  sect.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+async function confirmBooking(date, time, btn) {
+  const errEl = document.getElementById('booking-error');
+  errEl.classList.add('hidden');
+  const original = btn.innerHTML;
+  document.querySelectorAll('#slot-grid .slot-pill').forEach(b => { b.disabled = true; b.style.opacity = '0.4'; });
+  btn.classList.add('selected');
+  btn.innerHTML = '<span class="spinner-sm"></span>';
+  btn.style.opacity = '1';
+
+  try {
+    const r = await fetch('/api/book', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ lead_id: bookingState.leadId, date, time }),
+    });
+    if (!r.ok) { const err = await r.json().catch(() => ({})); throw new Error(err.detail || `Erro ${r.status}`); }
+    const data = await r.json();
+    document.getElementById('booking-content').classList.add('hidden');
+    document.getElementById('booking-success').classList.remove('hidden');
+    document.getElementById('booking-success-msg').textContent = `Agendado · ${data.pretty}`;
+  } catch (e) {
+    btn.innerHTML = original;
+    btn.classList.remove('selected');
+    document.querySelectorAll('#slot-grid .slot-pill').forEach(b => { b.disabled = false; b.style.opacity = '1'; });
+    errEl.textContent = 'Não consegui agendar agora. ' + (e.message || '') + ' Tente outro horário ou aguarde meu WhatsApp.';
+    errEl.classList.remove('hidden');
+  }
+}
+</script>
+</body>
+</html>

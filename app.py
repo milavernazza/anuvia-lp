@@ -29,7 +29,7 @@ import markdown as md_lib
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("anuvia-lp")
@@ -48,11 +48,48 @@ SLACK_WEBHOOK = os.environ.get("SLACK_NEW_LEAD_WEBHOOK", "")  # optional, fallba
 EASY_BASE = os.environ.get(
     "EASYAPPOINTMENTS_BASE_URL", "https://cal.anuvia.com.br"
 ).rstrip("/")
-# BR_SMB defaults: provider 2 (Mila), service 2 (Discovery Growth Mesh BR, 30min)
 EASY_PROVIDER_ID = int(os.environ.get("EASYAPPOINTMENTS_PROVIDER_ID", "2"))
-EASY_SERVICE_ID_BR_SMB = int(os.environ.get("EASYAPPOINTMENTS_SERVICE_ID_BR_SMB", "2"))
-EASY_SERVICE_DURATION_MIN = int(os.environ.get("EASYAPPOINTMENTS_SERVICE_DURATION_MIN", "30"))
 TZ_SP = ZoneInfo("America/Sao_Paulo")
+
+# Per-funnel routing config. Each funnel has its own Easyappointments service
+# (different durations) and prompt persona / questions.
+FUNNEL_CONFIG: dict[str, dict] = {
+    "BR_SMB": {
+        "market": "BR",
+        "track": "growth_mesh",
+        "language": "pt-BR",
+        "template": "br_smb.html",
+        "easy_service_id": int(os.environ.get("EASYAPPOINTMENTS_SERVICE_ID_BR_SMB", "2")),
+        "easy_duration_min": 30,
+        "tags": ["lp_diagnostic", "br_smb"],
+        "lp_host_alias": "diagnostico",
+    },
+    "BR_ENG": {
+        "market": "BR",
+        "track": "engineering",
+        "language": "pt-BR",
+        "template": "br_eng.html",
+        "easy_service_id": int(os.environ.get("EASYAPPOINTMENTS_SERVICE_ID_BR_ENG", "3")),
+        "easy_duration_min": 45,
+        "tags": ["lp_ai_readiness", "br_eng"],
+        "lp_host_alias": "roadmap",
+    },
+}
+
+
+def detect_funnel(request: Request) -> str:
+    """Pick the funnel based on the Host header.
+
+    diagnostico.anuvia.com.br -> BR_SMB
+    roadmap.anuvia.com.br     -> BR_ENG
+    everything else            -> BR_SMB (default)
+    """
+    host = (request.headers.get("host") or "").lower().split(":")[0]
+    for fid, cfg in FUNNEL_CONFIG.items():
+        alias = cfg.get("lp_host_alias")
+        if alias and host.startswith(alias + "."):
+            return fid
+    return "BR_SMB"
 
 if not SUPA_KEY:
     raise RuntimeError("SUPABASE_KEY env var is required")
@@ -107,12 +144,15 @@ def normalize_phone(raw: str) -> Optional[str]:
 
 
 class DiagnosticForm(BaseModel):
-    business_type: str = Field(..., min_length=1, max_length=80)
-    team_size: str = Field(..., min_length=1, max_length=40)
-    leads_per_month: str = Field(..., min_length=1, max_length=40)
-    main_channel: str = Field(..., min_length=1, max_length=80)
-    response_time: str = Field(..., min_length=1, max_length=40)
-    main_pain: str = Field(..., min_length=1, max_length=200)
+    """Flexible form — accepts BR_SMB or BR_ENG fields as extras.
+
+    Required: name / email / whatsapp / company. Funnel-specific question
+    fields (business_type, team_size, ... for SMB; setor, tamanho_empresa,
+    ... for ENG) are stored as model extras and read with getattr in
+    build_diagnostic_user_message and insert_lead.
+    """
+    model_config = ConfigDict(extra="allow")
+
     name: str = Field(..., min_length=2, max_length=120)
     email: EmailStr
     whatsapp: str = Field(..., min_length=8, max_length=30)
@@ -131,7 +171,7 @@ class DiagnosticForm(BaseModel):
 # Claude diagnostic
 # ----------------------------------------------------------------------------
 
-DIAGNOSTIC_SYSTEM_PROMPT = """Você é Mila Vernazza, founder da Anuvia (consultoria de IA aplicada a vendas e ops).
+SYSTEM_PROMPT_BR_SMB = """Você é Mila Vernazza, founder da Anuvia (consultoria de IA aplicada a vendas e ops).
 
 Você está gerando um diagnóstico personalizado de 5 minutos para um SMB brasileiro
 que preencheu um form sobre seu funil comercial. O diagnóstico precisa ser:
@@ -144,45 +184,98 @@ que preencheu um form sobre seu funil comercial. O diagnóstico precisa ser:
 Retorne APENAS um JSON válido com este shape exato:
 
 {
-  "diagnostico_resumo": "1-2 paragrafos analisando os pontos fracos do funil deles",
-  "estimativa_perdida": "string com estimativa em R$/mes do que estao perdendo, com explicação curta",
+  "diagnostico_resumo": "1-2 parágrafos analisando os pontos fracos do funil",
+  "estimativa_perdida": "string com estimativa em R$/mês do que está perdendo, com explicação curta",
   "score_maturidade": <int 0-100>,
   "pontos_fortes": ["forte 1", "forte 2"],
   "pontos_fracos": ["fraco 1", "fraco 2", "fraco 3"],
-  "plano_30_dias": [
-    {"semana": "1", "acao": "...", "porque": "..."},
-    {"semana": "2", "acao": "...", "porque": "..."},
-    {"semana": "3-4", "acao": "...", "porque": "..."}
+  "plano": [
+    {"etapa": "Semana 1", "acao": "...", "porque": "..."},
+    {"etapa": "Semana 2", "acao": "...", "porque": "..."},
+    {"etapa": "Semana 3-4", "acao": "...", "porque": "..."}
   ],
-  "proximo_passo": "1 frase com CTA específico pro próximo passo - pode ser agendar discovery, fazer X ação concreta, etc"
+  "proximo_passo": "1 frase com CTA específico pro próximo passo"
 }
 
 Tom: PT-BR, conversacional, direto, sem jargão de consultoria. Trate o leitor como peer.
 Use números reais quando possível (não invente, mas estime baseado em benchmarks)."""
 
 
-def build_diagnostic_user_message(form: DiagnosticForm) -> str:
-    lines = [
-        f"Tipo de negócio: {form.business_type}",
-        f"Tamanho da equipe: {form.team_size}",
-        f"Leads novos por mês: {form.leads_per_month}",
-        f"Canal principal de captação: {form.main_channel}",
-        f"Tempo médio até primeiro contato: {form.response_time}",
-        f"Maior dor comercial hoje: {form.main_pain}",
-        "",
-        f"Nome: {form.name}",
-        f"Empresa: {form.company or '(não informado)'}",
-    ]
+SYSTEM_PROMPT_BR_ENG = """Você é Mila Vernazza, founder da Anuvia (consultoria de IA / engineering aplicada).
+
+Você está gerando um AI Readiness Assessment personalizado para um líder técnico (CTO,
+Head of Engineering, Head of Data) de uma empresa brasileira de médio/grande porte que
+preencheu um form sobre o estado de IA na operação. O assessment precisa ser:
+
+- Específico ao setor, tamanho e maturidade de IA informados (não genérico)
+- Honesto sobre os gaps técnicos (talento, dados, infra, governança, integração)
+- Estratégico: roadmap de 90 dias com 3-4 etapas (Mês 1 / Mês 2 / Mês 3)
+- Mostrando como Anuvia pode ajudar SEM ser pitch comercial agressivo
+- Falando o idioma do técnico (MLOps, embeddings, vector DB, RAG, agentes, IoT, RPA)
+  mas sem encher de jargão — clareza acima de demonstração de vocabulário
+
+Retorne APENAS um JSON válido com este shape exato:
+
+{
+  "diagnostico_resumo": "1-2 parágrafos analisando o estado atual de IA na empresa e o gap pra o caso de uso priorizado",
+  "estimativa_perdida": "string descrevendo o VALOR potencial da implementação ou o CUSTO de não implementar (em R$/ano de eficiência, redução de OPEX, ou aceleração de receita)",
+  "score_maturidade": <int 0-100, calibrado: 0-25 nada, 26-50 experimentando, 51-75 pilotos isolados, 76-100 IA em produção sólida>,
+  "pontos_fortes": ["forte 1", "forte 2"],
+  "pontos_fracos": ["gap técnico 1", "gap técnico 2", "gap técnico 3"],
+  "plano": [
+    {"etapa": "Mês 1", "acao": "...", "porque": "..."},
+    {"etapa": "Mês 2", "acao": "...", "porque": "..."},
+    {"etapa": "Mês 3", "acao": "...", "porque": "..."}
+  ],
+  "proximo_passo": "1 frase com CTA — discovery técnica de 45 min com a Mila pra desenhar arquitetura específica"
+}
+
+Tom: PT-BR, técnico mas claro. Trate o leitor como peer técnico sênior.
+Se a empresa for <50 pessoas e maturidade baixa, sugira começar pequeno (POC) antes de roadmap completo."""
+
+
+SYSTEM_PROMPTS = {
+    "BR_SMB": SYSTEM_PROMPT_BR_SMB,
+    "BR_ENG": SYSTEM_PROMPT_BR_ENG,
+}
+
+
+def build_diagnostic_user_message(form: "DiagnosticForm", funnel: str) -> str:
+    if funnel == "BR_ENG":
+        lines = [
+            f"Setor da empresa: {getattr(form, 'setor', '?')}",
+            f"Tamanho (colaboradores): {getattr(form, 'tamanho_empresa', '?')}",
+            f"Maturidade de IA hoje: {getattr(form, 'maturidade_ia', '?')}",
+            f"Caso de uso prioritário (12 meses): {getattr(form, 'caso_uso', '?')}",
+            f"Maior bloqueio hoje: {getattr(form, 'bloqueio', '?')}",
+            f"Orçamento típico (12 meses): {getattr(form, 'orcamento', '?')}",
+            "",
+            f"Responsável: {form.name}",
+            f"Empresa: {form.company or '(não informado)'}",
+        ]
+    else:  # BR_SMB
+        lines = [
+            f"Tipo de negócio: {getattr(form, 'business_type', '?')}",
+            f"Tamanho da equipe: {getattr(form, 'team_size', '?')}",
+            f"Leads novos por mês: {getattr(form, 'leads_per_month', '?')}",
+            f"Canal principal de captação: {getattr(form, 'main_channel', '?')}",
+            f"Tempo médio até primeiro contato: {getattr(form, 'response_time', '?')}",
+            f"Maior dor comercial hoje: {getattr(form, 'main_pain', '?')}",
+            "",
+            f"Nome: {form.name}",
+            f"Empresa: {form.company or '(não informado)'}",
+        ]
     return "\n".join(lines)
 
 
-async def call_claude_diagnostic(form: DiagnosticForm) -> dict:
+async def call_claude_diagnostic(form: "DiagnosticForm", funnel: str) -> dict:
+    system_prompt = SYSTEM_PROMPTS.get(funnel, SYSTEM_PROMPT_BR_SMB)
     body = {
         "model": ANTHROPIC_MODEL,
         "max_tokens": 2000,
-        "system": DIAGNOSTIC_SYSTEM_PROMPT,
+        "system": system_prompt,
         "messages": [
-            {"role": "user", "content": build_diagnostic_user_message(form)},
+            {"role": "user", "content": build_diagnostic_user_message(form, funnel)},
         ],
     }
     async with httpx.AsyncClient(timeout=60) as client:
@@ -194,10 +287,13 @@ async def call_claude_diagnostic(form: DiagnosticForm) -> dict:
         r.raise_for_status()
         data = r.json()
     text = data["content"][0]["text"].strip()
-    # Strip code fences if Claude added them
     text = re.sub(r"^```(?:json)?\s*", "", text)
     text = re.sub(r"\s*```$", "", text)
-    return json.loads(text)
+    result = json.loads(text)
+    # Backwards-compat: rename plano_30_dias -> plano if present
+    if "plano_30_dias" in result and "plano" not in result:
+        result["plano"] = result.pop("plano_30_dias")
+    return result
 
 
 # ----------------------------------------------------------------------------
@@ -206,18 +302,42 @@ async def call_claude_diagnostic(form: DiagnosticForm) -> dict:
 
 
 async def insert_lead(
-    client: httpx.AsyncClient, form: DiagnosticForm, diagnostic: dict
+    client: httpx.AsyncClient, form: DiagnosticForm, diagnostic: dict, funnel: str
 ) -> Optional[str]:
-    """Insert lead with funnel_id BR_SMB. Returns lead.id or None on failure."""
+    """Insert lead tagged with the right funnel_id. Returns lead.id or None."""
+    cfg = FUNNEL_CONFIG.get(funnel, FUNNEL_CONFIG["BR_SMB"])
+
+    # Build the answers payload per funnel
+    answers: dict = {}
+    if funnel == "BR_ENG":
+        for key in ("setor", "tamanho_empresa", "maturidade_ia",
+                    "caso_uso", "bloqueio", "orcamento"):
+            answers[key] = getattr(form, key, None)
+    else:  # BR_SMB
+        for key in ("business_type", "team_size", "leads_per_month",
+                    "main_channel", "response_time", "main_pain"):
+            answers[key] = getattr(form, key, None)
+
+    qualification = {
+        **answers,
+        "diagnostic_score": diagnostic.get("score_maturidade"),
+        "diagnostic_estimate": diagnostic.get("estimativa_perdida"),
+        "diagnostic_summary": diagnostic.get("diagnostico_resumo"),
+        "diagnostic_plan": diagnostic.get("plano") or diagnostic.get("plano_30_dias"),
+        "diagnostic_pontos_fortes": diagnostic.get("pontos_fortes") or [],
+        "diagnostic_pontos_fracos": diagnostic.get("pontos_fracos") or [],
+        "diagnostic_proximo_passo": diagnostic.get("proximo_passo") or "",
+    }
+
     payload = {
         "tenant_id": "anuvia",
-        "funnel_id": "BR_SMB",
-        "market": "BR",
-        "track": "growth_mesh",
-        "language": "pt-BR",
+        "funnel_id": funnel,
+        "market": cfg["market"],
+        "track": cfg["track"],
+        "language": cfg["language"],
         "source": "lp_diagnostic",
         "source_detail": {
-            "lp": "diagnostico.anuvia.com.br",
+            "lp": cfg.get("lp_host_alias", "diagnostico") + ".anuvia.com.br",
             "captured_at": datetime.now(timezone.utc).isoformat(),
         },
         "name": form.name,
@@ -225,26 +345,12 @@ async def insert_lead(
         "phone_e164": form.whatsapp,
         "company": form.company,
         "current_stage": "new",
-        "qualification_data": {
-            "business_type": form.business_type,
-            "team_size": form.team_size,
-            "leads_per_month": form.leads_per_month,
-            "main_channel": form.main_channel,
-            "response_time": form.response_time,
-            "main_pain": form.main_pain,
-            "diagnostic_score": diagnostic.get("score_maturidade"),
-            "diagnostic_estimate": diagnostic.get("estimativa_perdida"),
-            "diagnostic_summary": diagnostic.get("diagnostico_resumo"),
-            "diagnostic_plan": diagnostic.get("plano_30_dias"),
-            "diagnostic_pontos_fortes": diagnostic.get("pontos_fortes") or [],
-            "diagnostic_pontos_fracos": diagnostic.get("pontos_fracos") or [],
-            "diagnostic_proximo_passo": diagnostic.get("proximo_passo") or "",
-        },
+        "qualification_data": qualification,
         "consent": {
             "lp_diagnostic": True,
             "granted_at": datetime.now(timezone.utc).isoformat(),
         },
-        "tags": ["lp_diagnostic", "br_smb"],
+        "tags": cfg["tags"],
     }
     try:
         r = await client.post(f"{SUPA_URL}/leads", headers=SUPA_HEADERS, json=payload)
@@ -420,10 +526,13 @@ def _coarse_slots(slots: list[str], step_min: int = 30, max_per_day: int = 8) ->
 
 
 @app.get("/api/slots")
-async def api_slots(funnel: str = "BR_SMB", days: int = 5) -> JSONResponse:
+async def api_slots(request: Request, days: int = 5) -> JSONResponse:
     """Return available slots for the next `days` working days using
-    Easyappointments' public booking endpoint (no auth)."""
-    service_id = EASY_SERVICE_ID_BR_SMB  # extend later when other funnels go live
+    Easyappointments' public booking endpoint (no auth). Funnel detected
+    from Host header to pick the right service_id (BR_SMB=2, BR_ENG=3)."""
+    funnel = detect_funnel(request)
+    cfg = FUNNEL_CONFIG[funnel]
+    service_id = cfg["easy_service_id"]
     days = max(1, min(days, 10))
 
     today_sp = datetime.now(TZ_SP).date()
@@ -476,9 +585,14 @@ class BookingRequest(BaseModel):
 
 
 @app.post("/api/book")
-async def api_book(payload: BookingRequest) -> JSONResponse:
+async def api_book(payload: BookingRequest, request: Request) -> JSONResponse:
     """Book a discovery using the lead's existing data (no re-asking).
-    Uses Easyappointments public booking endpoint (no auth required)."""
+    Uses Easyappointments public booking endpoint (no auth required).
+    Funnel detected from Host header to pick the right service_id."""
+    funnel = detect_funnel(request)
+    cfg = FUNNEL_CONFIG[funnel]
+    service_id = cfg["easy_service_id"]
+    duration_min = cfg["easy_duration_min"]
     async with httpx.AsyncClient(timeout=30) as client:
         # 1. Fetch lead
         r = await client.get(
@@ -496,7 +610,7 @@ async def api_book(payload: BookingRequest) -> JSONResponse:
         start_dt = datetime.strptime(
             f"{payload.date} {payload.time}", "%Y-%m-%d %H:%M"
         ).replace(tzinfo=TZ_SP)
-        end_dt = start_dt + timedelta(minutes=EASY_SERVICE_DURATION_MIN)
+        end_dt = start_dt + timedelta(minutes=duration_min)
         start_str = start_dt.strftime("%Y-%m-%d %H:%M:%S")
         end_str = end_dt.strftime("%Y-%m-%d %H:%M:%S")
 
@@ -513,7 +627,7 @@ async def api_book(payload: BookingRequest) -> JSONResponse:
             "post_data[appointment][start_datetime]": start_str,
             "post_data[appointment][end_datetime]": end_str,
             "post_data[appointment][id_users_provider]": str(EASY_PROVIDER_ID),
-            "post_data[appointment][id_services]": str(EASY_SERVICE_ID_BR_SMB),
+            "post_data[appointment][id_services]": str(service_id),
             "post_data[appointment][notes]": notes,
             "post_data[appointment][is_unavailability]": "false",
             "post_data[customer][first_name]": first_name,
@@ -598,17 +712,20 @@ async def api_book(payload: BookingRequest) -> JSONResponse:
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request) -> HTMLResponse:
+    funnel = detect_funnel(request)
+    cfg = FUNNEL_CONFIG[funnel]
     return templates.TemplateResponse(
-        "br_smb.html",
-        {"request": request, "funnel": "BR_SMB"},
+        cfg["template"],
+        {"request": request, "funnel": funnel},
     )
 
 
 @app.post("/api/diagnose")
-async def diagnose(payload: DiagnosticForm) -> JSONResponse:
+async def diagnose(payload: DiagnosticForm, request: Request) -> JSONResponse:
     """Receive form, call Claude, insert lead, return rendered deliverable."""
+    funnel = detect_funnel(request)
     try:
-        diagnostic = await call_claude_diagnostic(payload)
+        diagnostic = await call_claude_diagnostic(payload, funnel)
     except httpx.HTTPStatusError as e:
         log.error("claude call failed: %s %s", e.response.status_code, e.response.text[:200])
         raise HTTPException(status_code=502, detail="Falha ao gerar diagnóstico (LLM)")
@@ -617,11 +734,11 @@ async def diagnose(payload: DiagnosticForm) -> JSONResponse:
         raise HTTPException(status_code=502, detail="Diagnóstico retornou em formato inválido")
 
     async with httpx.AsyncClient(timeout=30) as client:
-        lead_id = await insert_lead(client, payload, diagnostic)
+        lead_id = await insert_lead(client, payload, diagnostic, funnel)
         await fire_slack_notification(client, payload, diagnostic, lead_id)
 
     # Render the deliverable as HTML for the SPA to inject
-    deliverable_html = render_deliverable(payload, diagnostic, lead_id)
+    deliverable_html = render_deliverable(payload, diagnostic, lead_id, funnel)
 
     return JSONResponse({
         "ok": True,
@@ -631,16 +748,18 @@ async def diagnose(payload: DiagnosticForm) -> JSONResponse:
     })
 
 
-def render_deliverable(form: DiagnosticForm, diag: dict, lead_id: Optional[str]) -> str:
+def render_deliverable(
+    form: DiagnosticForm, diag: dict, lead_id: Optional[str], funnel: str = "BR_SMB"
+) -> str:
     """Build the HTML block shown to the user after submit.
 
     Editorial light theme — no emojis, serif headlines, generous whitespace.
     """
-    plano = diag.get("plano_30_dias", [])
+    plano = diag.get("plano") or diag.get("plano_30_dias") or []
     plano_html = "".join(
         f'''
         <div class="mb-7">
-          <p class="eyebrow mb-1.5">Semana {p.get("semana", "?")}</p>
+          <p class="eyebrow mb-1.5">{p.get("etapa") or ("Semana " + str(p.get("semana", "?")))}</p>
           <p class="text-slate-900 leading-relaxed mb-1">{p.get("acao", "")}</p>
           <p class="text-sm text-slate-500 leading-relaxed">{p.get("porque", "")}</p>
         </div>
@@ -659,6 +778,18 @@ def render_deliverable(form: DiagnosticForm, diag: dict, lead_id: Optional[str])
     proximo = diag.get("proximo_passo", "")
     first_name = form.name.split()[0]
 
+    # Funnel-aware section labels
+    if funnel == "BR_ENG":
+        score_label = "Maturidade de IA"
+        estimativa_label = "Valor potencial não capturado"
+        plano_label = "Roadmap sugerido — próximos 90 dias"
+        fracos_label = "Gaps técnicos"
+    else:  # BR_SMB
+        score_label = "Maturidade do funil comercial"
+        estimativa_label = "Estimativa de oportunidade não capturada"
+        plano_label = "Plano sugerido — próximos 30 dias"
+        fracos_label = "Pontos de atenção"
+
     booking_html = (
         f'<div id="booking-widget" data-lead-id="{lead_id or ""}"></div>'
         if lead_id
@@ -673,7 +804,7 @@ def render_deliverable(form: DiagnosticForm, diag: dict, lead_id: Optional[str])
   <header class="text-center mb-12">
     <p class="eyebrow mb-4">Análise personalizada · {first_name}</p>
     <p class="h-serif text-7xl md:text-8xl mb-2 leading-none">{score}<span class="text-3xl md:text-4xl text-slate-400 align-top">/100</span></p>
-    <p class="text-sm text-slate-500 tracking-wide">Maturidade do funil comercial</p>
+    <p class="text-sm text-slate-500 tracking-wide">{score_label}</p>
   </header>
 
   <div class="rule"></div>
@@ -686,7 +817,7 @@ def render_deliverable(form: DiagnosticForm, diag: dict, lead_id: Optional[str])
   <div class="rule"></div>
 
   <section class="mb-10">
-    <p class="eyebrow mb-4">Estimativa de oportunidade não capturada</p>
+    <p class="eyebrow mb-4">{estimativa_label}</p>
     <p class="h-serif text-2xl md:text-3xl text-slate-900 leading-snug">{estimativa}</p>
   </section>
 
@@ -698,7 +829,7 @@ def render_deliverable(form: DiagnosticForm, diag: dict, lead_id: Optional[str])
       <ul class="text-slate-700">{fortes_html}</ul>
     </div>
     <div>
-      <p class="eyebrow mb-4">Pontos de atenção</p>
+      <p class="eyebrow mb-4">{fracos_label}</p>
       <ul class="text-slate-700">{fracos_html}</ul>
     </div>
   </section>
@@ -706,7 +837,7 @@ def render_deliverable(form: DiagnosticForm, diag: dict, lead_id: Optional[str])
   <div class="rule"></div>
 
   <section class="mb-10">
-    <p class="eyebrow mb-5">Plano sugerido — próximos 30 dias</p>
+    <p class="eyebrow mb-5">{plano_label}</p>
     {plano_html}
   </section>
 
