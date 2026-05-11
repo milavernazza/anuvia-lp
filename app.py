@@ -236,6 +236,9 @@ async def insert_lead(
             "diagnostic_estimate": diagnostic.get("estimativa_perdida"),
             "diagnostic_summary": diagnostic.get("diagnostico_resumo"),
             "diagnostic_plan": diagnostic.get("plano_30_dias"),
+            "diagnostic_pontos_fortes": diagnostic.get("pontos_fortes") or [],
+            "diagnostic_pontos_fracos": diagnostic.get("pontos_fracos") or [],
+            "diagnostic_proximo_passo": diagnostic.get("proximo_passo") or "",
         },
         "consent": {
             "lp_diagnostic": True,
@@ -283,6 +286,101 @@ async def fire_slack_notification(
 # ----------------------------------------------------------------------------
 # Routes
 # ----------------------------------------------------------------------------
+
+
+def build_pre_call_brief(lead: dict) -> str:
+    """Build a rich pre-call brief for the discovery appointment notes.
+
+    Pulled from lead.qualification_data which the LP populates on submit.
+    Format: plain text with section dividers — readable in Easyappointments
+    admin calendar, the synced Google Calendar event description, and any
+    email reminder template.
+    """
+    diag = lead.get("qualification_data") or {}
+    name = lead.get("name") or "—"
+    company = lead.get("company") or "—"
+    phone = lead.get("phone_e164") or "—"
+    email = lead.get("email") or "—"
+
+    score = diag.get("diagnostic_score")
+    estimativa = diag.get("diagnostic_estimate") or "—"
+    summary = diag.get("diagnostic_summary") or ""
+
+    pontos_fracos = diag.get("diagnostic_pontos_fracos") or []
+    plano = diag.get("diagnostic_plan") or []
+
+    parts: list[str] = []
+    parts.append("PRE-CALL BRIEF — Diagnóstico LP")
+    parts.append("=" * 36)
+    parts.append("")
+    parts.append("👤 CONTATO")
+    parts.append(f"  Nome:    {name}")
+    parts.append(f"  Empresa: {company}")
+    parts.append(f"  WhatsApp: {phone}")
+    parts.append(f"  Email:   {email}")
+    parts.append("")
+
+    parts.append("📋 RESPOSTAS DO FUNIL")
+    parts.append(f"  Tipo de negócio:   {diag.get('business_type') or '—'}")
+    parts.append(f"  Tamanho equipe:    {diag.get('team_size') or '—'}")
+    parts.append(f"  Leads/mês:         {diag.get('leads_per_month') or '—'}")
+    parts.append(f"  Canal principal:   {diag.get('main_channel') or '—'}")
+    parts.append(f"  Tempo de resposta: {diag.get('response_time') or '—'}")
+    parts.append(f"  Maior dor:         {diag.get('main_pain') or '—'}")
+    parts.append("")
+
+    if score is not None:
+        parts.append(f"🎯 SCORE: {score}/100 maturidade comercial")
+        parts.append("")
+
+    if summary:
+        parts.append("🔍 ANÁLISE")
+        # Strip excessive newlines; wrap at ~78 chars for readability
+        summary_clean = " ".join(summary.split())
+        parts.append(_wrap(summary_clean, 78, indent="  "))
+        parts.append("")
+
+    parts.append("💸 OPORTUNIDADE PERDIDA (estimativa)")
+    parts.append(_wrap(estimativa, 78, indent="  "))
+    parts.append("")
+
+    if pontos_fracos:
+        parts.append("⚠️  PONTOS FRACOS IDENTIFICADOS")
+        for p in pontos_fracos[:5]:
+            parts.append(f"  • {p}")
+        parts.append("")
+
+    if plano:
+        parts.append("📅 PLANO DE 30 DIAS (sugerido pela IA)")
+        for item in plano:
+            sem = item.get("semana", "?")
+            acao = item.get("acao", "")
+            porque = item.get("porque", "")
+            parts.append(f"  Semana {sem}: {acao}")
+            if porque:
+                parts.append(_wrap(porque, 74, indent="    ↳ "))
+        parts.append("")
+
+    parts.append("—")
+    parts.append("Gerado automaticamente pela LP diagnostico.anuvia.com.br")
+
+    return "\n".join(parts)
+
+
+def _wrap(text: str, width: int, indent: str = "") -> str:
+    """Simple word-wrap with optional per-line indent. Returns joined string."""
+    words = text.split()
+    lines: list[str] = []
+    cur = indent
+    for w in words:
+        if len(cur) + len(w) + 1 > width and len(cur) > len(indent):
+            lines.append(cur.rstrip())
+            cur = indent + w
+        else:
+            cur += (" " if cur != indent else "") + w
+    if cur.strip():
+        lines.append(cur.rstrip())
+    return "\n".join(lines)
 
 
 @app.get("/health")
@@ -407,13 +505,7 @@ async def api_book(payload: BookingRequest) -> JSONResponse:
         first_name = name_parts[0]
         last_name = name_parts[1] if len(name_parts) > 1 else "."
 
-        diag = (lead.get("qualification_data") or {})
-        notes = (
-            f"Diagnóstico LP — score {diag.get('diagnostic_score', '?')}/100. "
-            f"Tipo: {diag.get('business_type', '?')}. "
-            f"Dor: {diag.get('main_pain', '?')}. "
-            f"Estimativa perdida: {diag.get('diagnostic_estimate', '?')}"
-        )
+        notes = build_pre_call_brief(lead)
 
         # 3. Submit to Easyappointments public booking endpoint.
         # Uses nested form fields: post_data[appointment][...], post_data[customer][...]
