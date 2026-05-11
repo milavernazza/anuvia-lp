@@ -44,10 +44,13 @@ ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 SLACK_WEBHOOK = os.environ.get("SLACK_NEW_LEAD_WEBHOOK", "")  # optional, fallback to n8n
 
-# SendGrid — transactional email pro deliverable do diagnostic
-SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY", "")
-SENDGRID_FROM_EMAIL = os.environ.get("SENDGRID_FROM_EMAIL", "contato@anuvia.com.br")
-SENDGRID_FROM_NAME = os.environ.get("SENDGRID_FROM_NAME", "Anuvia · Mila Vernazza")
+# Resend — transactional email pro deliverable do diagnostic
+# Quando o domínio anuvia.com.br for verificado em resend.com/domains,
+# trocar RESEND_FROM_EMAIL pra contato@anuvia.com.br.
+# Por enquanto fallback pro onboarding@resend.dev (sandbox da Resend, sem verificação).
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+RESEND_FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "onboarding@resend.dev")
+RESEND_FROM_NAME = os.environ.get("RESEND_FROM_NAME", "Anuvia · Mila Vernazza")
 
 # Easyappointments (cal.anuvia.com.br) — uses public booking endpoints
 # (no API token needed; same flow that the public booking page uses).
@@ -882,9 +885,9 @@ async def send_diagnostic_email(
     deliverable_html: str,
     funnel: str,
 ) -> Optional[str]:
-    """Envia o deliverable do diagnóstico por email via SendGrid. Não-fatal."""
-    if not SENDGRID_API_KEY:
-        log.info("send_diagnostic_email: SENDGRID_API_KEY missing, skipping")
+    """Envia o deliverable do diagnóstico por email via Resend. Não-fatal."""
+    if not RESEND_API_KEY:
+        log.info("send_diagnostic_email: RESEND_API_KEY missing, skipping")
         return None
 
     is_eng = funnel == "BR_ENG"
@@ -934,33 +937,35 @@ async def send_diagnostic_email(
 </body></html>"""
 
     body = {
-        "personalizations": [{
-            "to": [{"email": form.email, "name": form.name or ""}],
-            "subject": subject,
-        }],
-        "from": {"email": SENDGRID_FROM_EMAIL, "name": SENDGRID_FROM_NAME},
-        "reply_to": {"email": SENDGRID_FROM_EMAIL, "name": SENDGRID_FROM_NAME},
-        "content": [{"type": "text/html", "value": full_html}],
-        "categories": ["diagnostic_deliverable", funnel.lower()],
+        "from": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
+        "to": [form.email],
+        "reply_to": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
+        "subject": subject,
+        "html": full_html,
+        "tags": [
+            {"name": "category", "value": "diagnostic_deliverable"},
+            {"name": "funnel", "value": funnel.lower()},
+        ],
     }
     try:
         r = await client.post(
-            "https://api.sendgrid.com/v3/mail/send",
+            "https://api.resend.com/emails",
             headers={
-                "Authorization": f"Bearer {SENDGRID_API_KEY}",
+                "Authorization": f"Bearer {RESEND_API_KEY}",
                 "Content-Type": "application/json",
             },
             json=body,
             timeout=20,
         )
         if r.status_code in (200, 202):
-            msg_id = r.headers.get("X-Message-Id", "")
-            log.info("sendgrid_sent to=%s funnel=%s msg_id=%s", form.email, funnel, msg_id)
+            data = r.json() if r.text else {}
+            msg_id = data.get("id", "")
+            log.info("resend_sent to=%s funnel=%s msg_id=%s", form.email, funnel, msg_id)
             return msg_id or "sent"
-        log.error("sendgrid_failed status=%s body=%s", r.status_code, r.text[:300])
+        log.error("resend_failed status=%s body=%s", r.status_code, r.text[:300])
         return None
     except Exception:
-        log.exception("sendgrid_exception")
+        log.exception("resend_exception")
         return None
 
 
