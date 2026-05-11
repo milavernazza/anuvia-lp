@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anuvia — Blog</title>
+  <meta name="description" content="IA aplicada a vendas e operações. Insights, estudos de caso e tutoriais práticos da Anuvia.">
+  <meta property="og:title" content="Anuvia — Blog">
+  <meta property="og:description" content="IA aplicada a vendas e operações. Insights, estudos de caso e tutoriais práticos.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://blog.anuvia.com.br/blog">
+  <link rel="alternate" type="application/rss+xml" title="Anuvia Blog RSS" href="/blog/feed.xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            serif: ['"Playfair Display"', 'Georgia', 'serif'],
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    body {
+      background: #fafaf9;
+      color: #0f172a;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    .h-serif {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .h-serif-italic {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-style: italic;
+      font-weight: 500;
+    }
+    .eyebrow {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #64748b;
+    }
+    .rule { border-top: 1px solid #e2e8f0; }
+    .post-card {
+      border-top: 1px solid #e2e8f0;
+      transition: background 0.15s ease;
+    }
+    .post-card:hover {
+      background: #f5f5f4;
+    }
+    a.post-link:hover .post-title {
+      color: #1e293b;
+      text-decoration: underline;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="max-w-4xl mx-auto px-6 lg:px-10 py-16 lg:py-24">
+
+    <!-- Header / branding -->
+    <header class="mb-20 lg:mb-28">
+      <a href="https://anuvia.com.br" class="eyebrow inline-block mb-10 hover:text-slate-900 transition">
+        ← Anuvia
+      </a>
+      <h1 class="h-serif text-5xl md:text-6xl lg:text-7xl text-slate-900 leading-[1.05] mb-6">
+        Anuvia <span class="h-serif-italic">Notes</span>
+      </h1>
+      <p class="text-lg md:text-xl text-slate-600 leading-relaxed max-w-2xl">
+        Ensaios sobre IA aplicada a vendas e operações.
+        Estudos de caso, ferramentas testadas, lições do que funcionou
+        (e do que não funcionou) com clientes reais.
+      </p>
+    </header>
+
+    <!-- Posts list -->
+    {% if posts %}
+    <section>
+      <p class="eyebrow mb-3">Artigos</p>
+      <div>
+        {% for post in posts %}
+        <article class="post-card py-10 lg:py-12">
+          <a href="/blog/{{ post.slug }}" class="post-link block">
+            <div class="flex flex-col md:flex-row md:items-start gap-2 md:gap-8">
+              <div class="md:w-32 shrink-0">
+                <p class="eyebrow text-slate-500">{{ post.date_display }}</p>
+              </div>
+              <div class="flex-1">
+                <h2 class="post-title h-serif text-2xl md:text-3xl text-slate-900 leading-tight mb-3 transition">{{ post.title }}</h2>
+                <p class="text-slate-600 leading-relaxed">{{ post.excerpt }}</p>
+                {% if post.tags %}
+                <div class="mt-4 flex flex-wrap gap-2">
+                  {% for tag in post.tags %}
+                  <span class="text-xs text-slate-500 border border-slate-200 px-2 py-0.5 rounded-sm">{{ tag }}</span>
+                  {% endfor %}
+                </div>
+                {% endif %}
+              </div>
+            </div>
+          </a>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+    {% else %}
+    <section class="py-20 text-center">
+      <p class="eyebrow mb-3">Em breve</p>
+      <p class="h-serif text-3xl text-slate-700">Primeiros ensaios chegam logo.</p>
+    </section>
+    {% endif %}
+
+    <!-- Footer -->
+    <footer class="rule mt-24 pt-10 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+      <div>
+        <p class="eyebrow mb-1">Anuvia</p>
+        <p class="text-sm text-slate-500">IA aplicada a vendas e ops · São Paulo / São Francisco</p>
+      </div>
+      <div class="flex gap-5 text-sm">
+        <a href="https://anuvia.com.br" class="text-slate-600 hover:text-slate-900 transition">Site</a>
+        <a href="/blog/feed.xml" class="text-slate-600 hover:text-slate-900 transition">RSS</a>
+        <a href="https://www.linkedin.com/company/anuvia" class="text-slate-600 hover:text-slate-900 transition">LinkedIn</a>
+      </div>
+    </footer>
+
+  </div>
+</body>
+</html>

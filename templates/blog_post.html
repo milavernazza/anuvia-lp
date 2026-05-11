@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ post.title }} — Anuvia</title>
+  <meta name="description" content="{{ post.excerpt }}">
+  <meta property="og:title" content="{{ post.title }}">
+  <meta property="og:description" content="{{ post.excerpt }}">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="{{ blog_base_url }}/blog/{{ post.slug }}">
+  {% if post.cover_image %}<meta property="og:image" content="{{ post.cover_image }}">{% endif %}
+  <meta name="article:published_time" content="{{ post.date_iso }}">
+  <meta name="article:author" content="{{ post.author }}">
+  <link rel="alternate" type="application/rss+xml" title="Anuvia Blog RSS" href="/blog/feed.xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400;1,500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            serif: ['"Playfair Display"', 'Georgia', 'serif'],
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    body {
+      background: #fafaf9;
+      color: #0f172a;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    .h-serif {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .h-serif-italic {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-style: italic;
+      font-weight: 500;
+    }
+    .eyebrow {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #64748b;
+    }
+    .rule { border-top: 1px solid #e2e8f0; }
+
+    /* Article typography */
+    .prose-anuvia {
+      color: #1e293b;
+      font-size: 18px;
+      line-height: 1.75;
+    }
+    .prose-anuvia > * + * { margin-top: 1.25em; }
+    .prose-anuvia p { line-height: 1.75; }
+    .prose-anuvia h2 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: #0f172a;
+      font-size: 1.75em;
+      line-height: 1.2;
+      margin-top: 2.5em;
+      margin-bottom: 0.5em;
+    }
+    .prose-anuvia h3 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: #0f172a;
+      font-size: 1.35em;
+      line-height: 1.3;
+      margin-top: 2em;
+      margin-bottom: 0.4em;
+    }
+    .prose-anuvia a {
+      color: #0f172a;
+      text-decoration: underline;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
+      transition: opacity 0.15s;
+    }
+    .prose-anuvia a:hover { opacity: 0.65; }
+    .prose-anuvia strong { font-weight: 600; color: #0f172a; }
+    .prose-anuvia em { font-style: italic; }
+    .prose-anuvia blockquote {
+      border-left: 2px solid #cbd5e1;
+      padding-left: 1.25em;
+      font-style: italic;
+      color: #475569;
+      margin: 1.5em 0;
+    }
+    .prose-anuvia ul, .prose-anuvia ol {
+      padding-left: 1.5em;
+    }
+    .prose-anuvia ul li { list-style: disc; margin-top: 0.4em; }
+    .prose-anuvia ol li { list-style: decimal; margin-top: 0.4em; }
+    .prose-anuvia code {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+      font-size: 0.92em;
+      background: #f1f5f9;
+      padding: 0.12em 0.4em;
+      border-radius: 3px;
+    }
+    .prose-anuvia pre {
+      background: #0f172a;
+      color: #f1f5f9;
+      padding: 1.25em 1.5em;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 0.92em;
+      line-height: 1.65;
+    }
+    .prose-anuvia pre code {
+      background: transparent;
+      padding: 0;
+      color: inherit;
+    }
+    .prose-anuvia img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 3px;
+      margin: 1.5em 0;
+    }
+    .prose-anuvia hr {
+      border: 0;
+      border-top: 1px solid #e2e8f0;
+      margin: 3em 0;
+    }
+    .prose-anuvia table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95em;
+      margin: 1.5em 0;
+    }
+    .prose-anuvia th, .prose-anuvia td {
+      border-bottom: 1px solid #e2e8f0;
+      padding: 0.6em 0.8em;
+      text-align: left;
+    }
+    .prose-anuvia th { font-weight: 600; color: #0f172a; }
+  </style>
+</head>
+<body>
+  <div class="max-w-2xl mx-auto px-6 lg:px-8 py-12 lg:py-20">
+
+    <!-- Top breadcrumb -->
+    <header class="mb-14">
+      <a href="/blog" class="eyebrow inline-block hover:text-slate-900 transition">
+        ← Anuvia Notes
+      </a>
+    </header>
+
+    <!-- Article header -->
+    <article>
+      <div class="mb-10">
+        <p class="eyebrow mb-5">{{ post.date_display }} · {{ post.author }}</p>
+        <h1 class="h-serif text-4xl md:text-5xl lg:text-6xl text-slate-900 leading-[1.05] mb-6">
+          {{ post.title }}
+        </h1>
+        {% if post.subtitle %}
+        <p class="text-xl text-slate-600 leading-relaxed">{{ post.subtitle }}</p>
+        {% endif %}
+      </div>
+
+      {% if post.cover_image %}
+      <div class="mb-12">
+        <img src="{{ post.cover_image }}" alt="{{ post.title }}" class="w-full rounded-sm">
+      </div>
+      {% endif %}
+
+      <!-- Body -->
+      <div class="prose-anuvia">
+        {{ post.body_html | safe }}
+      </div>
+
+      <!-- Tags -->
+      {% if post.tags %}
+      <div class="rule mt-16 pt-8 flex flex-wrap gap-2">
+        {% for tag in post.tags %}
+        <span class="text-xs text-slate-500 border border-slate-200 px-2 py-0.5 rounded-sm">{{ tag }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Author bio -->
+      <div class="rule mt-12 pt-10">
+        <p class="eyebrow mb-2">Autora</p>
+        <p class="h-serif text-2xl text-slate-900 mb-2">{{ post.author }}</p>
+        <p class="text-slate-600 leading-relaxed">
+          Founder da Anuvia. Trabalho com SMBs e times de engenharia
+          aplicando IA pra fechar mais propostas com menos esforço operacional.
+        </p>
+        <div class="mt-4 flex gap-4 text-sm">
+          <a href="https://www.linkedin.com/in/milavernazza" class="text-slate-600 hover:text-slate-900 transition underline underline-offset-2">LinkedIn</a>
+          <a href="https://anuvia.com.br" class="text-slate-600 hover:text-slate-900 transition underline underline-offset-2">Anuvia</a>
+          <a href="https://diagnostico.anuvia.com.br" class="text-slate-600 hover:text-slate-900 transition underline underline-offset-2">Diagnóstico grátis</a>
+        </div>
+      </div>
+    </article>
+
+    <!-- Bottom footer -->
+    <footer class="rule mt-20 pt-8 flex justify-between text-sm text-slate-500">
+      <a href="/blog" class="hover:text-slate-900 transition">← Mais ensaios</a>
+      <a href="/blog/feed.xml" class="hover:text-slate-900 transition">RSS</a>
+    </footer>
+
+  </div>
+</body>
+</html>

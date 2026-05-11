@@ -25,9 +25,10 @@ from typing import Optional
 from zoneinfo import ZoneInfo
 
 import httpx
+import frontmatter
 import markdown as md_lib
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
@@ -489,6 +490,152 @@ def _wrap(text: str, width: int, indent: str = "") -> str:
     return "\n".join(lines)
 
 
+# ----------------------------------------------------------------------------
+# Blog (markdown-static at blog.anuvia.com.br)
+# ----------------------------------------------------------------------------
+
+POSTS_DIR = os.environ.get("BLOG_POSTS_DIR", "posts")
+BLOG_BASE_URL = os.environ.get("BLOG_BASE_URL", "https://blog.anuvia.com.br")
+
+
+def _make_excerpt(content: str, max_chars: int = 220) -> str:
+    """Strip markdown markers and return a short excerpt."""
+    text = re.sub(r"```.*?```", "", content, flags=re.DOTALL)
+    text = re.sub(r"[#*`>_\[\]()~]", "", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    if len(text) <= max_chars:
+        return text
+    return text[:max_chars].rstrip() + "…"
+
+
+def _post_meta(slug: str, post) -> dict:
+    """Normalize frontmatter into a dict the templates can rely on."""
+    meta = dict(post.metadata or {})
+    meta["slug"] = meta.get("slug", slug)
+    raw_date = meta.get("date")
+    if hasattr(raw_date, "isoformat"):
+        meta["date_iso"] = raw_date.isoformat()
+        meta["date_display"] = raw_date.strftime("%d %b %Y") if hasattr(raw_date, "strftime") else str(raw_date)
+        meta["date_sort"] = raw_date.isoformat()
+    else:
+        meta["date_iso"] = str(raw_date or "")
+        meta["date_display"] = str(raw_date or "")
+        meta["date_sort"] = str(raw_date or "")
+    meta["excerpt"] = meta.get("excerpt") or _make_excerpt(post.content)
+    meta["title"] = meta.get("title") or slug.replace("-", " ").title()
+    meta["author"] = meta.get("author") or "Mila Vernazza"
+    meta["tags"] = meta.get("tags") or []
+    meta["cover_image"] = meta.get("cover_image") or meta.get("cover") or ""
+    return meta
+
+
+def _list_posts() -> list[dict]:
+    """List all posts with metadata, sorted by date desc."""
+    posts: list[dict] = []
+    if not os.path.isdir(POSTS_DIR):
+        return posts
+    for filename in os.listdir(POSTS_DIR):
+        if not filename.endswith(".md"):
+            continue
+        slug = filename[:-3]
+        path = os.path.join(POSTS_DIR, filename)
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                post = frontmatter.load(f)
+            if (post.metadata or {}).get("draft") is True:
+                continue
+            posts.append(_post_meta(slug, post))
+        except Exception:
+            log.exception("failed to load post %s", path)
+    posts.sort(key=lambda p: p.get("date_sort") or "", reverse=True)
+    return posts
+
+
+def _load_post(slug: str) -> Optional[dict]:
+    """Load a single post by slug with rendered HTML body."""
+    if not re.fullmatch(r"[a-z0-9][a-z0-9\-]{0,200}", slug or ""):
+        return None
+    path = os.path.join(POSTS_DIR, f"{slug}.md")
+    if not os.path.isfile(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            post = frontmatter.load(f)
+    except Exception:
+        log.exception("failed to load post %s", path)
+        return None
+    if (post.metadata or {}).get("draft") is True:
+        return None
+    meta = _post_meta(slug, post)
+    meta["body_html"] = md_lib.markdown(
+        post.content,
+        extensions=["fenced_code", "tables", "smarty"],
+    )
+    return meta
+
+
+def _is_blog_host(request: Request) -> bool:
+    host = (request.headers.get("host") or "").lower().split(":")[0]
+    return host.startswith("blog.")
+
+
+@app.get("/blog", response_class=HTMLResponse)
+@app.get("/blog/", response_class=HTMLResponse)
+async def blog_index(request: Request) -> HTMLResponse:
+    posts = _list_posts()
+    return templates.TemplateResponse(
+        "blog_index.html",
+        {
+            "request": request,
+            "posts": posts,
+            "blog_base_url": BLOG_BASE_URL,
+        },
+    )
+
+
+@app.get("/blog/feed.xml")
+async def blog_feed(request: Request) -> Response:
+    posts = _list_posts()[:20]
+    items_xml = []
+    for p in posts:
+        url = f"{BLOG_BASE_URL}/blog/{p['slug']}"
+        items_xml.append(
+            f"""    <item>
+      <title><![CDATA[{p.get('title','')}]]></title>
+      <link>{url}</link>
+      <guid isPermaLink="true">{url}</guid>
+      <pubDate>{p.get('date_iso','')}</pubDate>
+      <description><![CDATA[{p.get('excerpt','')}]]></description>
+    </item>"""
+        )
+    rss = f"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Anuvia — Blog</title>
+    <link>{BLOG_BASE_URL}/blog</link>
+    <description>IA aplicada a vendas e ops. Insights e estudos de caso da Anuvia.</description>
+    <language>pt-BR</language>
+{chr(10).join(items_xml)}
+  </channel>
+</rss>"""
+    return Response(content=rss, media_type="application/rss+xml; charset=utf-8")
+
+
+@app.get("/blog/{slug}", response_class=HTMLResponse)
+async def blog_post(request: Request, slug: str) -> HTMLResponse:
+    post = _load_post(slug)
+    if not post:
+        raise HTTPException(status_code=404, detail="Post não encontrado")
+    return templates.TemplateResponse(
+        "blog_post.html",
+        {
+            "request": request,
+            "post": post,
+            "blog_base_url": BLOG_BASE_URL,
+        },
+    )
+
+
 @app.get("/health")
 async def health() -> dict:
     return {"status": "ok"}
@@ -711,7 +858,10 @@ async def api_book(payload: BookingRequest, request: Request) -> JSONResponse:
 
 
 @app.get("/", response_class=HTMLResponse)
-async def home(request: Request) -> HTMLResponse:
+async def home(request: Request):
+    # blog.anuvia.com.br/ -> /blog (subdomain root = blog home)
+    if _is_blog_host(request):
+        return RedirectResponse(url="/blog", status_code=302)
     funnel = detect_funnel(request)
     cfg = FUNNEL_CONFIG[funnel]
     return templates.TemplateResponse(
