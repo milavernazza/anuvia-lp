@@ -44,6 +44,11 @@ ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 SLACK_WEBHOOK = os.environ.get("SLACK_NEW_LEAD_WEBHOOK", "")  # optional, fallback to n8n
 
+# SendGrid — transactional email pro deliverable do diagnostic
+SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY", "")
+SENDGRID_FROM_EMAIL = os.environ.get("SENDGRID_FROM_EMAIL", "contato@anuvia.com.br")
+SENDGRID_FROM_NAME = os.environ.get("SENDGRID_FROM_NAME", "Anuvia · Mila Vernazza")
+
 # Easyappointments (cal.anuvia.com.br) — uses public booking endpoints
 # (no API token needed; same flow that the public booking page uses).
 EASY_BASE = os.environ.get(
@@ -870,6 +875,95 @@ async def home(request: Request):
     )
 
 
+async def send_diagnostic_email(
+    client: httpx.AsyncClient,
+    form: "DiagnosticForm",
+    diagnostic: dict,
+    deliverable_html: str,
+    funnel: str,
+) -> Optional[str]:
+    """Envia o deliverable do diagnóstico por email via SendGrid. Não-fatal."""
+    if not SENDGRID_API_KEY:
+        log.info("send_diagnostic_email: SENDGRID_API_KEY missing, skipping")
+        return None
+
+    is_eng = funnel == "BR_ENG"
+    subject = (
+        f"Seu AI Readiness Assessment — {form.name.split()[0] if form.name else 'Anuvia'}"
+        if is_eng else
+        f"Seu diagnóstico Anuvia — {form.name.split()[0] if form.name else 'pronto'}"
+    )
+    # CTA back to booking + LP
+    cta_url = "https://roadmap.anuvia.com.br" if is_eng else "https://diagnostico.anuvia.com.br"
+    # Build full email HTML with inline-friendly styling wrapping the deliverable
+    full_html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{subject}</title>
+<style>
+  body {{ margin: 0; padding: 0; background: #fafaf9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; color: #0f172a; }}
+  .wrap {{ max-width: 640px; margin: 0 auto; padding: 32px 24px; }}
+  .h-serif {{ font-family: Georgia, "Times New Roman", serif; font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; }}
+  .eyebrow {{ font-size: 11px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: #64748b; }}
+  .card {{ background: #ffffff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 24px; }}
+  .rule {{ border-top: 1px solid #e2e8f0; margin: 24px 0; }}
+  a {{ color: #0f172a; }}
+  .button {{ display: inline-block; background: #0f172a; color: #ffffff !important; padding: 12px 22px; border-radius: 3px; text-decoration: none; font-weight: 500; font-size: 14px; }}
+  p {{ line-height: 1.65; color: #1e293b; }}
+</style>
+</head><body>
+<div class="wrap">
+  <p class="eyebrow" style="margin: 0 0 8px 0;">Anuvia</p>
+  <p class="h-serif" style="font-size: 32px; margin: 0 0 8px 0;">Olá, {form.name.split()[0] if form.name else ''}</p>
+  <p style="color: #475569; margin: 0 0 32px 0;">Aqui está o diagnóstico que geramos pro seu negócio. Foi montado em tempo real a partir das suas respostas.</p>
+
+  <div class="card">
+    {deliverable_html}
+  </div>
+
+  <div class="rule"></div>
+
+  <p style="margin: 0 0 16px 0;">Próximo passo natural: <strong>discovery call de 30 min</strong> pra revisar o diagnóstico junto e priorizar os próximos passos pra sua operação.</p>
+  <p style="margin: 0 0 24px 0;"><a class="button" href="{cta_url}">Agendar discovery call</a></p>
+
+  <p style="color: #64748b; font-size: 13px; margin: 32px 0 0 0;">
+    Anuvia — IA aplicada a vendas e operações.<br>
+    Se este email caiu por engano, basta ignorar.<br>
+    <a href="https://anuvia.com.br" style="color: #64748b;">anuvia.com.br</a>
+  </p>
+</div>
+</body></html>"""
+
+    body = {
+        "personalizations": [{
+            "to": [{"email": form.email, "name": form.name or ""}],
+            "subject": subject,
+        }],
+        "from": {"email": SENDGRID_FROM_EMAIL, "name": SENDGRID_FROM_NAME},
+        "reply_to": {"email": SENDGRID_FROM_EMAIL, "name": SENDGRID_FROM_NAME},
+        "content": [{"type": "text/html", "value": full_html}],
+        "categories": ["diagnostic_deliverable", funnel.lower()],
+    }
+    try:
+        r = await client.post(
+            "https://api.sendgrid.com/v3/mail/send",
+            headers={
+                "Authorization": f"Bearer {SENDGRID_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json=body,
+            timeout=20,
+        )
+        if r.status_code in (200, 202):
+            msg_id = r.headers.get("X-Message-Id", "")
+            log.info("sendgrid_sent to=%s funnel=%s msg_id=%s", form.email, funnel, msg_id)
+            return msg_id or "sent"
+        log.error("sendgrid_failed status=%s body=%s", r.status_code, r.text[:300])
+        return None
+    except Exception:
+        log.exception("sendgrid_exception")
+        return None
+
+
 @app.post("/api/diagnose")
 async def diagnose(payload: DiagnosticForm, request: Request) -> JSONResponse:
     """Receive form, call Claude, insert lead, return rendered deliverable."""
@@ -883,11 +977,15 @@ async def diagnose(payload: DiagnosticForm, request: Request) -> JSONResponse:
         log.exception("claude returned malformed response")
         raise HTTPException(status_code=502, detail="Diagnóstico retornou em formato inválido")
 
+    # Render the deliverable as HTML (used both on-screen and in email)
+    deliverable_html = render_deliverable(payload, diagnostic, None, funnel)
+
     async with httpx.AsyncClient(timeout=30) as client:
         lead_id = await insert_lead(client, payload, diagnostic, funnel)
         await fire_slack_notification(client, payload, diagnostic, lead_id)
+        email_msg_id = await send_diagnostic_email(client, payload, diagnostic, deliverable_html, funnel)
 
-    # Render the deliverable as HTML for the SPA to inject
+    # Re-render with the lead_id for accurate on-screen display
     deliverable_html = render_deliverable(payload, diagnostic, lead_id, funnel)
 
     return JSONResponse({
@@ -895,6 +993,7 @@ async def diagnose(payload: DiagnosticForm, request: Request) -> JSONResponse:
         "lead_id": lead_id,
         "diagnostic": diagnostic,
         "deliverable_html": deliverable_html,
+        "email_sent": bool(email_msg_id),
     })
 
 
