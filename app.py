@@ -15,12 +15,14 @@ The lead row triggers the Supabase Database Webhook -> n8n /webhook/lead-enrichm
 score >= 80). No additional wiring needed here.
 """
 
+import base64
 import json
 import logging
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 import httpx
 import markdown as md_lib
@@ -41,6 +43,18 @@ ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 SLACK_WEBHOOK = os.environ.get("SLACK_NEW_LEAD_WEBHOOK", "")  # optional, fallback to n8n
 
+# Easyappointments (cal.anuvia.com.br) — for embedded discovery booking.
+EASY_URL = os.environ.get(
+    "EASYAPPOINTMENTS_URL", "https://cal.anuvia.com.br/index.php/api/v1"
+).rstrip("/")
+EASY_TOKEN = os.environ.get("EASYAPPOINTMENTS_TOKEN", "")
+EASY_USER = os.environ.get("EASYAPPOINTMENTS_USER", "")
+EASY_PASS = os.environ.get("EASYAPPOINTMENTS_PASS", "")
+# BR_SMB defaults: provider 2 (Mila), service 1 (Discovery — Growth Mesh BR, 30min)
+EASY_PROVIDER_ID = int(os.environ.get("EASYAPPOINTMENTS_PROVIDER_ID", "2"))
+EASY_SERVICE_ID_BR_SMB = int(os.environ.get("EASYAPPOINTMENTS_SERVICE_ID_BR_SMB", "1"))
+TZ_SP = ZoneInfo("America/Sao_Paulo")
+
 if not SUPA_KEY:
     raise RuntimeError("SUPABASE_KEY env var is required")
 if not ANTHROPIC_API_KEY:
@@ -58,6 +72,21 @@ ANTHROPIC_HEADERS = {
     "anthropic-version": "2023-06-01",
     "content-type": "application/json",
 }
+
+
+def easy_headers() -> dict:
+    """Build Easyappointments auth headers. Prefer Bearer token, fallback to Basic."""
+    h = {"Content-Type": "application/json", "Accept": "application/json"}
+    if EASY_TOKEN:
+        h["Authorization"] = f"Bearer {EASY_TOKEN}"
+    elif EASY_USER and EASY_PASS:
+        creds = base64.b64encode(f"{EASY_USER}:{EASY_PASS}".encode()).decode()
+        h["Authorization"] = f"Basic {creds}"
+    return h
+
+
+def easy_auth_configured() -> bool:
+    return bool(EASY_TOKEN) or (EASY_USER and EASY_PASS)
 
 
 # ----------------------------------------------------------------------------
@@ -267,7 +296,215 @@ async def fire_slack_notification(
 
 @app.get("/health")
 async def health() -> dict:
-    return {"status": "ok"}
+    return {"status": "ok", "easy_auth": easy_auth_configured()}
+
+
+# ----------------------------------------------------------------------------
+# Booking — Easyappointments embedded picker
+# ----------------------------------------------------------------------------
+
+
+def working_days(start_date: datetime, count: int) -> list[datetime]:
+    """Return next `count` working days (Mon-Fri) in São Paulo TZ, starting at start_date."""
+    days = []
+    cur = start_date
+    while len(days) < count:
+        if cur.weekday() < 5:  # Mon=0 .. Fri=4
+            days.append(cur)
+        cur = cur + timedelta(days=1)
+    return days
+
+
+@app.get("/api/slots")
+async def api_slots(funnel: str = "BR_SMB", days: int = 5) -> JSONResponse:
+    """Return available 30-min slots for the next `days` working days.
+
+    Each day -> {date: 'YYYY-MM-DD', label: 'Seg, 12 mai', slots: ['09:00', '09:30', ...]}.
+    """
+    if not easy_auth_configured():
+        raise HTTPException(
+            status_code=503, detail="Booking não configurado (EASYAPPOINTMENTS_TOKEN ausente)."
+        )
+
+    service_id = EASY_SERVICE_ID_BR_SMB  # extend later when other funnels go live
+    days = max(1, min(days, 10))
+
+    # Start from tomorrow in São Paulo TZ
+    today_sp = datetime.now(TZ_SP).date()
+    tomorrow_sp = today_sp + timedelta(days=1)
+    start_dt = datetime.combine(tomorrow_sp, datetime.min.time(), tzinfo=TZ_SP)
+
+    targets = working_days(start_dt, days)
+
+    # Easyappointments availability endpoint returns ["09:00", "09:30", ...] for that date.
+    pt_weekdays = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
+    pt_months = [
+        "jan", "fev", "mar", "abr", "mai", "jun",
+        "jul", "ago", "set", "out", "nov", "dez",
+    ]
+
+    out = []
+    async with httpx.AsyncClient(timeout=20) as client:
+        for d in targets:
+            ymd = d.strftime("%Y-%m-%d")
+            url = (
+                f"{EASY_URL}/availabilities"
+                f"?providerId={EASY_PROVIDER_ID}&serviceId={service_id}&date={ymd}"
+            )
+            try:
+                r = await client.get(url, headers=easy_headers())
+                if r.status_code == 401 or r.status_code == 403:
+                    raise HTTPException(
+                        status_code=503,
+                        detail="Booking auth falhou no Easyappointments. Cheque token.",
+                    )
+                r.raise_for_status()
+                slots = r.json()
+                if not isinstance(slots, list):
+                    slots = []
+            except HTTPException:
+                raise
+            except Exception:
+                log.exception("easy availability fetch failed for %s", ymd)
+                slots = []
+            label = f"{pt_weekdays[d.weekday()]}, {d.day} {pt_months[d.month - 1]}"
+            out.append({"date": ymd, "label": label, "slots": slots})
+    return JSONResponse({"days": out})
+
+
+class BookingRequest(BaseModel):
+    lead_id: str = Field(..., min_length=10, max_length=64)
+    date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
+    time: str = Field(..., pattern=r"^\d{2}:\d{2}$")
+
+
+@app.post("/api/book")
+async def api_book(payload: BookingRequest) -> JSONResponse:
+    """Book a discovery using the lead's existing data (no re-asking)."""
+    if not easy_auth_configured():
+        raise HTTPException(
+            status_code=503, detail="Booking não configurado."
+        )
+
+    # 1. Fetch lead
+    async with httpx.AsyncClient(timeout=20) as client:
+        r = await client.get(
+            f"{SUPA_URL}/leads?id=eq.{payload.lead_id}&limit=1",
+            headers=SUPA_HEADERS,
+        )
+        if r.status_code >= 400:
+            raise HTTPException(status_code=502, detail="Falha ao buscar lead")
+        rows = r.json()
+        if not rows:
+            raise HTTPException(status_code=404, detail="Lead não encontrado")
+        lead = rows[0]
+
+        # 2. Build appointment payload
+        # Service duration: BR_SMB Growth Mesh = 30 min
+        start_dt = datetime.strptime(
+            f"{payload.date} {payload.time}", "%Y-%m-%d %H:%M"
+        ).replace(tzinfo=TZ_SP)
+        end_dt = start_dt + timedelta(minutes=30)
+        # Easyappointments expects local time strings (not ISO with tz)
+        start_str = start_dt.strftime("%Y-%m-%d %H:%M:%S")
+        end_str = end_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+        # Split name into first / last (Easyappointments requires both)
+        name_parts = (lead.get("name") or "Lead").strip().split(maxsplit=1)
+        first_name = name_parts[0]
+        last_name = name_parts[1] if len(name_parts) > 1 else "."
+
+        diag = (lead.get("qualification_data") or {})
+        notes = (
+            f"Diagnóstico LP — score {diag.get('diagnostic_score', '?')}/100. "
+            f"Tipo: {diag.get('business_type', '?')}. "
+            f"Dor: {diag.get('main_pain', '?')}. "
+            f"Estimativa perdida: {diag.get('diagnostic_estimate', '?')}"
+        )
+
+        body = {
+            "providerId": EASY_PROVIDER_ID,
+            "serviceId": EASY_SERVICE_ID_BR_SMB,
+            "start": start_str,
+            "end": end_str,
+            "customer": {
+                "firstName": first_name,
+                "lastName": last_name,
+                "email": lead.get("email"),
+                "phone": lead.get("phone_e164"),
+                "timezone": "America/Sao_Paulo",
+            },
+            "notes": notes,
+        }
+
+        # 3. POST to Easyappointments
+        try:
+            br = await client.post(
+                f"{EASY_URL}/appointments",
+                headers=easy_headers(),
+                json=body,
+            )
+            if br.status_code in (401, 403):
+                raise HTTPException(
+                    status_code=503,
+                    detail="Auth do Easyappointments falhou. Cheque token.",
+                )
+            if br.status_code >= 400:
+                log.error("easy book failed: %s %s", br.status_code, br.text[:300])
+                raise HTTPException(
+                    status_code=502, detail="Falha ao agendar no calendário."
+                )
+            booking = br.json()
+        except HTTPException:
+            raise
+        except Exception:
+            log.exception("easy book exception")
+            raise HTTPException(status_code=502, detail="Erro ao agendar.")
+
+        # 4. Update lead stage to meeting_booked
+        try:
+            await client.patch(
+                f"{SUPA_URL}/leads?id=eq.{payload.lead_id}",
+                headers=SUPA_HEADERS,
+                json={"current_stage": "meeting_booked"},
+            )
+        except Exception:
+            log.exception("lead stage update failed (non-fatal)")
+
+        # 5. Slack notification (best-effort)
+        if SLACK_WEBHOOK:
+            try:
+                await client.post(
+                    SLACK_WEBHOOK,
+                    json={
+                        "text": (
+                            f":calendar: Discovery agendada via LP\n"
+                            f"*{lead.get('name')}* — {lead.get('company') or '(sem empresa)'}\n"
+                            f"📅 {payload.date} {payload.time} (SP)\n"
+                            f"📞 {lead.get('phone_e164')}  ✉️ {lead.get('email')}"
+                        )
+                    },
+                    timeout=10,
+                )
+            except Exception:
+                log.exception("slack notify (book) failed (non-fatal)")
+
+    # Format friendly confirmation
+    pt_weekdays = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"]
+    pt_months = [
+        "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+        "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+    ]
+    weekday_pt = pt_weekdays[start_dt.weekday()]
+    month_pt = pt_months[start_dt.month - 1]
+    pretty = f"{weekday_pt}, {start_dt.day} de {month_pt} às {payload.time}"
+
+    return JSONResponse({
+        "ok": True,
+        "appointment_id": booking.get("id") if isinstance(booking, dict) else None,
+        "pretty": pretty,
+        "iso": start_str,
+    })
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -295,7 +532,7 @@ async def diagnose(payload: DiagnosticForm) -> JSONResponse:
         await fire_slack_notification(client, payload, diagnostic, lead_id)
 
     # Render the deliverable as HTML for the SPA to inject
-    deliverable_html = render_deliverable(payload, diagnostic)
+    deliverable_html = render_deliverable(payload, diagnostic, lead_id)
 
     return JSONResponse({
         "ok": True,
@@ -305,7 +542,7 @@ async def diagnose(payload: DiagnosticForm) -> JSONResponse:
     })
 
 
-def render_deliverable(form: DiagnosticForm, diag: dict) -> str:
+def render_deliverable(form: DiagnosticForm, diag: dict, lead_id: Optional[str]) -> str:
     """Build the HTML block shown to the user after submit."""
     plano = diag.get("plano_30_dias", [])
     plano_html = "".join(
@@ -324,6 +561,17 @@ def render_deliverable(form: DiagnosticForm, diag: dict) -> str:
     score = diag.get("score_maturidade", 0)
     estimativa = diag.get("estimativa_perdida", "")
     proximo = diag.get("proximo_passo", "")
+
+    # Embedded booking widget — replaces the old external Easyappointments redirect.
+    # We pass lead_id via data attribute and let the JS in br_smb.html handle slots.
+    booking_html = (
+        f'<div id="booking-widget" data-lead-id="{lead_id or ""}"></div>'
+        if lead_id
+        else (
+            '<p class="text-slate-400 text-sm text-center">'
+            "Não conseguimos preparar o agendamento agora. Te chamo no WhatsApp pra alinhar.</p>"
+        )
+    )
 
     return f"""
 <div class="space-y-6">
@@ -361,18 +609,10 @@ def render_deliverable(form: DiagnosticForm, diag: dict) -> str:
     <ol class="space-y-4 text-slate-200">{plano_html}</ol>
   </div>
 
-  <div class="card-glass p-5 bg-indigo-950/40 border border-indigo-700/50 text-center">
-    <h3 class="text-base font-semibold mb-2 text-indigo-200">🚀 Próximo passo</h3>
-    <p class="text-slate-100 mb-4">{proximo}</p>
-    <a href="https://cal.anuvia.com.br" target="_blank"
-       class="inline-block bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-6 py-3 rounded-lg transition">
-       Agendar discovery de 30 min →
-    </a>
+  <div class="card-glass p-6 bg-indigo-950/40 border border-indigo-700/50">
+    <h3 class="text-base font-semibold mb-2 text-indigo-200 text-center">🚀 Próximo passo</h3>
+    <p class="text-slate-200 text-center mb-5">{proximo}</p>
+    {booking_html}
   </div>
-
-  <p class="text-center text-slate-500 text-sm">
-    Cópia do diagnóstico foi enviada pra <strong>{form.email}</strong>.
-    Vou te chamar no WhatsApp ({form.whatsapp}) nos próximos dias.
-  </p>
 </div>
 """

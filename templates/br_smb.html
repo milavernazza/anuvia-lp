@@ -28,12 +28,39 @@
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
+    .spinner-sm {
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.25);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+      vertical-align: middle;
+    }
     @keyframes spin { to { transform: rotate(360deg); } }
     /* Tailwind prose-invert fallback (no plugin loaded) */
     .prose strong { color: #fff; font-weight: 600; }
     .prose p { margin-bottom: 0.75rem; }
     .prose ul { list-style: disc; padding-left: 1.5rem; margin: 0.75rem 0; }
     .prose li { margin: 0.25rem 0; }
+    /* Booking pickers */
+    .day-pill, .slot-pill {
+      transition: all 0.15s; cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.04);
+    }
+    .day-pill:hover, .slot-pill:hover {
+      background: rgba(99,102,241,0.15);
+      border-color: rgba(99,102,241,0.5);
+    }
+    .day-pill.selected {
+      background: rgba(99,102,241,0.22);
+      border-color: #6366f1;
+      color: #c7d2fe;
+    }
+    .day-pill.empty, .slot-pill.empty {
+      opacity: 0.4; cursor: not-allowed; pointer-events: none;
+    }
   </style>
 </head>
 <body class="gradient-bg text-slate-100 min-h-screen">
@@ -312,6 +339,8 @@ async function submitForm() {
     resultEl.innerHTML = data.deliverable_html;
     resultEl.classList.remove('hidden');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Hydrate booking widget if present
+    initBookingWidget();
   } catch (e) {
     document.getElementById('loading').classList.add('hidden');
     document.getElementById('wizard').classList.remove('hidden');
@@ -319,6 +348,141 @@ async function submitForm() {
     btn.disabled = false;
     btn.textContent = 'Gerar meu diagnóstico →';
     errEl.textContent = 'Algo deu errado: ' + (e.message || 'tente novamente em instantes');
+    errEl.classList.remove('hidden');
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Booking widget — embedded picker that talks to /api/slots and /api/book
+// ----------------------------------------------------------------------------
+
+let bookingState = { leadId: null, days: [], selectedDate: null };
+
+async function initBookingWidget() {
+  const widget = document.getElementById('booking-widget');
+  if (!widget) return;
+  bookingState.leadId = widget.dataset.leadId || null;
+  if (!bookingState.leadId) {
+    widget.innerHTML = '<p class="text-slate-400 text-sm text-center">Não conseguimos preparar o agendamento. Te chamo no WhatsApp.</p>';
+    return;
+  }
+
+  widget.innerHTML = `
+    <div class="text-center text-slate-300 text-sm mb-3">📅 Escolha um horário pra discovery (30 min)</div>
+    <div id="booking-loading" class="text-center py-6">
+      <div class="spinner mx-auto" style="width:32px; height:32px;"></div>
+      <p class="text-slate-400 text-sm mt-3">Carregando horários disponíveis...</p>
+    </div>
+    <div id="booking-content" class="hidden">
+      <div class="mb-4">
+        <p class="text-slate-400 text-xs uppercase tracking-wider mb-2">Próximos dias</p>
+        <div id="day-row" class="flex flex-wrap gap-2"></div>
+      </div>
+      <div id="slot-section" class="hidden">
+        <p class="text-slate-400 text-xs uppercase tracking-wider mb-2">Horários disponíveis</p>
+        <div id="slot-grid" class="grid grid-cols-3 sm:grid-cols-4 gap-2"></div>
+      </div>
+      <div id="booking-error" class="hidden mt-3 text-rose-400 text-sm bg-rose-950/30 border border-rose-900/50 rounded-lg p-3"></div>
+    </div>
+    <div id="booking-success" class="hidden text-center py-4">
+      <div class="text-4xl mb-2">✅</div>
+      <p class="text-emerald-300 font-medium" id="booking-success-msg"></p>
+      <p class="text-slate-400 text-sm mt-2">Você vai receber confirmação por email + lembrete por WhatsApp.</p>
+    </div>
+  `;
+
+  try {
+    const r = await fetch('/api/slots?days=5', { cache: 'no-store' });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || `Erro ${r.status}`);
+    }
+    const data = await r.json();
+    bookingState.days = data.days || [];
+    document.getElementById('booking-loading').classList.add('hidden');
+    document.getElementById('booking-content').classList.remove('hidden');
+    renderDays();
+  } catch (e) {
+    document.getElementById('booking-loading').innerHTML =
+      `<p class="text-slate-400 text-sm">Não consegui carregar os horários. Te chamo no WhatsApp pra alinhar.</p>`;
+  }
+}
+
+function renderDays() {
+  const row = document.getElementById('day-row');
+  row.innerHTML = '';
+  for (const day of bookingState.days) {
+    const btn = document.createElement('button');
+    const empty = !day.slots || day.slots.length === 0;
+    btn.className = 'day-pill px-4 py-3 rounded-lg text-sm font-medium' + (empty ? ' empty' : '');
+    btn.innerHTML = `${day.label}<span class="block text-xs text-slate-500 mt-0.5">${empty ? 'sem horário' : day.slots.length + ' horários'}</span>`;
+    btn.dataset.date = day.date;
+    if (!empty) {
+      btn.addEventListener('click', () => selectDay(day.date));
+    }
+    row.appendChild(btn);
+  }
+}
+
+function selectDay(date) {
+  bookingState.selectedDate = date;
+  document.querySelectorAll('#day-row .day-pill').forEach(b => {
+    b.classList.toggle('selected', b.dataset.date === date);
+  });
+  const day = bookingState.days.find(d => d.date === date);
+  const grid = document.getElementById('slot-grid');
+  const sect = document.getElementById('slot-section');
+  grid.innerHTML = '';
+  if (!day || !day.slots.length) {
+    sect.classList.add('hidden');
+    return;
+  }
+  for (const slot of day.slots) {
+    const btn = document.createElement('button');
+    btn.className = 'slot-pill px-3 py-2 rounded-lg text-sm font-medium';
+    btn.textContent = slot;
+    btn.addEventListener('click', () => confirmBooking(date, slot, btn));
+    grid.appendChild(btn);
+  }
+  sect.classList.remove('hidden');
+  // Scroll the slot section into view
+  sect.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+async function confirmBooking(date, time, btn) {
+  const errEl = document.getElementById('booking-error');
+  errEl.classList.add('hidden');
+  const original = btn.innerHTML;
+  // Disable all slot buttons
+  document.querySelectorAll('#slot-grid .slot-pill').forEach(b => {
+    b.disabled = true;
+    b.style.opacity = '0.4';
+  });
+  btn.innerHTML = '<span class="spinner-sm"></span>';
+  btn.style.opacity = '1';
+
+  try {
+    const r = await fetch('/api/book', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ lead_id: bookingState.leadId, date, time }),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || `Erro ${r.status}`);
+    }
+    const data = await r.json();
+    document.getElementById('booking-content').classList.add('hidden');
+    document.getElementById('booking-success').classList.remove('hidden');
+    document.getElementById('booking-success-msg').textContent =
+      `Agendado pra ${data.pretty}`;
+  } catch (e) {
+    btn.innerHTML = original;
+    document.querySelectorAll('#slot-grid .slot-pill').forEach(b => {
+      b.disabled = false;
+      b.style.opacity = '1';
+    });
+    errEl.textContent = 'Não consegui agendar agora. ' + (e.message || '') + ' Tenta de novo ou aguarda meu WhatsApp.';
     errEl.classList.remove('hidden');
   }
 }
