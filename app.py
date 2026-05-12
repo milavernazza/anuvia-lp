@@ -767,12 +767,20 @@ async def _get_cached_access_token(
     return token
 
 
+def _is_holiday_calendar(cal_id: str, summary: str = "") -> bool:
+    """Exclude public holiday calendars from busy aggregation (they shouldn't block slots)."""
+    if "#holiday@group.v.calendar.google.com" in cal_id:
+        return True
+    s = (summary or "").lower()
+    return any(kw in s for kw in ("feriado", "festivo", "holiday", "feiertag", "festa"))
+
+
 async def _list_user_calendars(
     client: httpx.AsyncClient, access_token: str
-) -> list[str]:
-    """List all calendar IDs the user has access to. Includes primary + secondary calendars
-    that show up in the user's "My calendars" + "Other calendars" with at least freeBusyReader access.
-    Filters out hidden / deselected ones to match what the user actually treats as busy."""
+) -> list[dict]:
+    """List all calendars the user has access to with their accessRole.
+    Returns list of dicts: {id, summary, accessRole, primary}.
+    Filtered: must be selected (visible in UI), not deleted, not a holiday calendar."""
     try:
         r = await client.get(
             "https://www.googleapis.com/calendar/v3/users/me/calendarList",
@@ -782,22 +790,117 @@ async def _list_user_calendars(
         )
         if r.status_code != 200:
             log.warning("calendarList non-200: %s %s", r.status_code, r.text[:200])
-            return ["primary"]
+            return [{"id": "primary", "accessRole": "owner", "summary": "primary"}]
         items = r.json().get("items", []) or []
-        ids = []
+        out = []
         for c in items:
             cid = c.get("id")
             if not cid or c.get("deleted"):
                 continue
-            # Only respect calendars the user has marked as "selected" (checkbox in UI on the left).
-            # If selected is missing, default true (Google omits it sometimes).
             if c.get("selected") is False:
                 continue
-            ids.append(cid)
-        return ids or ["primary"]
+            if _is_holiday_calendar(cid, c.get("summary", "")):
+                continue
+            out.append({
+                "id": cid,
+                "summary": c.get("summary") or c.get("summaryOverride") or "",
+                "accessRole": c.get("accessRole") or "reader",
+                "primary": c.get("primary", False),
+            })
+        return out or [{"id": "primary", "accessRole": "owner", "summary": "primary"}]
     except Exception:
         log.exception("calendarList query failed")
-        return ["primary"]
+        return [{"id": "primary", "accessRole": "owner", "summary": "primary"}]
+
+
+async def _list_events_for_calendar(
+    client: httpx.AsyncClient, access_token: str, cal_id: str,
+    time_min_iso: str, time_max_iso: str,
+) -> list[tuple[datetime, datetime]]:
+    """Call events.list — captures ALL events regardless of transparency.
+    Skips cancelled, all-day, and out-of-office reflective events that shouldn't block."""
+    try:
+        import urllib.parse as _up
+        r = await client.get(
+            f"https://www.googleapis.com/calendar/v3/calendars/{_up.quote(cal_id)}/events",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params={
+                "timeMin": time_min_iso,
+                "timeMax": time_max_iso,
+                "singleEvents": "true",  # expand recurring
+                "orderBy": "startTime",
+                "timeZone": "America/Sao_Paulo",
+                "maxResults": "250",
+                "showDeleted": "false",
+            },
+            timeout=10,
+        )
+        if r.status_code != 200:
+            return []
+        items = (r.json() or {}).get("items", []) or []
+        out = []
+        for ev in items:
+            if ev.get("status") == "cancelled":
+                continue
+            # Skip events the user has declined
+            attendees = ev.get("attendees") or []
+            self_resp = next((a.get("responseStatus") for a in attendees if a.get("self")), None)
+            if self_resp == "declined":
+                continue
+            start_obj = ev.get("start") or {}
+            end_obj = ev.get("end") or {}
+            start_dt = start_obj.get("dateTime")
+            end_dt = end_obj.get("dateTime")
+            if not start_dt or not end_dt:
+                continue  # all-day events — don't block slots
+            try:
+                s = datetime.fromisoformat(start_dt.replace("Z", "+00:00")).astimezone(TZ_SP)
+                e = datetime.fromisoformat(end_dt.replace("Z", "+00:00")).astimezone(TZ_SP)
+                out.append((s, e))
+            except ValueError:
+                continue
+        return out
+    except Exception:
+        log.exception("events.list failed for %s", cal_id)
+        return []
+
+
+async def _query_freebusy_via_events(
+    client: httpx.AsyncClient,
+    access_token: str,
+    cal_id: str,
+    time_min_iso: str,
+    time_max_iso: str,
+) -> list[tuple[datetime, datetime]]:
+    """freeBusy fallback for freeBusyReader-only calendars (events.list requires reader+)."""
+    try:
+        r = await client.post(
+            "https://www.googleapis.com/calendar/v3/freeBusy",
+            headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+            json={
+                "timeMin": time_min_iso,
+                "timeMax": time_max_iso,
+                "items": [{"id": cal_id}],
+                "timeZone": "America/Sao_Paulo",
+            },
+            timeout=10,
+        )
+        if r.status_code != 200:
+            return []
+        data = r.json()
+        cal_data = (data.get("calendars") or {}).get(cal_id, {})
+        out = []
+        for b in (cal_data.get("busy") or []):
+            try:
+                s = datetime.fromisoformat(b["start"].replace("Z", "+00:00")).astimezone(TZ_SP)
+                e = datetime.fromisoformat(b["end"].replace("Z", "+00:00")).astimezone(TZ_SP)
+                out.append((s, e))
+            except (KeyError, ValueError):
+                continue
+        return out
+    except Exception:
+        log.exception("freeBusy fallback failed for %s", cal_id)
+        return []
 
 
 async def _query_freebusy(
@@ -807,40 +910,27 @@ async def _query_freebusy(
     time_min_iso: str,
     time_max_iso: str,
 ) -> list[tuple[datetime, datetime]]:
-    """Call Google Calendar freeBusy across ALL the user's selected calendars (not just primary).
-    Returns list of (start, end) busy intervals in TZ_SP."""
-    cal_ids = await _list_user_calendars(client, access_token)
+    """Hybrid busy-range fetcher across ALL user's calendars:
+    - reader+ access → events.list (captures transparency=transparent events too)
+    - freeBusyReader only → freeBusy (only busy events visible to us)
+    Excludes holiday calendars + declined events + all-day events."""
+    cals = await _list_user_calendars(client, access_token)
     intervals: list[tuple[datetime, datetime]] = []
 
-    # FreeBusy supports up to 50 calendars per request — chunk if needed.
-    for i in range(0, len(cal_ids), 50):
-        chunk = cal_ids[i:i + 50]
-        try:
-            r = await client.post(
-                "https://www.googleapis.com/calendar/v3/freeBusy",
-                headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
-                json={
-                    "timeMin": time_min_iso,
-                    "timeMax": time_max_iso,
-                    "items": [{"id": cid} for cid in chunk],
-                    "timeZone": "America/Sao_Paulo",
-                },
-                timeout=10,
+    async def _one(cal: dict) -> list[tuple[datetime, datetime]]:
+        role = cal.get("accessRole") or "freeBusyReader"
+        if role in ("owner", "writer", "reader"):
+            return await _list_events_for_calendar(
+                client, access_token, cal["id"], time_min_iso, time_max_iso
             )
-            if r.status_code != 200:
-                log.warning("freeBusy non-200: %s %s", r.status_code, r.text[:200])
-                continue
-            data = r.json()
-            for _cid, cal_data in (data.get("calendars") or {}).items():
-                for b in (cal_data.get("busy") or []):
-                    try:
-                        s = datetime.fromisoformat(b["start"].replace("Z", "+00:00")).astimezone(TZ_SP)
-                        e = datetime.fromisoformat(b["end"].replace("Z", "+00:00")).astimezone(TZ_SP)
-                        intervals.append((s, e))
-                    except (KeyError, ValueError):
-                        continue
-        except Exception:
-            log.exception("freeBusy chunk query failed")
+        return await _query_freebusy_via_events(
+            client, access_token, cal["id"], time_min_iso, time_max_iso
+        )
+
+    results = await asyncio.gather(*(_one(c) for c in cals), return_exceptions=True)
+    for r in results:
+        if isinstance(r, list):
+            intervals.extend(r)
     return intervals
 
 
