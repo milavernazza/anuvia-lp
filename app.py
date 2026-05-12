@@ -963,6 +963,83 @@ async def admin_gcal_callback(request: Request, code: Optional[str] = None, stat
     )
 
 
+@app.get("/api/admin/gcal/debug-busy")
+async def admin_gcal_debug_busy(request: Request, date: str):
+    """Debug: dump raw busy ranges from all accounts for a given date (YYYY-MM-DD).
+    Usage: /api/admin/gcal/debug-busy?key=XXX&date=2026-05-13"""
+    _admin_auth(request)
+    try:
+        day = datetime.strptime(date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="date must be YYYY-MM-DD")
+    time_min = datetime.combine(day, datetime.min.time(), tzinfo=TZ_SP)
+    time_max = datetime.combine(day, datetime.max.time(), tzinfo=TZ_SP)
+    time_min_iso = time_min.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    time_max_iso = time_max.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    out = {"date": date, "time_min_iso": time_min_iso, "time_max_iso": time_max_iso, "accounts": []}
+    async with httpx.AsyncClient(timeout=15) as client:
+        accounts = await _fetch_active_gcal_accounts(client)
+        for acc in accounts:
+            email = acc["email"]
+            cal_id = acc.get("calendar_id") or "primary"
+            token = await _get_cached_access_token(client, email, acc["refresh_token"])
+            entry = {"email": email, "calendar_id": cal_id, "got_access_token": bool(token)}
+            if not token:
+                out["accounts"].append(entry)
+                continue
+            # Raw freebusy call
+            try:
+                r = await client.post(
+                    "https://www.googleapis.com/calendar/v3/freeBusy",
+                    headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                    json={"timeMin": time_min_iso, "timeMax": time_max_iso, "items": [{"id": cal_id}], "timeZone": "America/Sao_Paulo"},
+                    timeout=10,
+                )
+                entry["freebusy_status"] = r.status_code
+                if r.status_code == 200:
+                    entry["freebusy_response"] = r.json()
+                else:
+                    entry["freebusy_error"] = r.text[:300]
+            except Exception as e:
+                entry["freebusy_exception"] = str(e)
+            # Also list events directly (with transparency info) to debug transparency issue
+            try:
+                er = await client.get(
+                    f"https://www.googleapis.com/calendar/v3/calendars/{cal_id}/events",
+                    headers={"Authorization": f"Bearer {token}"},
+                    params={
+                        "timeMin": time_min_iso,
+                        "timeMax": time_max_iso,
+                        "singleEvents": "true",
+                        "orderBy": "startTime",
+                        "timeZone": "America/Sao_Paulo",
+                        "maxResults": "50",
+                    },
+                    timeout=10,
+                )
+                entry["events_status"] = er.status_code
+                if er.status_code == 200:
+                    evs = er.json().get("items", [])
+                    entry["events"] = [
+                        {
+                            "summary": e.get("summary", "(no title)"),
+                            "start": e.get("start"),
+                            "end": e.get("end"),
+                            "transparency": e.get("transparency", "opaque"),
+                            "status": e.get("status"),
+                            "visibility": e.get("visibility"),
+                            "event_type": e.get("eventType"),
+                        }
+                        for e in evs
+                    ]
+                else:
+                    entry["events_error"] = er.text[:300]
+            except Exception as e:
+                entry["events_exception"] = str(e)
+            out["accounts"].append(entry)
+    return JSONResponse(out)
+
+
 @app.get("/api/admin/gcal/accounts")
 async def admin_gcal_list(request: Request):
     """List connected Google accounts (admin only)."""
