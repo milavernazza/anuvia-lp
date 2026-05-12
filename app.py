@@ -1765,23 +1765,19 @@ DEFAULT_LANG = "pt"
 
 def get_locale(request: Request) -> dict:
     """Resolve language + currency for this request.
-    Returns: {lang: 'pt'|'en', lang_full: 'pt-BR'|'en-US', currency: 'BRL'|'USD',
-              currency_symbol, host_default_lang, market: 'BR'|'US'}"""
+    STRICT host binding: anuvia.com.br = PT only, anuvia.net = EN only.
+    No ?lang= override and no cookie override — user crosses domains to change language.
+    Localhost falls back to ?lang= for dev convenience."""
     host = (request.headers.get("host") or "").lower().split(":")[0]
-    host_lang = "en" if host.endswith("anuvia.net") else "pt"
+    is_en_host = host.endswith("anuvia.net")
+    is_localhost = host in ("localhost", "127.0.0.1") or host.startswith("127.")
 
-    # 1. URL override
-    qlang = request.query_params.get("lang", "").lower()
-    if qlang in SUPPORTED_LANGS:
-        chosen = qlang
+    if is_localhost:
+        # Dev mode: respect ?lang= override
+        qlang = request.query_params.get("lang", "").lower()
+        chosen = qlang if qlang in SUPPORTED_LANGS else DEFAULT_LANG
     else:
-        # 2. Cookie
-        cookie_lang = (request.cookies.get(LOCALE_COOKIE, "") or "").lower()
-        if cookie_lang in SUPPORTED_LANGS:
-            chosen = cookie_lang
-        else:
-            # 3. Host default
-            chosen = host_lang
+        chosen = "en" if is_en_host else "pt"
 
     lang_full = "pt-BR" if chosen == "pt" else "en-US"
     market = "BR" if chosen == "pt" else "US"
@@ -1794,7 +1790,7 @@ def get_locale(request: Request) -> dict:
         "market": market,
         "currency": currency,
         "currency_symbol": currency_symbol,
-        "host_default_lang": host_lang,
+        "host_default_lang": "en" if is_en_host else "pt",
         "host": host,
     }
 
@@ -1848,7 +1844,7 @@ TRANSLATIONS = {
         "footer_blog": "Blog",
         "footer_contact": "Contato",
         "lang_toggle_to": "EN",
-        "lang_toggle_to_url": "?lang=en",
+        "lang_toggle_to_url": "https://anuvia.net",
     },
     "en": {
         "nav_cloud": "Cloud",
@@ -1870,7 +1866,7 @@ TRANSLATIONS = {
         "footer_blog": "Blog",
         "footer_contact": "Contact",
         "lang_toggle_to": "PT",
-        "lang_toggle_to_url": "?lang=pt",
+        "lang_toggle_to_url": "https://anuvia.com.br",
     },
 }
 
@@ -1893,17 +1889,7 @@ def tpl_ctx(request: Request, **extra) -> dict:
     return ctx
 
 
-@app.middleware("http")
-async def set_lang_cookie(request: Request, call_next):
-    """When user clicks ?lang= toggle, persist choice in cookie for 30 days."""
-    qlang = request.query_params.get("lang", "").lower()
-    response = await call_next(request)
-    if qlang in SUPPORTED_LANGS:
-        response.set_cookie(
-            LOCALE_COOKIE, qlang, max_age=60 * 60 * 24 * 30,
-            samesite="lax", httponly=False,
-        )
-    return response
+# Removed lang-cookie middleware — strict host binding now (anuvia.com.br=PT, anuvia.net=EN).
 
 
 @app.get("/", response_class=HTMLResponse)

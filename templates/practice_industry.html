@@ -7,13 +7,13 @@
   <p class="eyebrow mb-6">Anuvia · Practices · 05</p>
   <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">Anuvia Industry</h1>
   <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-12">
-    Verticalized solutions with proprietary IP. Playbooks accumulated across manufacturing, logistics, healthcare, life sciences and financial services.
+    Verticalized solutions with accumulated playbooks across manufacturing, logistics, healthcare, life sciences and financial services. Each engagement builds on prior delivery patterns rather than starting from scratch.
   </p>
   {% else %}
   <p class="eyebrow mb-6">Anuvia · Práticas · 05</p>
   <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">Anuvia Industry</h1>
   <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-12">
-    Soluções verticalizadas com IP próprio. Playbooks acumulados em manufatura, logística, healthcare, life sciences e serviços financeiros.
+    Soluções verticalizadas com playbooks acumulados em manufatura, logística, healthcare, life sciences e serviços financeiros. Cada engagement parte de padrões de entrega anteriores em vez de começar do zero.
   </p>
   {% endif %}
 </section>
@@ -40,8 +40,8 @@
       <p class="text-xs text-subtle"><strong>Typical ticket:</strong> {{ fmt_price('R$ 120-300k') }} pilot, {{ fmt_price('R$ 8-20k') }}/month ongoing.</p>
       {% else %}
       <h3 class="h-serif text-2xl mb-4">Manufatura</h3>
-      <p class="text-sm text-ink/70 leading-relaxed mb-5">Predictive maintenance, MES/ERP integration, OEE optimization, computer vision na linha de produção, fusion de sensores.</p>
-      <p class="text-xs text-subtle mb-2"><strong>Casos típicos:</strong> sensores + anomaly detection + CMMS para reduzir downtime; visão computacional pra quality control.</p>
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Predictive maintenance, integração MES/ERP, otimização de OEE, visão computacional na linha de produção, sensor fusion.</p>
+      <p class="text-xs text-subtle mb-2"><strong>Casos típicos:</strong> sensores + anomaly detection + CMMS para reduzir downtime; visão computacional para quality control.</p>
       <p class="text-xs text-subtle"><strong>Ticket típico:</strong> R$ 120-300k pilot, R$ 8-20k/mês ongoing.</p>
       {% endif %}
     </div>
@@ -55,8 +55,8 @@
       <p class="text-xs text-subtle"><strong>Typical ticket:</strong> {{ fmt_price('R$ 100-250k') }} pilot, {{ fmt_price('R$ 5-15k') }}/month ongoing.</p>
       {% else %}
       <h3 class="h-serif text-2xl mb-4">Logística</h3>
-      <p class="text-sm text-ink/70 leading-relaxed mb-5">Fleet telemetry offline-first, route optimization, supply chain visibility, last-mile tracking.</p>
-      <p class="text-xs text-subtle mb-2"><strong>Casos típicos:</strong> plataforma de telemetria com fallback satélite; ML pra otimizar rotas e ETAs.</p>
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Telemetria de frota offline-first, otimização de rota, supply chain visibility, last-mile tracking.</p>
+      <p class="text-xs text-subtle mb-2"><strong>Casos típicos:</strong> plataforma de telemetria com fallback satélite; ML para otimizar rotas e ETAs.</p>
       <p class="text-xs text-subtle"><strong>Ticket típico:</strong> R$ 100-250k pilot, R$ 5-15k/mês ongoing.</p>
       {% endif %}
     </div>
@@ -64,30 +64,30 @@
     <div class="card p-8">
       <p class="eyebrow mb-3 text-accent">Healthcare</p>
       {% if lang == 'en' %}
-      <h3 class="h-serif text-2xl mb-4">Healthcare — Med.ia</h3>
-      <p class="text-sm text-ink/70 leading-relaxed mb-5">Vertical product in design partner stage. AI applied to clinical workflows, medical documentation, intelligent triage. Healthcare compliance native.</p>
-      <p class="text-xs text-subtle mb-2"><strong>Typical case:</strong> clinical assistant that reduces documentation time by 40%.</p>
-      <p class="text-xs text-subtle"><strong>Typical ticket:</strong> {{ fmt_price('R$ 80-200k') }} pilot + {{ fmt_price('R$ 5-12k') }}/month license.</p>
+      <h3 class="h-serif text-2xl mb-4">Healthcare</h3>
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">AI applied to clinical workflows, medical documentation, intelligent triage. Healthcare compliance native (LGPD, HIPAA, sector regulations).</p>
+      <p class="text-xs text-subtle mb-2"><strong>Typical cases:</strong> clinical assistant that reduces documentation time; RAG over institutional protocols; triage automation in patient intake.</p>
+      <p class="text-xs text-subtle"><strong>Typical ticket:</strong> {{ fmt_price('R$ 80-200k') }} pilot + {{ fmt_price('R$ 5-12k') }}/month operation.</p>
       {% else %}
-      <h3 class="h-serif text-2xl mb-4">Healthcare — Med.ia</h3>
-      <p class="text-sm text-ink/70 leading-relaxed mb-5">Produto vertical em design partner stage. IA aplicada a clinical workflows, documentação médica, triagem inteligente. Compliance LGPD-saúde nativa.</p>
-      <p class="text-xs text-subtle mb-2"><strong>Caso típico:</strong> assistente clínico que reduz tempo de documentação em 40%.</p>
-      <p class="text-xs text-subtle"><strong>Ticket típico:</strong> R$ 80-200k pilot + R$ 5-12k/mês license.</p>
+      <h3 class="h-serif text-2xl mb-4">Healthcare</h3>
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">IA aplicada a clinical workflows, documentação médica, triagem inteligente. Compliance nativo do setor (LGPD-saúde, normas regulatórias).</p>
+      <p class="text-xs text-subtle mb-2"><strong>Casos típicos:</strong> assistente clínico que reduz tempo de documentação; RAG sobre protocolos institucionais; automação de triagem em intake.</p>
+      <p class="text-xs text-subtle"><strong>Ticket típico:</strong> R$ 80-200k pilot + R$ 5-12k/mês operação.</p>
       {% endif %}
     </div>
 
     <div class="card p-8">
       <p class="eyebrow mb-3 text-accent">Life Sciences</p>
       {% if lang == 'en' %}
-      <h3 class="h-serif text-2xl mb-4">Life Sciences — Termofisher AI Drafter</h3>
-      <p class="text-sm text-ink/70 leading-relaxed mb-5">Vertical product in design partner stage. AI drafter for regulatory documentation in pharma/biotech. GxP-aware from day 1.</p>
-      <p class="text-xs text-subtle mb-2"><strong>Typical case:</strong> automation of SOPs, protocols, regulatory documents with validation packages.</p>
-      <p class="text-xs text-subtle"><strong>Typical ticket:</strong> {{ fmt_price('R$ 100-250k') }} pilot + {{ fmt_price('R$ 8-15k') }}/month license.</p>
+      <h3 class="h-serif text-2xl mb-4">Life Sciences</h3>
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">AI for regulatory documentation in pharma and biotech. GxP-aware from day one. Validation packages bundled with delivery.</p>
+      <p class="text-xs text-subtle mb-2"><strong>Typical cases:</strong> automation of SOPs, protocols, regulatory documents; structured retrieval over technical literature.</p>
+      <p class="text-xs text-subtle"><strong>Typical ticket:</strong> {{ fmt_price('R$ 100-250k') }} pilot + {{ fmt_price('R$ 8-15k') }}/month operation.</p>
       {% else %}
-      <h3 class="h-serif text-2xl mb-4">Life Sciences — Termofisher AI Drafter</h3>
-      <p class="text-sm text-ink/70 leading-relaxed mb-5">Produto vertical em design partner stage. AI drafter para documentação regulatória pharma/biotech. GxP-aware desde dia 1.</p>
-      <p class="text-xs text-subtle mb-2"><strong>Caso típico:</strong> automação de SOPs, protocolos, regulatory documents com validation packages.</p>
-      <p class="text-xs text-subtle"><strong>Ticket típico:</strong> R$ 100-250k pilot + R$ 8-15k/mês license.</p>
+      <h3 class="h-serif text-2xl mb-4">Life Sciences</h3>
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">IA para documentação regulatória em pharma e biotech. GxP-aware desde o primeiro dia. Validation packages entregues junto com a solução.</p>
+      <p class="text-xs text-subtle mb-2"><strong>Casos típicos:</strong> automação de SOPs, protocolos, documentação regulatória; recuperação estruturada sobre literatura técnica.</p>
+      <p class="text-xs text-subtle"><strong>Ticket típico:</strong> R$ 100-250k pilot + R$ 8-15k/mês operação.</p>
       {% endif %}
     </div>
 
@@ -96,12 +96,12 @@
       {% if lang == 'en' %}
       <h3 class="h-serif text-2xl mb-4">Financial Services</h3>
       <p class="text-sm text-ink/70 leading-relaxed mb-5">Fraud detection, compliance automation, AML monitoring, KYC customer onboarding, document processing.</p>
-      <p class="text-xs text-subtle mb-2"><strong>Typical cases:</strong> RAG over regulatory norms + compliance alerts; ML for real-time fraud detection.</p>
+      <p class="text-xs text-subtle mb-2"><strong>Typical cases:</strong> RAG over regulatory norms with compliance alerting; ML for real-time fraud detection.</p>
       <p class="text-xs text-subtle"><strong>Typical ticket:</strong> {{ fmt_price('R$ 80-180k') }} sprint, {{ fmt_price('R$ 8-20k') }}/month ongoing.</p>
       {% else %}
       <h3 class="h-serif text-2xl mb-4">Serviços Financeiros</h3>
-      <p class="text-sm text-ink/70 leading-relaxed mb-5">Fraud detection, compliance automation, AML monitoring, customer onboarding KYC, document processing.</p>
-      <p class="text-xs text-subtle mb-2"><strong>Casos típicos:</strong> RAG sobre normativos BACEN + alertas de compliance; ML pra detecção de fraude em tempo real.</p>
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Detecção de fraude, automação de compliance, AML monitoring, onboarding KYC, processamento documental.</p>
+      <p class="text-xs text-subtle mb-2"><strong>Casos típicos:</strong> RAG sobre normativos BACEN com alerta de compliance; ML para detecção de fraude em tempo real.</p>
       <p class="text-xs text-subtle"><strong>Ticket típico:</strong> R$ 80-180k sprint, R$ 8-20k/mês ongoing.</p>
       {% endif %}
     </div>
@@ -110,12 +110,12 @@
       {% if lang == 'en' %}
       <p class="eyebrow mb-3 text-paper/60">Your vertical isn't here?</p>
       <h3 class="h-serif text-2xl mb-4">Exploratory call</h3>
-      <p class="text-sm text-paper/80 leading-relaxed mb-5">30 min to understand if it makes sense to build a playbook for your industry. Anuvia has strong horizontal technical capability; verticals we develop when a pattern repeats.</p>
+      <p class="text-sm text-paper/80 leading-relaxed mb-5">Thirty minutes to assess whether a playbook is worth developing for your industry. Anuvia operates with strong horizontal technical capability; verticals are formalized when a pattern repeats across engagements.</p>
       <a href="/contact" class="text-sm font-medium underline">Book →</a>
       {% else %}
-      <p class="eyebrow mb-3 text-paper/60">Sua vertical não tá aqui?</p>
+      <p class="eyebrow mb-3 text-paper/60">Sua vertical não está aqui?</p>
       <h3 class="h-serif text-2xl mb-4">Conversa exploratória</h3>
-      <p class="text-sm text-paper/80 leading-relaxed mb-5">30 min pra entender se faz sentido construirmos playbook pra sua indústria. Anuvia tem capacidade técnica horizontal forte; vertical leveramos quando há padrão recorrente.</p>
+      <p class="text-sm text-paper/80 leading-relaxed mb-5">Trinta minutos para avaliar se vale formalizar playbook para sua indústria. A Anuvia opera com forte capacidade técnica horizontal; verticais são consolidadas quando o padrão se repete entre engagements.</p>
       <a href="/contact" class="text-sm font-medium underline">Agendar →</a>
       {% endif %}
     </div>
@@ -128,38 +128,38 @@
 <section class="max-w-6xl mx-auto px-6 py-20">
   {% if lang == 'en' %}
   <p class="eyebrow mb-4">How it works</p>
-  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight max-w-3xl">Vertical = playbook + product + delivery.</h2>
+  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight max-w-3xl">Playbook, delivery, evolution.</h2>
 
   <div class="grid md:grid-cols-3 gap-10">
     <div>
       <p class="h-serif text-3xl mb-3">Playbook</p>
-      <p class="text-ink/70 leading-relaxed">We accumulate IP by vertical: reference architectures, code skeletons, standardized deliverables, compliance frameworks. A new client in that vertical doesn't start from zero.</p>
-    </div>
-    <div>
-      <p class="h-serif text-3xl mb-3">Product</p>
-      <p class="text-ink/70 leading-relaxed">Where the pattern is recurrent enough, we turn it into a SaaS product (e.g.: Med.ia, Termofisher AI Drafter). Client buys license + setup + recurring.</p>
+      <p class="text-ink/70 leading-relaxed">Intellectual property accumulates per vertical: reference architectures, code skeletons, standardized deliverables, compliance frameworks. New engagements in a vertical inherit this baseline rather than rebuilding from scratch.</p>
     </div>
     <div>
       <p class="h-serif text-3xl mb-3">Delivery</p>
-      <p class="text-ink/70 leading-relaxed">Anuvia's agent squad + technical leadership (Mila) execute delivery. Low marginal cost, high quality, short time-to-deliver.</p>
+      <p class="text-ink/70 leading-relaxed">A senior Solutions Architect leads scope and architecture decisions. Implementation is executed by a specialized agent squad with human review at each gate. Low marginal cost without sacrificing depth.</p>
+    </div>
+    <div>
+      <p class="h-serif text-3xl mb-3">Evolution</p>
+      <p class="text-ink/70 leading-relaxed">When a pattern repeats across enough engagements, the playbook graduates into a productized offering. Clients of that vertical then have a faster, more economical path to production.</p>
     </div>
   </div>
   {% else %}
   <p class="eyebrow mb-4">Como funciona</p>
-  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight max-w-3xl">Vertical = playbook + produto + delivery.</h2>
+  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight max-w-3xl">Playbook, delivery, evolução.</h2>
 
   <div class="grid md:grid-cols-3 gap-10">
     <div>
       <p class="h-serif text-3xl mb-3">Playbook</p>
-      <p class="text-ink/70 leading-relaxed">Acumulamos IP por vertical: arquiteturas referência, code skeletons, deliverables padronizados, compliance frameworks. Cliente novo dessa vertical não começa do zero.</p>
-    </div>
-    <div>
-      <p class="h-serif text-3xl mb-3">Produto</p>
-      <p class="text-ink/70 leading-relaxed">Onde o padrão é recorrente o suficiente, viramos produto SaaS (ex: Med.ia, Termofisher AI Drafter). Cliente compra licença + setup + recurring.</p>
+      <p class="text-ink/70 leading-relaxed">Propriedade intelectual acumula por vertical: arquiteturas referência, code skeletons, deliverables padronizados, compliance frameworks. Engagements novos herdam essa base ao invés de reconstruir do zero.</p>
     </div>
     <div>
       <p class="h-serif text-3xl mb-3">Delivery</p>
-      <p class="text-ink/70 leading-relaxed">Squad de agentes Anuvia + leadership técnico (Mila) executam delivery. Custo marginal baixo, qualidade alta, time-to-deliver curto.</p>
+      <p class="text-ink/70 leading-relaxed">Solutions Architect sênior conduz decisões de escopo e arquitetura. Implementação roda numa squad de agentes especializados com revisão humana em cada gate. Custo marginal baixo sem sacrificar profundidade.</p>
+    </div>
+    <div>
+      <p class="h-serif text-3xl mb-3">Evolução</p>
+      <p class="text-ink/70 leading-relaxed">Quando um padrão se repete em engagements suficientes, o playbook gradua para oferta produtizada. Clientes daquela vertical passam a ter caminho mais rápido e econômico para produção.</p>
     </div>
   </div>
   {% endif %}
@@ -168,12 +168,12 @@
 <section class="max-w-4xl mx-auto px-6 py-24 text-center">
   {% if lang == 'en' %}
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Next step.</h2>
-  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">30-min exploratory call to understand if your vertical fits Anuvia Industry, or if bespoke Anuvia AI Engineering is the better path.</p>
-  <a href="/contact" class="btn-primary text-base inline-block">30-min call</a>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Thirty-minute exploratory call to assess fit with Anuvia Industry, or whether a bespoke Anuvia AI Engineering engagement is the better path.</p>
+  <a href="/contact" class="btn-primary text-base inline-block">Book a 30-minute call</a>
   {% else %}
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Próximo passo.</h2>
-  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Conversa exploratória de 30 min pra entender se sua vertical tem fit com Anuvia Industry, ou se Anuvia AI Engineering bespoke é melhor caminho.</p>
-  <a href="/contact" class="btn-primary text-base inline-block">Conversa 30min</a>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Conversa exploratória de trinta minutos para avaliar fit com Anuvia Industry, ou se um engagement bespoke da Anuvia AI Engineering é o melhor caminho.</p>
+  <a href="/contact" class="btn-primary text-base inline-block">Agendar conversa</a>
   {% endif %}
 </section>
 
