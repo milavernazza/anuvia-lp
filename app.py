@@ -61,6 +61,18 @@ EASY_BASE = os.environ.get(
 EASY_PROVIDER_ID = int(os.environ.get("EASYAPPOINTMENTS_PROVIDER_ID", "2"))
 TZ_SP = ZoneInfo("America/Sao_Paulo")
 
+# Google Calendar — server-side multi-account freebusy
+# Reuses Easyappointments OAuth client (same project) by adding callback URI in GCP.
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+GCAL_REDIRECT_URI = os.environ.get(
+    "GCAL_REDIRECT_URI", "https://anuvia.com.br/api/admin/gcal/callback"
+)
+ADMIN_API_KEY = os.environ.get("ADMIN_API_KEY", "")  # required for /api/admin/* routes
+
+# In-memory access token cache: {email: (access_token, expires_at_epoch)}
+_GCAL_TOKEN_CACHE: dict[str, tuple[str, float]] = {}
+
 # Per-funnel routing config. Each funnel has its own Easyappointments service
 # (different durations) and prompt persona / questions.
 FUNNEL_CONFIG: dict[str, dict] = {
@@ -681,6 +693,305 @@ def _coarse_slots(slots: list[str], step_min: int = 30, max_per_day: int = 8) ->
     return [half[int(i * step)] for i in range(max_per_day)]
 
 
+# ============================================================================
+# Multi-account Google Calendar freebusy
+# Lets Mila add N Google accounts; their busy ranges block booking slots.
+# ============================================================================
+
+import time as _time
+import secrets as _secrets
+from urllib.parse import urlencode as _urlencode
+
+
+def _admin_auth(request: Request) -> None:
+    """Raise 401 if admin key is missing or wrong. Accepts ?key= or Bearer header."""
+    if not ADMIN_API_KEY:
+        raise HTTPException(status_code=503, detail="Admin API not configured")
+    key = request.query_params.get("key") or ""
+    if not key:
+        auth = request.headers.get("authorization", "")
+        if auth.lower().startswith("bearer "):
+            key = auth[7:]
+    if key != ADMIN_API_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
+async def _fetch_active_gcal_accounts(client: httpx.AsyncClient) -> list[dict]:
+    """Get all active Google accounts from Supabase."""
+    try:
+        r = await client.get(
+            f"{SUPA_URL}/admin_gcal_accounts?is_active=eq.true&select=id,email,refresh_token,calendar_id",
+            headers=SUPA_HEADERS,
+        )
+        if r.status_code == 200:
+            return r.json() or []
+        log.warning("fetch_gcal_accounts non-200: %s", r.status_code)
+    except Exception:
+        log.exception("fetch_gcal_accounts failed")
+    return []
+
+
+async def _exchange_refresh_token(client: httpx.AsyncClient, refresh_token: str) -> Optional[str]:
+    """Exchange a refresh_token for a fresh access_token via Google OAuth."""
+    try:
+        r = await client.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "client_id": GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "refresh_token": refresh_token,
+                "grant_type": "refresh_token",
+            },
+            timeout=10,
+        )
+        if r.status_code == 200:
+            return r.json().get("access_token")
+        log.warning("refresh_token exchange non-200: %s %s", r.status_code, r.text[:200])
+    except Exception:
+        log.exception("refresh_token exchange failed")
+    return None
+
+
+async def _get_cached_access_token(
+    client: httpx.AsyncClient, email: str, refresh_token: str
+) -> Optional[str]:
+    """Return cached access token if still valid (5 min buffer), else refresh."""
+    now = _time.time()
+    cached = _GCAL_TOKEN_CACHE.get(email)
+    if cached and cached[1] - now > 300:
+        return cached[0]
+    token = await _exchange_refresh_token(client, refresh_token)
+    if token:
+        # Access tokens are valid 1h; cache for 55 min
+        _GCAL_TOKEN_CACHE[email] = (token, now + 55 * 60)
+    return token
+
+
+async def _query_freebusy(
+    client: httpx.AsyncClient,
+    access_token: str,
+    calendar_id: str,
+    time_min_iso: str,
+    time_max_iso: str,
+) -> list[tuple[datetime, datetime]]:
+    """Call Google Calendar freeBusy. Returns list of (start, end) busy intervals in TZ_SP."""
+    try:
+        r = await client.post(
+            "https://www.googleapis.com/calendar/v3/freeBusy",
+            headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+            json={
+                "timeMin": time_min_iso,
+                "timeMax": time_max_iso,
+                "items": [{"id": calendar_id or "primary"}],
+                "timeZone": "America/Sao_Paulo",
+            },
+            timeout=10,
+        )
+        if r.status_code != 200:
+            log.warning("freeBusy non-200: %s %s", r.status_code, r.text[:200])
+            return []
+        data = r.json()
+        cal_data = data.get("calendars", {}).get(calendar_id or "primary", {})
+        busy = cal_data.get("busy", []) or []
+        intervals = []
+        for b in busy:
+            try:
+                s = datetime.fromisoformat(b["start"].replace("Z", "+00:00")).astimezone(TZ_SP)
+                e = datetime.fromisoformat(b["end"].replace("Z", "+00:00")).astimezone(TZ_SP)
+                intervals.append((s, e))
+            except (KeyError, ValueError):
+                continue
+        return intervals
+    except Exception:
+        log.exception("freeBusy query failed for %s", calendar_id)
+        return []
+
+
+async def fetch_all_busy_ranges(
+    client: httpx.AsyncClient, time_min: datetime, time_max: datetime
+) -> list[tuple[datetime, datetime]]:
+    """Aggregate busy ranges from all active Google accounts."""
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        return []
+    accounts = await _fetch_active_gcal_accounts(client)
+    if not accounts:
+        return []
+    time_min_iso = time_min.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    time_max_iso = time_max.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+    async def _one(acc):
+        token = await _get_cached_access_token(client, acc["email"], acc["refresh_token"])
+        if not token:
+            return []
+        return await _query_freebusy(
+            client, token, acc.get("calendar_id") or "primary", time_min_iso, time_max_iso
+        )
+
+    all_results = await asyncio.gather(*(_one(a) for a in accounts), return_exceptions=True)
+    merged: list[tuple[datetime, datetime]] = []
+    for res in all_results:
+        if isinstance(res, list):
+            merged.extend(res)
+    return merged
+
+
+def _slot_conflicts_with_busy(
+    slot_start: datetime, slot_duration_min: int, busy_ranges: list[tuple[datetime, datetime]]
+) -> bool:
+    """True if a slot [start, start+duration) overlaps any busy interval."""
+    slot_end = slot_start + timedelta(minutes=slot_duration_min)
+    for b_start, b_end in busy_ranges:
+        # Overlap iff slot_start < b_end and b_start < slot_end
+        if slot_start < b_end and b_start < slot_end:
+            return True
+    return False
+
+
+# ---------------------- Admin OAuth flow endpoints ----------------------
+
+@app.get("/api/admin/gcal/connect")
+async def admin_gcal_connect(request: Request, email: str):
+    """Start OAuth flow. Mila visits this URL once per Google account she wants tracked.
+    Example: /api/admin/gcal/connect?key=XXX&email=milavernazza@gmail.com"""
+    _admin_auth(request)
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=503, detail="GOOGLE_CLIENT_ID not set in env")
+    # Generate a state token that encodes email + nonce (signed by ADMIN_API_KEY)
+    nonce = _secrets.token_urlsafe(16)
+    state_raw = f"{email}|{nonce}"
+    state_sig = _secrets.token_urlsafe(8)  # Simple — relies on ADMIN_API_KEY auth on callback
+    state = f"{state_raw}|{state_sig}"
+    params = {
+        "client_id": GOOGLE_CLIENT_ID,
+        "redirect_uri": GCAL_REDIRECT_URI,
+        "response_type": "code",
+        "scope": "https://www.googleapis.com/auth/calendar.readonly",
+        "access_type": "offline",
+        "prompt": "consent",  # Force refresh_token return even if previously consented
+        "login_hint": email,
+        "state": state,
+    }
+    url = "https://accounts.google.com/o/oauth2/v2/auth?" + _urlencode(params)
+    return RedirectResponse(url=url, status_code=302)
+
+
+@app.get("/api/admin/gcal/callback")
+async def admin_gcal_callback(request: Request, code: Optional[str] = None, state: Optional[str] = None, error: Optional[str] = None):
+    """OAuth callback. Exchanges code for refresh_token, persists in Supabase."""
+    if error:
+        return HTMLResponse(
+            f"<h1>OAuth error</h1><pre>{error}</pre><p>Tente novamente.</p>",
+            status_code=400,
+        )
+    if not code or not state:
+        raise HTTPException(status_code=400, detail="Missing code or state")
+    # Parse state: email|nonce|sig
+    parts = state.split("|")
+    if len(parts) != 3:
+        raise HTTPException(status_code=400, detail="Invalid state")
+    email = parts[0]
+
+    async with httpx.AsyncClient(timeout=15) as client:
+        try:
+            tr = await client.post(
+                "https://oauth2.googleapis.com/token",
+                data={
+                    "client_id": GOOGLE_CLIENT_ID,
+                    "client_secret": GOOGLE_CLIENT_SECRET,
+                    "code": code,
+                    "grant_type": "authorization_code",
+                    "redirect_uri": GCAL_REDIRECT_URI,
+                },
+            )
+            if tr.status_code != 200:
+                log.error("code exchange failed: %s %s", tr.status_code, tr.text[:300])
+                return HTMLResponse(
+                    f"<h1>Token exchange failed</h1><pre>{tr.text[:300]}</pre>",
+                    status_code=500,
+                )
+            tok = tr.json()
+            refresh_token = tok.get("refresh_token")
+            if not refresh_token:
+                return HTMLResponse(
+                    "<h1>Sem refresh_token</h1><p>Google não retornou refresh_token. "
+                    "Vá em <a href='https://myaccount.google.com/permissions'>myaccount.google.com/permissions</a>, "
+                    "revogue o acesso da app Anuvia e tente de novo.</p>",
+                    status_code=400,
+                )
+
+            # Upsert: if email exists, update refresh_token; else insert
+            payload = {
+                "email": email,
+                "refresh_token": refresh_token,
+                "calendar_id": "primary",
+                "is_active": True,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+            ur = await client.post(
+                f"{SUPA_URL}/admin_gcal_accounts?on_conflict=email",
+                headers={**SUPA_HEADERS, "Prefer": "resolution=merge-duplicates,return=representation"},
+                json=payload,
+            )
+            if ur.status_code not in (200, 201):
+                log.error("gcal_account upsert failed: %s %s", ur.status_code, ur.text[:300])
+                return HTMLResponse(
+                    f"<h1>Falha ao salvar</h1><pre>{ur.text[:300]}</pre>",
+                    status_code=500,
+                )
+            # Invalidate token cache so first /api/slots call refreshes
+            _GCAL_TOKEN_CACHE.pop(email, None)
+        except HTTPException:
+            raise
+        except Exception:
+            log.exception("oauth callback failed")
+            return HTMLResponse("<h1>Erro interno</h1>", status_code=500)
+
+    return HTMLResponse(
+        f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Anuvia · Calendar connected</title>
+<style>body{{font-family:Inter,sans-serif;background:#fafaf9;padding:48px 24px;color:#1a1a1a;}}
+.card{{max-width:520px;margin:0 auto;background:#fff;border:1px solid #e7e5e4;padding:32px;}}
+.h-serif{{font-family:Georgia,serif;font-size:28px;margin:0 0 16px 0;}}
+.eyebrow{{font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#0c4a6e;margin:0 0 8px 0;}}
+.btn{{display:inline-block;background:#1a1a1a;color:#fafaf9;padding:10px 18px;text-decoration:none;margin-top:16px;}}</style></head>
+<body><div class="card">
+<p class="eyebrow">Anuvia Admin</p>
+<p class="h-serif">Calendário conectado.</p>
+<p><strong>{email}</strong> foi adicionado à lista de calendários que bloqueiam slots no widget de booking.</p>
+<p style="color:#78716c;font-size:14px;">Eventos nessa conta agora aparecem como busy automaticamente em <code>/api/slots</code>.</p>
+<a class="btn" href="/api/admin/gcal/accounts?key={request.query_params.get('key', '')}">Ver lista de contas</a>
+</div></body></html>"""
+    )
+
+
+@app.get("/api/admin/gcal/accounts")
+async def admin_gcal_list(request: Request):
+    """List connected Google accounts (admin only)."""
+    _admin_auth(request)
+    async with httpx.AsyncClient(timeout=10) as client:
+        r = await client.get(
+            f"{SUPA_URL}/admin_gcal_accounts?select=id,email,calendar_id,is_active,created_at,updated_at,notes&order=created_at.desc",
+            headers=SUPA_HEADERS,
+        )
+        if r.status_code != 200:
+            raise HTTPException(status_code=502, detail="Failed to list accounts")
+        return JSONResponse({"accounts": r.json()})
+
+
+@app.delete("/api/admin/gcal/accounts/{account_id}")
+async def admin_gcal_delete(account_id: str, request: Request):
+    """Soft-delete (deactivate) a Google account from freebusy aggregation."""
+    _admin_auth(request)
+    async with httpx.AsyncClient(timeout=10) as client:
+        r = await client.patch(
+            f"{SUPA_URL}/admin_gcal_accounts?id=eq.{account_id}",
+            headers=SUPA_HEADERS,
+            json={"is_active": False, "updated_at": datetime.now(timezone.utc).isoformat()},
+        )
+        if r.status_code not in (200, 204):
+            raise HTTPException(status_code=502, detail="Failed to deactivate")
+    return JSONResponse({"ok": True})
+
+
 @app.get("/api/slots")
 async def api_slots(request: Request, days: int = 5) -> JSONResponse:
     """Return available slots for the next `days` working days using
@@ -703,6 +1014,7 @@ async def api_slots(request: Request, days: int = 5) -> JSONResponse:
     ]
 
     out = []
+    duration_min = cfg.get("easy_duration_min", 30)
     async with httpx.AsyncClient(timeout=20) as client:
         async def fetch(d: datetime) -> list[str]:
             ymd = d.strftime("%Y-%m-%d")
@@ -725,9 +1037,28 @@ async def api_slots(request: Request, days: int = 5) -> JSONResponse:
                 log.exception("get_available_hours failed for %s", ymd)
                 return []
 
-        all_slots = await asyncio.gather(*(fetch(d) for d in targets))
+        # Query Easyappointments AND Google freeBusy in parallel
+        easy_task = asyncio.gather(*(fetch(d) for d in targets))
+        # freebusy spans the full window (first target start → last target end-of-day)
+        time_min = datetime.combine(targets[0].date(), datetime.min.time(), tzinfo=TZ_SP)
+        time_max = datetime.combine(targets[-1].date(), datetime.max.time(), tzinfo=TZ_SP)
+        busy_task = fetch_all_busy_ranges(client, time_min, time_max)
+        all_slots, busy_ranges = await asyncio.gather(easy_task, busy_task)
+
         for d, raw_slots in zip(targets, all_slots):
             slots = _coarse_slots(raw_slots, step_min=30, max_per_day=8)
+            # Filter slots that conflict with Google Calendar busy ranges
+            if busy_ranges:
+                filtered = []
+                for t in slots:
+                    try:
+                        hh, mm = t.split(":")
+                        slot_start = d.replace(hour=int(hh), minute=int(mm), second=0, microsecond=0)
+                        if not _slot_conflicts_with_busy(slot_start, duration_min, busy_ranges):
+                            filtered.append(t)
+                    except (ValueError, AttributeError):
+                        filtered.append(t)
+                slots = filtered
             label = f"{pt_weekdays[d.weekday()]}, {d.day} {pt_months[d.month - 1]}"
             out.append({"date": d.strftime("%Y-%m-%d"), "label": label, "slots": slots})
 
