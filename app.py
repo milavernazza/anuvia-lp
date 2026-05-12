@@ -61,6 +61,54 @@ EASY_BASE = os.environ.get(
 EASY_PROVIDER_ID = int(os.environ.get("EASYAPPOINTMENTS_PROVIDER_ID", "2"))
 TZ_SP = ZoneInfo("America/Sao_Paulo")
 
+# Public holidays per market — block all slots on those days.
+# Source: official national holidays (statutory). Add new years as needed.
+BR_PUBLIC_HOLIDAYS: set[str] = {
+    # 2026
+    "2026-01-01",  # Confraternização Universal
+    "2026-02-16", "2026-02-17",  # Carnaval
+    "2026-04-03",  # Sexta-feira Santa
+    "2026-04-21",  # Tiradentes
+    "2026-05-01",  # Dia do Trabalho
+    "2026-06-04",  # Corpus Christi
+    "2026-09-07",  # Independência
+    "2026-10-12",  # N. Sra. Aparecida
+    "2026-11-02",  # Finados
+    "2026-11-15",  # Proclamação República
+    "2026-11-20",  # Consciência Negra
+    "2026-12-25",  # Natal
+    # 2027
+    "2027-01-01", "2027-02-08", "2027-02-09", "2027-03-26", "2027-04-21",
+    "2027-05-01", "2027-05-27", "2027-09-07", "2027-10-12", "2027-11-02",
+    "2027-11-15", "2027-11-20", "2027-12-25",
+}
+US_PUBLIC_HOLIDAYS: set[str] = {
+    # 2026 — federal holidays observed
+    "2026-01-01",  # New Year's Day
+    "2026-01-19",  # MLK Day
+    "2026-02-16",  # Presidents Day
+    "2026-05-25",  # Memorial Day
+    "2026-06-19",  # Juneteenth
+    "2026-07-03",  # Independence Day observed
+    "2026-09-07",  # Labor Day
+    "2026-10-12",  # Columbus Day
+    "2026-11-11",  # Veterans Day
+    "2026-11-26",  # Thanksgiving
+    "2026-12-25",  # Christmas
+    # 2027
+    "2027-01-01", "2027-01-18", "2027-02-15", "2027-05-31", "2027-06-18",
+    "2027-07-05", "2027-09-06", "2027-10-11", "2027-11-11", "2027-11-25",
+    "2027-12-24",
+}
+
+
+def is_public_holiday(date_str: str, market: str = "BR") -> bool:
+    """Return True if a YYYY-MM-DD date is a public holiday for the given market."""
+    if market == "US":
+        return date_str in US_PUBLIC_HOLIDAYS
+    return date_str in BR_PUBLIC_HOLIDAYS
+
+
 # Google Calendar — server-side multi-account freebusy
 # Reuses Easyappointments OAuth client (same project) by adding callback URI in GCP.
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
@@ -1155,6 +1203,36 @@ async def admin_gcal_debug_busy(request: Request, date: str):
                     entry["freebusy_error"] = r.text[:300]
             except Exception as e:
                 entry["freebusy_exception"] = str(e)
+            # events.list across ALL calendars (production path)
+            entry["events_per_calendar"] = {}
+            import urllib.parse as _up2
+            for cid in cal_ids:
+                try:
+                    er = await client.get(
+                        f"https://www.googleapis.com/calendar/v3/calendars/{_up2.quote(cid)}/events",
+                        headers={"Authorization": f"Bearer {token}"},
+                        params={
+                            "timeMin": time_min_iso, "timeMax": time_max_iso,
+                            "singleEvents": "true", "orderBy": "startTime",
+                            "timeZone": "America/Sao_Paulo", "maxResults": "100",
+                            "showDeleted": "false",
+                        }, timeout=10,
+                    )
+                    if er.status_code == 200:
+                        evs = (er.json() or {}).get("items", [])
+                        entry["events_per_calendar"][cid] = [
+                            {
+                                "summary": e.get("summary", "(no title)"),
+                                "start": (e.get("start") or {}).get("dateTime") or (e.get("start") or {}).get("date"),
+                                "end": (e.get("end") or {}).get("dateTime") or (e.get("end") or {}).get("date"),
+                                "transparency": e.get("transparency", "opaque"),
+                            }
+                            for e in evs
+                        ]
+                    else:
+                        entry["events_per_calendar"][cid] = {"error": er.status_code, "msg": er.text[:200]}
+                except Exception as e:
+                    entry["events_per_calendar"][cid] = {"exception": str(e)}
             # Also list events directly (with transparency info) to debug transparency issue
             try:
                 er = await client.get(
@@ -1275,7 +1353,13 @@ async def api_slots(request: Request, days: int = 5) -> JSONResponse:
         busy_task = fetch_all_busy_ranges(client, time_min, time_max)
         all_slots, busy_ranges = await asyncio.gather(easy_task, busy_task)
 
+        # Determine market for holiday filter — from locale
+        market = get_locale(request).get("market", "BR")
         for d, raw_slots in zip(targets, all_slots):
+            date_str = d.strftime("%Y-%m-%d")
+            # Public holiday: skip the whole day
+            if is_public_holiday(date_str, market):
+                continue
             slots = _coarse_slots(raw_slots, step_min=30, max_per_day=8)
             # Filter slots that conflict with Google Calendar busy ranges
             if busy_ranges:
@@ -1289,8 +1373,10 @@ async def api_slots(request: Request, days: int = 5) -> JSONResponse:
                     except (ValueError, AttributeError):
                         filtered.append(t)
                 slots = filtered
+            if not slots:
+                continue  # don't show days with zero availability after filtering
             label = f"{pt_weekdays[d.weekday()]}, {d.day} {pt_months[d.month - 1]}"
-            out.append({"date": d.strftime("%Y-%m-%d"), "label": label, "slots": slots})
+            out.append({"date": date_str, "label": label, "slots": slots})
 
     return JSONResponse({"days": out})
 
