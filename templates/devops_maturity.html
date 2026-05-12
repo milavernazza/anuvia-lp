@@ -3,6 +3,16 @@
 {% block content %}
 
 <section class="max-w-5xl mx-auto px-6 pt-20 pb-12">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-6">Anuvia Engineering · DevOps · Anchor offering</p>
+  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
+    DevOps Maturity<br><span class="italic">Assessment.</span>
+  </h1>
+  <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
+    4 weeks measuring DORA metrics (deploy frequency, lead time, MTTR, change failure rate). Benchmark against high-performers and prioritized roadmap.
+  </p>
+  <p class="text-sm text-subtle mb-12">4 weeks · {{ fmt_price('R$ 35-50k') }} · DORA baseline + gap analysis + 6-month roadmap</p>
+  {% else %}
   <p class="eyebrow mb-6">Anuvia Engineering · DevOps · Anchor offering</p>
   <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
     DevOps Maturity<br><span class="italic">Assessment.</span>
@@ -11,11 +21,84 @@
     4 semanas medindo DORA metrics (deploy frequency, lead time, MTTR, change failure rate). Benchmark contra high-performers e roadmap priorizado.
   </p>
   <p class="text-sm text-subtle mb-12">4 semanas · R$ 35-50k · DORA baseline + gap analysis + 6-month roadmap</p>
+  {% endif %}
 </section>
 
 <div class="rule max-w-5xl mx-auto px-6"></div>
 
 <section class="max-w-3xl mx-auto px-6 py-16" id="signup">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-3 text-center">Interactive diagnostic</p>
+  <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Answer 4 questions. Find out your preliminary DORA level.</h2>
+  <p class="text-center text-ink/60 mb-12">No signup. You decide whether you want the report by email afterward.</p>
+
+  <form id="diag-business-form" data-diag-base="/api/devops-maturity" class="space-y-6 card p-8 md:p-10">
+    <div>
+      <label class="eyebrow block mb-2">Role</label>
+      <select name="role" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option>CTO / VP Engineering</option>
+        <option>Head of Platform / DevOps</option>
+        <option>Head of SRE</option>
+        <option>Engineering Manager</option>
+        <option>Director of Engineering</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Engineering team size</label>
+      <select name="team_size" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="1_10">1-10 engineers</option>
+        <option value="10_50">10-50</option>
+        <option value="50_200">50-200</option>
+        <option value="200_plus">200+</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Current deploy frequency</label>
+      <select name="deploy_freq" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="multiple_day">Multiple per day (Elite)</option>
+        <option value="daily">Daily (High)</option>
+        <option value="weekly">Weekly (Medium)</option>
+        <option value="biweekly">Biweekly</option>
+        <option value="monthly">Monthly</option>
+        <option value="quarterly">Quarterly or longer (Low)</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Biggest concern</label>
+      <select name="main_pain" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="release_pain">Releases are an event, not a routine</option>
+        <option value="incidents">Frequent incidents, high MTTR</option>
+        <option value="observability">Lack of observability, blind debugging</option>
+        <option value="oncall">Overloaded on-call, burnout</option>
+        <option value="quality">High change failure rate, regressions</option>
+        <option value="speed">Lead time for change too long</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Primary stack</label>
+      <select name="stack" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select (optional)…</option>
+        <option value="k8s">Kubernetes (EKS, GKE, self-managed)</option>
+        <option value="ecs">AWS ECS / Fargate</option>
+        <option value="serverless">Serverless (Lambda, Cloud Functions)</option>
+        <option value="vms">VMs (EC2, Compute Engine)</option>
+        <option value="paas">PaaS (Heroku, Render, Railway)</option>
+        <option value="mixed">Mixed</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Additional context (optional)</label>
+      <textarea name="context" rows="3" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Any recent incident, stack change, or specific goal?"></textarea>
+    </div>
+    <button type="submit" class="btn-primary w-full text-base">See my DORA level</button>
+    <p class="text-xs text-subtle text-center">No signup at this step.</p>
+  </form>
+  {% else %}
   <p class="eyebrow mb-3 text-center">Diagnóstico interativo</p>
   <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Responda 4 perguntas. Descubra seu nível DORA preliminar.</h2>
   <p class="text-center text-ink/60 mb-12">Sem cadastro. Você decide se quer receber o relatório por email depois.</p>
@@ -86,6 +169,7 @@
     <button type="submit" class="btn-primary w-full text-base">Ver meu nível DORA</button>
     <p class="text-xs text-subtle text-center">Sem cadastro nessa etapa.</p>
   </form>
+  {% endif %}
 </section>
 
 {% include "_diag_flow_steps.html" %}
@@ -93,6 +177,29 @@
 <div class="rule max-w-5xl mx-auto px-6"></div>
 
 <section class="max-w-5xl mx-auto px-6 py-20">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-4">DORA methodology</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight">4 metrics. 4 levels. 1 roadmap.</h2>
+
+  <div class="grid md:grid-cols-2 gap-6">
+    <div class="card p-7">
+      <p class="h-serif text-2xl mb-3 text-accent">Deploy Frequency</p>
+      <p class="text-sm text-ink/70 leading-relaxed">How many production deploys per day/week/month. Elite: multiple per day. High: daily. Medium: weekly. Low: monthly+.</p>
+    </div>
+    <div class="card p-7">
+      <p class="h-serif text-2xl mb-3 text-accent">Lead Time for Changes</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Time from commit to production. Elite: &lt; 1 day. High: &lt; 1 week. Medium: &lt; 1 month.</p>
+    </div>
+    <div class="card p-7">
+      <p class="h-serif text-2xl mb-3 text-accent">Mean Time to Recovery</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Average time to recover from a production failure. Elite: &lt; 1h. High: &lt; 1 day. Medium: &lt; 1 week.</p>
+    </div>
+    <div class="card p-7">
+      <p class="h-serif text-2xl mb-3 text-accent">Change Failure Rate</p>
+      <p class="text-sm text-ink/70 leading-relaxed">% of deploys that cause degradation. Elite: 0-15%. High: 16-30%. Medium: 16-45%.</p>
+    </div>
+  </div>
+  {% else %}
   <p class="eyebrow mb-4">Metodologia DORA</p>
   <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight">4 métricas. 4 níveis. 1 roadmap.</h2>
 
@@ -114,12 +221,19 @@
       <p class="text-sm text-ink/70 leading-relaxed">% de deploys que causam degradação. Elite: 0-15%. High: 16-30%. Medium: 16-45%.</p>
     </div>
   </div>
+  {% endif %}
 </section>
 
 <section class="max-w-4xl mx-auto px-6 py-24 text-center">
+  {% if lang == 'en' %}
+  <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Request the assessment.</h2>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Take the interactive diagnostic above. No signup up front.</p>
+  <a href="#signup" class="btn-primary text-base inline-block">Back to the diagnostic</a>
+  {% else %}
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Solicite o assessment.</h2>
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Faz o diagnóstico interativo acima. Sem cadastro inicial.</p>
   <a href="#signup" class="btn-primary text-base inline-block">Voltar ao diagnóstico</a>
+  {% endif %}
 </section>
 
 {% endblock %}

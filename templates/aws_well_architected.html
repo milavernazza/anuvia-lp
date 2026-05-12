@@ -3,6 +3,16 @@
 {% block content %}
 
 <section class="max-w-5xl mx-auto px-6 pt-20 pb-12">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-6">Anuvia Cloud · AWS · Anchor offering</p>
+  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
+    AWS Well-Architected<br><span class="italic">Review.</span>
+  </h1>
+  <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
+    Review across the 6 pillars (Operational, Security, Reliability, Performance, Cost, Sustainability). Performed by an ex-AWS Solutions Architect with 15+ certifications.
+  </p>
+  <p class="text-sm text-subtle mb-12">3-5 weeks · {{ fmt_price('R$ 30-50k') }} · Executive report + remediation roadmap</p>
+  {% else %}
   <p class="eyebrow mb-6">Anuvia Cloud · AWS · Anchor offering</p>
   <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
     AWS Well-Architected<br><span class="italic">Review.</span>
@@ -11,11 +21,63 @@
     Review nos 6 pilares (Operational, Security, Reliability, Performance, Cost, Sustainability). Realizado por ex-AWS Solutions Architect com 15+ certificações.
   </p>
   <p class="text-sm text-subtle mb-12">3-5 semanas · R$ 30-50k · Relatório executivo + remediation roadmap</p>
+  {% endif %}
 </section>
 
 <div class="rule max-w-5xl mx-auto px-6"></div>
 
 <section class="max-w-3xl mx-auto px-6 py-16" id="signup">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-3 text-center">Interactive diagnostic</p>
+  <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Answer 3 questions. See your preliminary read in 30 seconds.</h2>
+  <p class="text-center text-ink/60 mb-12">No signup. You decide whether you want the report by email afterward.</p>
+
+  <form id="diag-business-form" data-diag-base="/api/aws-well-architected" class="space-y-6 card p-8 md:p-10">
+    <div>
+      <label class="eyebrow block mb-2">Role</label>
+      <select name="role" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option>CTO / VP Engineering</option>
+        <option>Head of Platform / Infrastructure</option>
+        <option>Cloud Architect / Solutions Architect</option>
+        <option>Head of Security</option>
+        <option>Founder / CEO</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Priority focus of the review</label>
+      <select name="focus" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="security">Security — compliance, IAM, network</option>
+        <option value="reliability">Reliability — incidents, SLOs, recovery</option>
+        <option value="performance">Performance — latency, throughput, scaling</option>
+        <option value="cost">Cost — optimization (overlap with FinOps Audit)</option>
+        <option value="operational">Operational Excellence — automation, observability</option>
+        <option value="all">Full coverage across the 6 pillars</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Primary workload</label>
+      <select name="workload" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="saas">B2B SaaS</option>
+        <option value="ecommerce">E-commerce / Marketplace</option>
+        <option value="fintech">Fintech / Banking</option>
+        <option value="data_ml">Data / ML pipelines</option>
+        <option value="iot">IoT / Edge</option>
+        <option value="enterprise">Enterprise internal apps</option>
+        <option value="mixed">Mixed / multi-product</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Additional context (optional)</label>
+      <textarea name="context" rows="3" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Specific trigger? (recent incident, external audit, migration, regulatory pressure...)"></textarea>
+    </div>
+    <button type="submit" class="btn-primary w-full text-base">See my analysis</button>
+    <p class="text-xs text-subtle text-center">No signup at this step.</p>
+  </form>
+  {% else %}
   <p class="eyebrow mb-3 text-center">Diagnóstico interativo</p>
   <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Responda 3 perguntas. Veja sua leitura preliminar em 30 segundos.</h2>
   <p class="text-center text-ink/60 mb-12">Sem cadastro. Você decide se quer receber o relatório por email depois.</p>
@@ -65,6 +127,7 @@
     <button type="submit" class="btn-primary w-full text-base">Ver minha análise</button>
     <p class="text-xs text-subtle text-center">Sem cadastro nessa etapa.</p>
   </form>
+  {% endif %}
 </section>
 
 {% include "_diag_flow_steps.html" %}
@@ -72,6 +135,37 @@
 <div class="rule max-w-5xl mx-auto px-6"></div>
 
 <section class="max-w-5xl mx-auto px-6 py-20">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-4">The 6 pillars</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight">Full AWS Well-Architected Framework coverage.</h2>
+
+  <div class="grid md:grid-cols-2 gap-6">
+    <div class="card p-7">
+      <p class="h-serif text-2xl mb-3 text-accent">01 · Operational Excellence</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Automation, monitoring, runbooks, deployment practices, learning from operational events.</p>
+    </div>
+    <div class="card p-7">
+      <p class="h-serif text-2xl mb-3 text-accent">02 · Security</p>
+      <p class="text-sm text-ink/70 leading-relaxed">IAM, network security, data protection, incident response, application security, infrastructure protection.</p>
+    </div>
+    <div class="card p-7">
+      <p class="h-serif text-2xl mb-3 text-accent">03 · Reliability</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Foundations, workload architecture, change management, failure management, resilience.</p>
+    </div>
+    <div class="card p-7">
+      <p class="h-serif text-2xl mb-3 text-accent">04 · Performance Efficiency</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Compute, storage, database, network resource selection. Trade-offs, monitoring, evolution.</p>
+    </div>
+    <div class="card p-7">
+      <p class="h-serif text-2xl mb-3 text-accent">05 · Cost Optimization</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Cloud financial management, expenditure awareness, cost-effective resources, demand and supply matching.</p>
+    </div>
+    <div class="card p-7">
+      <p class="h-serif text-2xl mb-3 text-accent">06 · Sustainability</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Region selection, user behavior, software/hardware patterns, data patterns, development practices.</p>
+    </div>
+  </div>
+  {% else %}
   <p class="eyebrow mb-4">Os 6 pilares</p>
   <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight">Cobertura completa AWS Well-Architected Framework.</h2>
 
@@ -101,12 +195,19 @@
       <p class="text-sm text-ink/70 leading-relaxed">Region selection, user behavior, software/hardware patterns, data patterns, development practices.</p>
     </div>
   </div>
+  {% endif %}
 </section>
 
 <section class="max-w-4xl mx-auto px-6 py-24 text-center">
+  {% if lang == 'en' %}
+  <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Start the Well-Architected Review.</h2>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Take the interactive diagnostic above. No signup up front — you decide afterward whether you want the report.</p>
+  <a href="#signup" class="btn-primary text-base inline-block">Back to the diagnostic</a>
+  {% else %}
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Comece o Well-Architected Review.</h2>
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Faz o diagnóstico interativo acima. Sem cadastro inicial — só decide se quer receber o relatório depois.</p>
   <a href="#signup" class="btn-primary text-base inline-block">Voltar ao diagnóstico</a>
+  {% endif %}
 </section>
 
 {% endblock %}

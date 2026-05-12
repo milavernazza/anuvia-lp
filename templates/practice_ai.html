@@ -3,6 +3,20 @@
 {% block content %}
 
 <section class="max-w-6xl mx-auto px-6 pt-20 pb-16">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-6">Anuvia · Practices · 03</p>
+  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">Anuvia AI</h1>
+  <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-4">
+    AI is saturated by theater. Anuvia AI is <span class="italic">engineering</span>, not theater.
+  </p>
+  <p class="text-lg text-ink/60 leading-relaxed max-w-3xl mb-12">
+    Strategy, engineering, MLOps and vertical products. With eval harness, rollback, cost measured per inference. Cloud-native, FinOps-aware, dogfooded internally.
+  </p>
+  <div class="flex flex-col sm:flex-row gap-4">
+    <a href="/ai/readiness" class="btn-primary text-base inline-block">AI Readiness Sprint</a>
+    <a href="#offerings" class="btn-ghost text-base inline-block">See all offerings</a>
+  </div>
+  {% else %}
   <p class="eyebrow mb-6">Anuvia · Práticas · 03</p>
   <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">Anuvia AI</h1>
   <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-4">
@@ -15,11 +29,34 @@
     <a href="/ai/readiness" class="btn-primary text-base inline-block">AI Readiness Sprint</a>
     <a href="#offerings" class="btn-ghost text-base inline-block">Ver todas as ofertas</a>
   </div>
+  {% endif %}
 </section>
 
 <div class="rule max-w-6xl mx-auto px-6"></div>
 
 <section class="max-w-6xl mx-auto px-6 py-20">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-4">The 3 pillars</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight max-w-3xl">How we differ.</h2>
+
+  <div class="grid md:grid-cols-3 gap-10">
+    <div>
+      <p class="h-serif text-5xl mb-4">01</p>
+      <p class="eyebrow mb-3">Production-grade from day 1</p>
+      <p class="text-ink/70 leading-relaxed">Discovery → PoV → Build → Scale with clear gates. Eval harness, documented rollback, integrated monitoring. PoVs validate viability — they don't become production without hardening.</p>
+    </div>
+    <div>
+      <p class="h-serif text-5xl mb-4">02</p>
+      <p class="eyebrow mb-3">Cloud-native + FinOps-aware</p>
+      <p class="text-ink/70 leading-relaxed">Cost measured per inference. Multi-account deploys. Bedrock, SageMaker, Vertex, native cloud observability. Others talk about OpenAI; we talk about a scalable and economical stack.</p>
+    </div>
+    <div>
+      <p class="h-serif text-5xl mb-4">03</p>
+      <p class="eyebrow mb-3">Dogfooded internally</p>
+      <p class="text-ink/70 leading-relaxed">Anuvia itself runs on its own agents — sales, delivery, admin, content. Every client gets a verifiable demo of how WE use AI to run the firm. Others promise; we show.</p>
+    </div>
+  </div>
+  {% else %}
   <p class="eyebrow mb-4">Os 3 pilares</p>
   <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight max-w-3xl">Como nos diferenciamos.</h2>
 
@@ -40,113 +77,200 @@
       <p class="text-ink/70 leading-relaxed">Anuvia inteira roda em agentes próprios — sales, delivery, admin, content. Cada cliente recebe demo verificável de como NÓS usamos IA pra operar a empresa. Outros prometem; a gente mostra.</p>
     </div>
   </div>
+  {% endif %}
 </section>
 
 <div class="rule max-w-6xl mx-auto px-6"></div>
 
 <section id="offerings" class="max-w-6xl mx-auto px-6 py-20">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-4">Full catalog</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight max-w-3xl">From strategy to SaaS product.</h2>
+  {% else %}
   <p class="eyebrow mb-4">Catálogo completo</p>
   <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight max-w-3xl">Da estratégia ao produto SaaS.</h2>
+  {% endif %}
 
   <div class="grid md:grid-cols-2 gap-6">
 
     <div class="card p-8 flex flex-col">
       <p class="eyebrow mb-3 text-accent">Strategy</p>
       <h3 class="h-serif text-2xl mb-3">AI Strategy Sprint (Readiness)</h3>
+      {% if lang == 'en' %}
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Use case inventory, estimated ROI, 12-month roadmap. For teams that know they need AI but don't know where to start.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
+        <span class="text-subtle">2-3 weeks</span>
+        <span class="font-medium">{{ fmt_price('R$ 25-40k') }}</span>
+      </div>
+      <a href="/ai/readiness" class="text-sm font-medium underline hover:text-accent mt-auto">Request diagnostic →</a>
+      {% else %}
       <p class="text-sm text-ink/70 leading-relaxed mb-5">Mapeamento de uso cases, ROI estimado, roadmap 12 meses. Pra quem sabe que precisa de IA mas não sabe por onde começar.</p>
       <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
         <span class="text-subtle">2-3 semanas</span>
         <span class="font-medium">R$ 25-40k</span>
       </div>
       <a href="/ai/readiness" class="text-sm font-medium underline hover:text-accent mt-auto">Solicitar diagnóstico →</a>
+      {% endif %}
     </div>
 
     <div class="card p-8 flex flex-col">
       <p class="eyebrow mb-3 text-accent">Engineering</p>
       <h3 class="h-serif text-2xl mb-3">AI Use Case Sprint</h3>
+      {% if lang == 'en' %}
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Build of 1 agent or AI pipeline in production. Spec → implementation → integration → handover.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
+        <span class="text-subtle">6-8 weeks</span>
+        <span class="font-medium">{{ fmt_price('R$ 50-80k') }}</span>
+      </div>
+      <a href="/ai/readiness" class="text-sm font-medium underline hover:text-accent mt-auto">Start with Readiness →</a>
+      {% else %}
       <p class="text-sm text-ink/70 leading-relaxed mb-5">Build de 1 agente ou pipeline IA em produção. Especificação → impl → integração → handover.</p>
       <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
         <span class="text-subtle">6-8 semanas</span>
         <span class="font-medium">R$ 50-80k</span>
       </div>
       <a href="/ai/readiness" class="text-sm font-medium underline hover:text-accent mt-auto">Começar pelo Readiness →</a>
+      {% endif %}
     </div>
 
     <div class="card p-8 flex flex-col">
       <p class="eyebrow mb-3 text-accent">Engineering</p>
       <h3 class="h-serif text-2xl mb-3">Custom AI Platform Build</h3>
+      {% if lang == 'en' %}
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Multi-agent stack or full AI platform. Vector DB, RAG, agents, orchestration, evaluation, monitoring.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
+        <span class="text-subtle">12-20 weeks</span>
+        <span class="font-medium">{{ fmt_price('R$ 120-300k') }}</span>
+      </div>
+      <a href="/ai/readiness" class="text-sm font-medium underline hover:text-accent mt-auto">Start with Readiness →</a>
+      {% else %}
       <p class="text-sm text-ink/70 leading-relaxed mb-5">Multi-agent stack ou plataforma IA inteira. Vector DB, RAG, agents, orchestration, evaluation, monitoring.</p>
       <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
         <span class="text-subtle">12-20 semanas</span>
         <span class="font-medium">R$ 120-300k</span>
       </div>
       <a href="/ai/readiness" class="text-sm font-medium underline hover:text-accent mt-auto">Começar pelo Readiness →</a>
+      {% endif %}
     </div>
 
     <div class="card p-8 flex flex-col">
       <p class="eyebrow mb-3 text-accent">GenAI</p>
       <h3 class="h-serif text-2xl mb-3">RAG / Knowledge Assistant</h3>
+      {% if lang == 'en' %}
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Internal knowledge assistant with per-document access control, citations in every response, hallucination eval harness.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
+        <span class="text-subtle">6-10 weeks</span>
+        <span class="font-medium">{{ fmt_price('R$ 60-150k') }}</span>
+      </div>
+      <a href="/ai/readiness" class="text-sm font-medium underline hover:text-accent mt-auto">Start with Readiness →</a>
+      {% else %}
       <p class="text-sm text-ink/70 leading-relaxed mb-5">Assistente de conhecimento interno com controle de acesso por documento, citações em cada resposta, eval harness de alucinação.</p>
       <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
         <span class="text-subtle">6-10 semanas</span>
         <span class="font-medium">R$ 60-150k</span>
       </div>
       <a href="/ai/readiness" class="text-sm font-medium underline hover:text-accent mt-auto">Começar pelo Readiness →</a>
+      {% endif %}
     </div>
 
     <div class="card p-8 flex flex-col">
       <p class="eyebrow mb-3 text-accent">MLOps</p>
       <h3 class="h-serif text-2xl mb-3">MLOps Practice Build</h3>
+      {% if lang == 'en' %}
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Feature pipelines, model registries, CI/CD for ML, drift monitoring, governance. Foundation for reliable AI at scale.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
+        <span class="text-subtle">10-16 weeks</span>
+        <span class="font-medium">{{ fmt_price('R$ 80-200k') }}</span>
+      </div>
+      <a href="/ai/readiness" class="text-sm font-medium underline hover:text-accent mt-auto">Start with Readiness →</a>
+      {% else %}
       <p class="text-sm text-ink/70 leading-relaxed mb-5">Feature pipelines, model registries, CI/CD pra ML, drift monitoring, governance. Base pra IA confiável em escala.</p>
       <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
         <span class="text-subtle">10-16 semanas</span>
         <span class="font-medium">R$ 80-200k</span>
       </div>
       <a href="/ai/readiness" class="text-sm font-medium underline hover:text-accent mt-auto">Começar pelo Readiness →</a>
+      {% endif %}
     </div>
 
     <div class="card p-8 flex flex-col">
       <p class="eyebrow mb-3 text-accent">Strategic</p>
       <h3 class="h-serif text-2xl mb-3">AI Engineering Retainer</h3>
+      {% if lang == 'en' %}
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Fractional AI Engineer for the team. Strategic guidance + ad-hoc engineering. 6-month minimum.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
+        <span class="text-subtle">Ongoing</span>
+        <span class="font-medium">{{ fmt_price('R$ 20-40k') }}/month</span>
+      </div>
+      <a href="/contact?offering=ai-retainer&practice=ai" class="text-sm font-medium underline hover:text-accent mt-auto">Talk to a Solutions Architect →</a>
+      {% else %}
       <p class="text-sm text-ink/70 leading-relaxed mb-5">Fractional AI Engineer pro time. Strategic guidance + ad-hoc engineering. Mínimo 6 meses.</p>
       <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
         <span class="text-subtle">Ongoing</span>
         <span class="font-medium">R$ 20-40k/mês</span>
       </div>
       <a href="/contact?offering=ai-retainer&practice=ai" class="text-sm font-medium underline hover:text-accent mt-auto">Falar com Solutions Architect →</a>
+      {% endif %}
     </div>
 
     <div class="card p-8 bg-accent text-paper flex flex-col">
-      <p class="eyebrow mb-3 text-paper/60">Produto</p>
+      <p class="eyebrow mb-3 text-paper/60">Product</p>
       <h3 class="h-serif text-2xl mb-3">Anuvia AI Ops</h3>
+      {% if lang == 'en' %}
+      <p class="text-sm text-paper/80 leading-relaxed mb-5">Multi-tenant SaaS. Agent stack that runs your ops (sales, customer success, content). The same stack we run at Anuvia.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-paper/20 text-xs mb-4">
+        <span class="text-paper/60">Recurring</span>
+        <span class="font-medium">{{ fmt_price('R$ 3-8k') }}/month</span>
+      </div>
+      <a href="/growth/sales-ops" class="text-sm font-medium underline text-paper hover:text-paper/80 mt-auto">Funnel diagnostic →</a>
+      {% else %}
       <p class="text-sm text-paper/80 leading-relaxed mb-5">SaaS multi-tenant. Stack de agentes que rodam suas ops (sales, customer success, content). Mesmo stack que rodamos a Anuvia.</p>
       <div class="flex justify-between items-end pt-4 border-t border-paper/20 text-xs mb-4">
         <span class="text-paper/60">Recurring</span>
         <span class="font-medium">R$ 3-8k/mês</span>
       </div>
       <a href="/growth/sales-ops" class="text-sm font-medium underline text-paper hover:text-paper/80 mt-auto">Diagnóstico do funil →</a>
+      {% endif %}
     </div>
 
     <div class="card p-8 flex flex-col">
       <p class="eyebrow mb-3 text-accent">Vertical Product</p>
       <h3 class="h-serif text-2xl mb-3">Termofisher AI Drafter</h3>
+      {% if lang == 'en' %}
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Vertical product for pharma/biotech. In design partner stage — 3-5 spots for co-founding clients.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
+        <span class="text-subtle">+ recurring</span>
+        <span class="font-medium">{{ fmt_price('R$ 80-250k') }}</span>
+      </div>
+      <a href="/contact?offering=termofisher&practice=ai" class="text-sm font-medium underline hover:text-accent mt-auto">Talk to a Solutions Architect →</a>
+      {% else %}
       <p class="text-sm text-ink/70 leading-relaxed mb-5">Produto vertical pra pharma/biotech. Em design partner stage — 3-5 vagas pra clientes co-fundadores.</p>
       <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
         <span class="text-subtle">+ recurring</span>
         <span class="font-medium">R$ 80-250k</span>
       </div>
       <a href="/contact?offering=termofisher&practice=ai" class="text-sm font-medium underline hover:text-accent mt-auto">Falar com Solutions Architect →</a>
+      {% endif %}
     </div>
 
     <div class="card p-8 flex flex-col">
       <p class="eyebrow mb-3 text-accent">Vertical Product</p>
       <h3 class="h-serif text-2xl mb-3">Med.ia</h3>
+      {% if lang == 'en' %}
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Vertical product for healthcare. In design partner stage — 3-5 spots for co-founding clients.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
+        <span class="text-subtle">+ recurring</span>
+        <span class="font-medium">{{ fmt_price('R$ 80-200k') }}</span>
+      </div>
+      <a href="/contact?offering=media&practice=ai" class="text-sm font-medium underline hover:text-accent mt-auto">Talk to a Solutions Architect →</a>
+      {% else %}
       <p class="text-sm text-ink/70 leading-relaxed mb-5">Produto vertical pra healthcare. Em design partner stage — 3-5 vagas pra clientes co-fundadores.</p>
       <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
         <span class="text-subtle">+ recurring</span>
         <span class="font-medium">R$ 80-200k</span>
       </div>
       <a href="/contact?offering=media&practice=ai" class="text-sm font-medium underline hover:text-accent mt-auto">Falar com Solutions Architect →</a>
+      {% endif %}
     </div>
 
   </div>
@@ -155,6 +279,40 @@
 <div class="rule max-w-6xl mx-auto px-6"></div>
 
 <section class="max-w-6xl mx-auto px-6 py-20">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-4">Who it's for</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-10 leading-tight">Ideal Anuvia AI client.</h2>
+
+  <div class="grid md:grid-cols-3 gap-8">
+    <div class="card p-7">
+      <p class="font-semibold mb-3">Company profile</p>
+      <ul class="space-y-2 text-sm text-ink/70">
+        <li>• Tech-forward with proprietary data</li>
+        <li>• Scalable digital operation</li>
+        <li>• Use case identified (or trying to identify one)</li>
+        <li>• Open to investing in production-grade, not POCs</li>
+      </ul>
+    </div>
+    <div class="card p-7">
+      <p class="font-semibold mb-3">Decision maker</p>
+      <ul class="space-y-2 text-sm text-ink/70">
+        <li>• CTO / VP Engineering</li>
+        <li>• Head of AI / ML / Data</li>
+        <li>• Technical founder</li>
+        <li>• Chief Product Officer</li>
+      </ul>
+    </div>
+    <div class="card p-7">
+      <p class="font-semibold mb-3">Typical pain</p>
+      <ul class="space-y-2 text-sm text-ink/70">
+        <li>• AI PoCs that don't reach production</li>
+        <li>• AI cost out of control</li>
+        <li>• Lack of eval/monitoring/rollback</li>
+        <li>• Hype vs. reality on the roadmap</li>
+      </ul>
+    </div>
+  </div>
+  {% else %}
   <p class="eyebrow mb-4">Pra quem é</p>
   <h2 class="h-serif text-4xl md:text-5xl mb-10 leading-tight">Cliente ideal Anuvia AI.</h2>
 
@@ -187,15 +345,25 @@
       </ul>
     </div>
   </div>
+  {% endif %}
 </section>
 
 <section class="max-w-4xl mx-auto px-6 py-24 text-center">
+  {% if lang == 'en' %}
+  <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Next step.</h2>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Start with the AI Readiness Sprint — we map where AI actually moves ROI in your operation. No hype, no demo.</p>
+  <div class="flex flex-col sm:flex-row gap-4 justify-center">
+    <a href="/ai/readiness" class="btn-primary text-base inline-block">AI Readiness Sprint</a>
+    <a href="/contact" class="btn-ghost text-base inline-block">Talk to a Solutions Architect</a>
+  </div>
+  {% else %}
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Próximo passo.</h2>
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Comece pelo AI Readiness Sprint — mapeamos onde IA realmente move ROI pra sua operação. Sem hype, sem demo.</p>
   <div class="flex flex-col sm:flex-row gap-4 justify-center">
     <a href="/ai/readiness" class="btn-primary text-base inline-block">AI Readiness Sprint</a>
     <a href="/contact" class="btn-ghost text-base inline-block">Falar com um Solutions Architect</a>
   </div>
+  {% endif %}
 </section>
 
 {% endblock %}

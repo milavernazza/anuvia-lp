@@ -4,42 +4,73 @@
 
 <div class="booking-widget" data-booking-source="{{ source|default('lp_brand') }}">
   <div class="bw-offering-context hidden mb-8 p-5 border-l-2 border-accent bg-white">
+    {% if lang == 'en' %}
+    <p class="eyebrow mb-1">Pre-loaded context</p>
+    {% else %}
     <p class="eyebrow mb-1">Contexto pré-carregado</p>
+    {% endif %}
     <p class="text-sm text-ink/80 bw-offering-label"></p>
   </div>
   <div class="grid md:grid-cols-12 gap-8">
     <!-- Days column -->
     <div class="md:col-span-7">
+      {% if lang == 'en' %}
+      <p class="eyebrow mb-4">Pick a day</p>
+      <div class="bw-days grid grid-cols-2 md:grid-cols-3 gap-2 min-h-[200px]">
+        <p class="text-sm text-ink/50 italic col-span-3">Loading availability…</p>
+      </div>
+      <p class="text-xs text-subtle mt-5">Time zone America/Sao_Paulo · 30-minute session · free</p>
+      {% else %}
       <p class="eyebrow mb-4">Selecione um dia</p>
       <div class="bw-days grid grid-cols-2 md:grid-cols-3 gap-2 min-h-[200px]">
         <p class="text-sm text-ink/50 italic col-span-3">Carregando disponibilidade…</p>
       </div>
       <p class="text-xs text-subtle mt-5">Fuso horário America/Sao_Paulo · sessão de 30 minutos · gratuita</p>
+      {% endif %}
     </div>
 
     <!-- Slots column -->
     <div class="md:col-span-5">
+      {% if lang == 'en' %}
+      <p class="eyebrow mb-4">Time</p>
+      <div class="bw-slots min-h-[200px]">
+        <p class="text-sm text-ink/50 italic">Pick a day on the left.</p>
+      </div>
+      {% else %}
       <p class="eyebrow mb-4">Horário</p>
       <div class="bw-slots min-h-[200px]">
         <p class="text-sm text-ink/50 italic">Selecione um dia ao lado.</p>
       </div>
+      {% endif %}
     </div>
   </div>
 
   <!-- Form (hidden until slot selected) -->
   <div class="bw-form hidden mt-10 pt-10 border-t border-rule">
+    {% if lang == 'en' %}
+    <p class="eyebrow mb-3">Confirm booking</p>
+    {% else %}
     <p class="eyebrow mb-3">Confirmar agendamento</p>
+    {% endif %}
     <p class="h-serif text-2xl mb-6 bw-confirm-label"></p>
 
     <form class="bw-booking-form grid md:grid-cols-2 gap-5">
       <input type="hidden" name="date" class="bw-date">
       <input type="hidden" name="time" class="bw-time">
       <div class="md:col-span-2">
+        {% if lang == 'en' %}
+        <label class="eyebrow block mb-2">Full name</label>
+        {% else %}
         <label class="eyebrow block mb-2">Nome completo</label>
+        {% endif %}
         <input type="text" name="name" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
       </div>
       <div>
+        {% if lang == 'en' %}
+        <label class="eyebrow block mb-2">Work email</label>
+        {% else %}
         <label class="eyebrow block mb-2">Email corporativo</label>
+        {% endif %}
         <input type="email" name="email" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
       </div>
       <div>
@@ -47,25 +78,45 @@
         <input type="tel" name="whatsapp" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
       </div>
       <div class="md:col-span-2">
+        {% if lang == 'en' %}
+        <label class="eyebrow block mb-2">Company</label>
+        {% else %}
         <label class="eyebrow block mb-2">Empresa</label>
+        {% endif %}
         <input type="text" name="company" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
       </div>
       <div class="md:col-span-2">
+        {% if lang == 'en' %}
+        <label class="eyebrow block mb-2">Context (optional)</label>
+        <textarea name="context" rows="3" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="What prompted booking this call? Any specific system, metric or decision?"></textarea>
+        {% else %}
         <label class="eyebrow block mb-2">Contexto (opcional)</label>
         <textarea name="context" rows="3" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="O que motivou agendar essa conversa? Algum sistema, métrica ou decisão específica?"></textarea>
+        {% endif %}
       </div>
       <div class="md:col-span-2 flex flex-col sm:flex-row gap-3 items-center justify-between">
+        {% if lang == 'en' %}
+        <p class="text-xs text-subtle">Data stays with Anuvia. No mailing lists, no spam.</p>
+        <button type="submit" class="btn-primary text-sm">Confirm slot</button>
+        {% else %}
         <p class="text-xs text-subtle">Dados ficam só com a Anuvia. Sem listas de email, sem spam.</p>
         <button type="submit" class="btn-primary text-sm">Confirmar horário</button>
+        {% endif %}
       </div>
     </form>
   </div>
 
   <!-- Confirmation (after booking) -->
   <div class="bw-success hidden mt-10 pt-10 border-t border-rule text-center">
+    {% if lang == 'en' %}
+    <p class="eyebrow mb-4 text-accent">Booking confirmed</p>
+    <p class="h-serif text-3xl mb-4 bw-success-label"></p>
+    <p class="text-ink/70 leading-relaxed max-w-2xl mx-auto">You'll receive an email confirmation. An Anuvia Solutions Architect will meet you at the scheduled time with a brief on what you shared.</p>
+    {% else %}
     <p class="eyebrow mb-4 text-accent">Agendamento confirmado</p>
     <p class="h-serif text-3xl mb-4 bw-success-label"></p>
     <p class="text-ink/70 leading-relaxed max-w-2xl mx-auto">Você recebeu confirmação por email. Um Solutions Architect da Anuvia vai te encontrar no horário marcado com brief prévio do que você compartilhou.</p>
+    {% endif %}
   </div>
 </div>
 
@@ -74,6 +125,32 @@
   const widget = document.currentScript.previousElementSibling;
   if (!widget || !widget.classList.contains('booking-widget')) return;
   const source = widget.dataset.bookingSource || 'lp_brand';
+  const LANG = {{ ('en' if lang == 'en' else 'pt') | tojson }};
+  const STR = LANG === 'en' ? {
+    loadError: 'Error loading availability. Please reload the page or email mila@anuvia.com.br',
+    noAvailability: 'No availability in the next 10 days. Email mila@anuvia.com.br to find a slot.',
+    slotsAvailable: ' slots available',
+    pickDay: 'Pick a day on the left.',
+    at: ' at ',
+    confirming: 'Confirming…',
+    confirm: 'Confirm slot',
+    failedConfirm: 'Could not confirm. Try another slot or write to mila@anuvia.com.br',
+    connErr: 'Connection error. Please try again.',
+    interest: 'Interest: ',
+    arrivedVia: 'I arrived via the offering page: ',
+  } : {
+    loadError: 'Erro ao carregar disponibilidade. Recarregue a página ou mande email para mila@anuvia.com.br',
+    noAvailability: 'Sem disponibilidade nos próximos 10 dias. Mande email para mila@anuvia.com.br para encontrarmos um horário.',
+    slotsAvailable: ' horários disponíveis',
+    pickDay: 'Selecione um dia ao lado.',
+    at: ' às ',
+    confirming: 'Confirmando…',
+    confirm: 'Confirmar horário',
+    failedConfirm: 'Não foi possível confirmar. Tente outro horário ou escreva para mila@anuvia.com.br',
+    connErr: 'Erro de conexão. Tente novamente.',
+    interest: 'Interesse: ',
+    arrivedVia: 'Cheguei pela página da oferta: ',
+  };
 
   let availability = [];
   let selectedDay = null;
@@ -118,7 +195,7 @@
     'rag-assistant': 'AI · RAG / Knowledge Assistant',
     'mlops-practice': 'AI · MLOps Practice Build',
     'ai-retainer': 'AI · AI Engineering Retainer',
-    'aiops-product': 'AI · Anuvia AI Ops (produto)',
+    'aiops-product': LANG === 'en' ? 'AI · Anuvia AI Ops (product)' : 'AI · Anuvia AI Ops (produto)',
     'termofisher': 'AI · Termofisher AI Drafter (vertical)',
     'media': 'AI · Med.ia (vertical)',
     // Growth
@@ -135,11 +212,11 @@
   const offeringDisplay = offeringSlug ? (OFFERING_LABELS[offeringSlug] || offeringSlug) : null;
   if (offeringDisplay && offeringCtx && offeringLabel) {
     offeringCtx.classList.remove('hidden');
-    offeringLabel.textContent = 'Interesse: ' + offeringDisplay;
+    offeringLabel.textContent = STR.interest + offeringDisplay;
     // Pre-fill context field if empty
     const ctxField = widget.querySelector('textarea[name="context"]');
     if (ctxField && !ctxField.value) {
-      ctxField.value = 'Cheguei pela página da oferta: ' + offeringDisplay + '. ';
+      ctxField.value = STR.arrivedVia + offeringDisplay + '. ';
     }
   }
 
@@ -150,14 +227,14 @@
       availability = (data.days || []).filter(d => d.slots && d.slots.length > 0);
       renderDays();
     } catch (e) {
-      daysEl.innerHTML = '<p class="text-sm text-red-700 col-span-3">Erro ao carregar disponibilidade. Recarregue a página ou mande email para mila@anuvia.com.br</p>';
+      daysEl.innerHTML = '<p class="text-sm text-red-700 col-span-3">' + STR.loadError + '</p>';
     }
   }
 
   function renderDays() {
     daysEl.innerHTML = '';
     if (availability.length === 0) {
-      daysEl.innerHTML = '<p class="text-sm text-ink/50 col-span-3">Sem disponibilidade nos próximos 10 dias. Mande email para mila@anuvia.com.br para encontrarmos um horário.</p>';
+      daysEl.innerHTML = '<p class="text-sm text-ink/50 col-span-3">' + STR.noAvailability + '</p>';
       return;
     }
     availability.forEach((day) => {
@@ -167,7 +244,7 @@
       btn.className = 'flex flex-col items-start justify-center px-4 py-4 border transition text-left ' +
         (isSelected ? 'border-ink bg-ink text-paper' : 'border-rule text-ink hover:border-ink');
       btn.innerHTML = '<span class="eyebrow ' + (isSelected ? 'text-paper/60' : '') + '">' + day.label + '</span>' +
-                      '<span class="text-xs mt-1 ' + (isSelected ? 'text-paper/60' : 'text-subtle') + '">' + day.slots.length + ' horários disponíveis</span>';
+                      '<span class="text-xs mt-1 ' + (isSelected ? 'text-paper/60' : 'text-subtle') + '">' + day.slots.length + STR.slotsAvailable + '</span>';
       btn.addEventListener('click', () => selectDay(day));
       daysEl.appendChild(btn);
     });
@@ -184,7 +261,7 @@
   function renderSlots() {
     slotsEl.innerHTML = '';
     if (!selectedDay) {
-      slotsEl.innerHTML = '<p class="text-sm text-ink/50 italic">Selecione um dia ao lado.</p>';
+      slotsEl.innerHTML = '<p class="text-sm text-ink/50 italic">' + STR.pickDay + '</p>';
       return;
     }
     selectedDay.slots.forEach((time) => {
@@ -202,7 +279,7 @@
     selectedSlot = time;
     dateInput.value = selectedDay.date;
     timeInput.value = time;
-    confirmLabel.textContent = selectedDay.label + ' às ' + time;
+    confirmLabel.textContent = selectedDay.label + STR.at + time;
     formBlock.classList.remove('hidden');
     renderSlots();
     formBlock.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -217,7 +294,7 @@
     if (practiceSlug) data.practice = practiceSlug;
     const btn = e.target.querySelector('button[type=submit]');
     btn.disabled = true;
-    btn.textContent = 'Confirmando…';
+    btn.textContent = STR.confirming;
     try {
       const res = await fetch('/api/contact-book', {
         method: 'POST',
@@ -227,16 +304,16 @@
       const result = await res.json();
       if (res.ok && result.ok) {
         formBlock.classList.add('hidden');
-        successLabel.textContent = result.pretty || (selectedDay.label + ' às ' + selectedSlot);
+        successLabel.textContent = result.pretty || (selectedDay.label + STR.at + selectedSlot);
         successBlock.classList.remove('hidden');
         successBlock.scrollIntoView({ behavior: 'smooth' });
       } else {
-        alert((result && result.detail) || 'Não foi possível confirmar. Tente outro horário ou escreva para mila@anuvia.com.br');
-        btn.disabled = false; btn.textContent = 'Confirmar horário';
+        alert((result && result.detail) || STR.failedConfirm);
+        btn.disabled = false; btn.textContent = STR.confirm;
       }
     } catch (err) {
-      alert('Erro de conexão. Tente novamente.');
-      btn.disabled = false; btn.textContent = 'Confirmar horário';
+      alert(STR.connErr);
+      btn.disabled = false; btn.textContent = STR.confirm;
     }
   });
 

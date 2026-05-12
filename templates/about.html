@@ -3,15 +3,32 @@
 {% block content %}
 
 <section class="max-w-4xl mx-auto px-6 pt-20 pb-12">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-6">Anuvia · About</p>
+  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8">
+    An engineering firm for those who take what they build all the way to production.
+  </h1>
+  {% else %}
   <p class="eyebrow mb-6">Anuvia · Sobre</p>
   <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8">
     Uma firma de engenharia para quem leva o que constrói até produção.
   </h1>
+  {% endif %}
 </section>
 
 <div class="rule max-w-4xl mx-auto px-6"></div>
 
 <section class="max-w-4xl mx-auto px-6 py-16">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-4">Origin</p>
+  <h2 class="h-serif text-3xl md:text-4xl mb-8 leading-tight">Why Anuvia exists</h2>
+
+  <div class="prose-anuvia text-ink/80 space-y-6 leading-relaxed text-lg">
+    <p>Anuvia was born out of a frustration common among senior technical teams: the growing distance between what gets promised in a sales presentation and what actually reaches production. Brilliant proofs of concept in closed rooms, beautiful dashboards in demos, slides with impeccable architectures — and the day after the contract, real delivery falls short of what was sold.</p>
+    <p>We made the opposite choice: think of delivery as the most important part of the work. Discovery exists to separate promise from feasibility. Proof of value exists to validate real numbers. Build exists to integrate with legacy systems without disruption. Operations exist so the system keeps working after the consultant leaves the room.</p>
+    <p>In each phase, clear deliverables. In each decision, architecture recorded. In each deploy, a documented rollback plan. It's not the fastest path to revenue, but it's the one that sustains a recurring client.</p>
+  </div>
+  {% else %}
   <p class="eyebrow mb-4">Origem</p>
   <h2 class="h-serif text-3xl md:text-4xl mb-8 leading-tight">Por que a Anuvia existe</h2>
 
@@ -20,11 +37,33 @@
     <p>A escolha que fizemos foi a oposta: pensar a entrega como a peça mais importante do trabalho. Discovery existe para separar promessa de viabilidade. A prova de valor existe para validar números reais. A construção existe para integrar com sistemas legados sem interrupção. A operação existe para que o sistema continue funcionando quando o consultor sai da sala.</p>
     <p>Em cada fase, entregáveis claros. Em cada decisão, arquitetura registrada. Em cada deploy, plano de rollback documentado. Não é o caminho mais rápido para faturar, mas é o que sustenta um cliente recorrente.</p>
   </div>
+  {% endif %}
 </section>
 
 <div class="rule max-w-4xl mx-auto px-6"></div>
 
 <section class="max-w-4xl mx-auto px-6 py-16">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-4">Leadership</p>
+  <h2 class="h-serif text-3xl md:text-4xl mb-8 leading-tight">Who is behind the technical decisions</h2>
+
+  <div class="grid md:grid-cols-3 gap-8 mb-10">
+    <div>
+      <p class="h-serif text-3xl mb-2">AWS</p>
+      <p class="text-sm text-subtle leading-relaxed">Prior experience as a Solutions Architect inside AWS itself. Architecture decisions come from direct observation of how workloads behave — and fail — in production at scale.</p>
+    </div>
+    <div>
+      <p class="h-serif text-3xl mb-2">Google</p>
+      <p class="text-sm text-subtle leading-relaxed">Time at Google adds the cross-cloud perspective necessary for honest choices. When AWS makes sense, when GCP makes sense, when staying on-premises makes sense — without vendor bias.</p>
+    </div>
+    <div>
+      <p class="h-serif text-3xl mb-2">15+ AWS certifications</p>
+      <p class="text-sm text-subtle leading-relaxed">Formal and continuous coverage of the main specialties: Architecture, Security, Machine Learning, Data Analytics, DevOps, Database, Networking. A narrow band of professionals carries this verified depth.</p>
+    </div>
+  </div>
+
+  <p class="text-ink/70 leading-relaxed">Technical leadership defines architecture, makes design decisions and joins calls where human depth is needed. In delivery, it operates alongside a squad of specialized agents that handle execution, documentation, status reports and operational support. The model combines speed with clear technical responsibility.</p>
+  {% else %}
   <p class="eyebrow mb-4">Liderança</p>
   <h2 class="h-serif text-3xl md:text-4xl mb-8 leading-tight">Quem está por trás das decisões técnicas</h2>
 
@@ -44,11 +83,35 @@
   </div>
 
   <p class="text-ink/70 leading-relaxed">A liderança técnica define arquitetura, faz a decisão de design e participa de calls onde a profundidade humana é necessária. Em delivery, opera junto com uma squad de agentes especializados que cuidam de execução, documentação, status reports e suporte operacional. O modelo combina velocidade com responsabilidade técnica clara.</p>
+  {% endif %}
 </section>
 
 <div class="rule max-w-4xl mx-auto px-6"></div>
 
 <section class="max-w-4xl mx-auto px-6 py-16">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-4">How we think</p>
+  <h2 class="h-serif text-3xl md:text-4xl mb-10 leading-tight">Four non-negotiable principles</h2>
+
+  <div class="space-y-10">
+    <div>
+      <p class="h-serif text-2xl mb-3">Engineering before marketing</p>
+      <p class="text-ink/70 leading-relaxed">Technical rigor comes first. Proofs of value validate real feasibility before any production commitment. Every impact promise is accompanied by cost calculation and operating plan.</p>
+    </div>
+    <div>
+      <p class="h-serif text-2xl mb-3">Production standards from the first commit</p>
+      <p class="text-ink/70 leading-relaxed">Integrated observability, security by design, eval harness, documented rollback plan, defined operational ownership. Every project delivered includes these elements — without exception.</p>
+    </div>
+    <div>
+      <p class="h-serif text-2xl mb-3">Radical transparency</p>
+      <p class="text-ink/70 leading-relaxed">Public prices. Explicit deliverables. Realistic timelines. Recorded SLAs. The client knows before signing what they will receive, in what timeframe, and with which acceptance criteria.</p>
+    </div>
+    <div>
+      <p class="h-serif text-2xl mb-3">Real operation, not rhetoric</p>
+      <p class="text-ink/70 leading-relaxed">Anuvia operates with the same stack it offers to clients. When we say the system works in production, it's because it has been running here for months. Verifiable demonstrations instead of aspirational slides.</p>
+    </div>
+  </div>
+  {% else %}
   <p class="eyebrow mb-4">Como pensamos</p>
   <h2 class="h-serif text-3xl md:text-4xl mb-10 leading-tight">Quatro princípios não-negociáveis</h2>
 
@@ -70,23 +133,39 @@
       <p class="text-ink/70 leading-relaxed">A Anuvia opera com a mesma stack que oferece aos clientes. Quando dizemos que o sistema funciona em produção, é porque ele está funcionando aqui há meses. Demonstrações verificáveis em vez de slides aspiracionais.</p>
     </div>
   </div>
+  {% endif %}
 </section>
 
 <div class="rule max-w-4xl mx-auto px-6"></div>
 
 <section class="max-w-4xl mx-auto px-6 py-16">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-4">Coverage</p>
+  <h2 class="h-serif text-3xl md:text-4xl mb-8 leading-tight">Where we work</h2>
+  <div class="grid md:grid-cols-2 gap-8 text-ink/70 leading-relaxed">
+    <p>We work on projects in Brazil and the United States, with a team fluent in Portuguese and English. Contracts can be established under whichever local legal entity is most convenient for each client — including LGPD, GDPR and sector-specific compliance when applicable.</p>
+    <p>Engagement models include point audits, fixed-scope sprints, multi-phase projects and strategic retainers. For small teams without a senior cloud CTO, we work as a fractional Solutions Architect with monthly hour allocations.</p>
+  </div>
+  {% else %}
   <p class="eyebrow mb-4">Cobertura</p>
   <h2 class="h-serif text-3xl md:text-4xl mb-8 leading-tight">Onde atendemos</h2>
   <div class="grid md:grid-cols-2 gap-8 text-ink/70 leading-relaxed">
     <p>Atuamos em projetos no Brasil e nos Estados Unidos, com time fluente em português e inglês. Contratos podem ser estabelecidos com a estrutura jurídica local mais conveniente para cada cliente — incluindo conformidade com LGPD, GDPR e regulamentações setoriais quando aplicável.</p>
     <p>Modelos de engajamento incluem auditorias pontuais, sprints com escopo fixo, projetos multi-fase e retentores estratégicos. Para times pequenos sem CTO sênior de cloud, atuamos como Solutions Architect fracional com horas alocadas mensalmente.</p>
   </div>
+  {% endif %}
 </section>
 
 <section class="max-w-4xl mx-auto px-6 py-24 text-center">
+  {% if lang == 'en' %}
+  <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Let's talk</h2>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Thirty minutes with an Anuvia Solutions Architect to understand your team's technical context and point to concrete next steps.</p>
+  <a href="/contact" class="btn-primary text-base inline-block">Pick a slot</a>
+  {% else %}
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Vamos conversar</h2>
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Trinta minutos com um Solutions Architect da Anuvia para entender o contexto técnico do seu time e indicar próximos passos concretos.</p>
   <a href="/contact" class="btn-primary text-base inline-block">Escolha um horário</a>
+  {% endif %}
 </section>
 
 {% endblock %}

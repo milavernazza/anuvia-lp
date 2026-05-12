@@ -3,6 +3,16 @@
 {% block content %}
 
 <section class="max-w-5xl mx-auto px-6 pt-20 pb-12">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-6">Anuvia AI · Strategy · Anchor offering</p>
+  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
+    AI Readiness<br><span class="italic">Sprint.</span>
+  </h1>
+  <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
+    Two to three weeks mapping where Artificial Intelligence effectively moves ROI in your operation. No hype, no isolated PoC, no generic deck — an honest technical analysis of viability and impact.
+  </p>
+  <p class="text-sm text-subtle mb-12">2-3 weeks · {{ fmt_price('R$ 25-40k') }} · use case inventory + estimated ROI + 12-month roadmap</p>
+  {% else %}
   <p class="eyebrow mb-6">Anuvia AI · Strategy · Anchor offering</p>
   <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
     AI Readiness<br><span class="italic">Sprint.</span>
@@ -11,6 +21,7 @@
     Duas a três semanas mapeando onde Inteligência Artificial efetivamente move ROI na sua operação. Sem hype, sem PoC isolado, sem deck genérico — análise técnica honesta de viabilidade e impacto.
   </p>
   <p class="text-sm text-subtle mb-12">2-3 semanas · R$ 25-40k · use case inventory + ROI estimado + roadmap 12 meses</p>
+  {% endif %}
 </section>
 
 <div class="rule max-w-5xl mx-auto px-6"></div>
@@ -18,6 +29,17 @@
 <section class="max-w-5xl mx-auto px-6 py-16">
   <div class="grid md:grid-cols-2 gap-12">
     <div>
+      {% if lang == 'en' %}
+      <p class="eyebrow mb-4">What we deliver</p>
+      <ul class="space-y-4 text-sm text-ink/80 leading-relaxed">
+        <li><strong>Use case inventory.</strong> We surface 8-15 candidate opportunities in your business, classified by potential value and technical maturity required.</li>
+        <li><strong>Viability filter.</strong> Each case gets an honest technical assessment: data availability, estimated inference cost, acceptable latency, applicable compliance rules.</li>
+        <li><strong>Estimated ROI per case.</strong> Financial model with explicit assumptions. You know exactly where the numbers come from.</li>
+        <li><strong>12-month roadmap.</strong> Sequencing prioritized by impact/effort, with clear evolution gates (discovery → PoV → production).</li>
+        <li><strong>Build vs. buy decision.</strong> For each prioritized case: use existing SaaS, build custom, or wait for maturity.</li>
+        <li><strong>Executive presentation.</strong> Material ready for a conversation with board or technical leadership.</li>
+      </ul>
+      {% else %}
       <p class="eyebrow mb-4">O que entregamos</p>
       <ul class="space-y-4 text-sm text-ink/80 leading-relaxed">
         <li><strong>Inventário de casos de uso.</strong> Levantamos 8-15 oportunidades candidatas no seu negócio, classificadas por valor potencial e maturidade técnica necessária.</li>
@@ -27,8 +49,21 @@
         <li><strong>Decisão build vs. buy.</strong> Para cada caso priorizado: usar SaaS existente, construir custom, ou aguardar maturidade.</li>
         <li><strong>Apresentação executiva.</strong> Material pronto para conversa com board ou liderança técnica.</li>
       </ul>
+      {% endif %}
     </div>
     <div>
+      {% if lang == 'en' %}
+      <p class="eyebrow mb-4">Why this format</p>
+      <p class="text-sm text-ink/80 leading-relaxed mb-5">
+        Most companies start AI through experimentation — an isolated PoC that doesn't scale, or a chatbot that generates tickets instead of closing them. The Readiness Sprint inverts that order: first map where AI has a real business case, then design the execution path.
+      </p>
+      <p class="text-sm text-ink/80 leading-relaxed mb-5">
+        The delivery is technical, not commercial. If three of the five investigated cases don't justify the investment, we say so — and point to the ones that do. The goal is to avoid spending {{ fmt_price('R$ 200-300k') }} on projects that turn into a demo screenshot and never reach production.
+      </p>
+      <p class="text-sm text-ink/80 leading-relaxed">
+        The final deliverable isn't a sales deck. It's the basis on which you decide how much to invest and which case to start with.
+      </p>
+      {% else %}
       <p class="eyebrow mb-4">Por que esse formato</p>
       <p class="text-sm text-ink/80 leading-relaxed mb-5">
         A maioria das empresas começa IA pelo experimento — um PoC isolado que não escala, ou um chatbot que gera tickets em vez de fechá-los. O Readiness Sprint inverte essa ordem: primeiro mapeia onde IA tem business case real, depois desenha o caminho de execução.
@@ -39,6 +74,7 @@
       <p class="text-sm text-ink/80 leading-relaxed">
         O entregável final não é deck de venda. É a base sobre a qual você decide quanto vale investir e em qual caso começar.
       </p>
+      {% endif %}
     </div>
   </div>
 </section>
@@ -46,6 +82,65 @@
 <div class="rule max-w-5xl mx-auto px-6"></div>
 
 <section class="max-w-3xl mx-auto px-6 py-16" id="signup">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-3 text-center">Interactive diagnostic</p>
+  <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Answer 4 questions. See your preliminary read.</h2>
+  <p class="text-center text-ink/60 mb-12">No signup. You decide whether you want the report by email afterward.</p>
+
+  <form id="diag-business-form" data-diag-base="/api/ai-readiness" class="space-y-6 card p-8 md:p-10">
+    <div>
+      <label class="eyebrow block mb-2">Role</label>
+      <select name="role" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option>CEO / Founder</option>
+        <option>CTO / VP Engineering</option>
+        <option>Head of AI / ML / Data</option>
+        <option>Chief Product Officer</option>
+        <option>Director of Engineering</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Current AI stage</label>
+      <select name="ai_stage" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="exploring">Initial exploration — nothing in production yet</option>
+        <option value="experimenting">PoCs and experiments in parallel</option>
+        <option value="early_prod">1-2 cases running in production</option>
+        <option value="scaling">Multiple cases in production, scaling</option>
+        <option value="mature">Mature operation, optimizing cost and governance</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Main stated pain</label>
+      <select name="main_pain" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="poc_to_prod">PoCs don't become production</option>
+        <option value="cost_runaway">Inference cost out of control</option>
+        <option value="no_eval">Lack of evaluation, monitoring, rollback</option>
+        <option value="usecase_blur">We don't know where to start (unclear use cases)</option>
+        <option value="vendor_lock">Vendor lock-in concern (OpenAI, AWS, GCP)</option>
+        <option value="governance">Governance and compliance blocking progress</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Approximate revenue or ARR</label>
+      <select name="revenue_tier" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="under_5m">Up to $1M/year</option>
+        <option value="5m_30m">$1M-6M/year</option>
+        <option value="30m_100m">$6M-20M/year</option>
+        <option value="100m_plus">Above $20M/year</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Additional context (optional)</label>
+      <textarea name="context" rows="4" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Any specific system, team or decision that triggered this inquiry?"></textarea>
+    </div>
+    <button type="submit" class="btn-primary w-full text-base">See my analysis</button>
+    <p class="text-xs text-subtle text-center">No signup at this step.</p>
+  </form>
+  {% else %}
   <p class="eyebrow mb-3 text-center">Diagnóstico interativo</p>
   <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Responda 4 perguntas. Veja sua leitura preliminar.</h2>
   <p class="text-center text-ink/60 mb-12">Sem cadastro. Você decide se quer receber o relatório por email depois.</p>
@@ -103,6 +198,7 @@
     <button type="submit" class="btn-primary w-full text-base">Ver minha análise</button>
     <p class="text-xs text-subtle text-center">Sem cadastro nessa etapa.</p>
   </form>
+  {% endif %}
 </section>
 
 {% include "_diag_flow_steps.html" %}
@@ -110,6 +206,25 @@
 <div class="rule max-w-5xl mx-auto px-6"></div>
 
 <section class="max-w-5xl mx-auto px-6 py-16">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-4">Sprint coverage</p>
+  <h2 class="h-serif text-3xl md:text-4xl mb-10 leading-tight max-w-3xl">The three pillars we evaluate.</h2>
+
+  <div class="grid md:grid-cols-3 gap-8">
+    <div>
+      <p class="h-serif text-3xl mb-3">Strategy</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Where AI generates real value in your business, separated from marketing pitch. Use case discovery, business case and prioritization by effort/impact.</p>
+    </div>
+    <div>
+      <p class="h-serif text-3xl mb-3">Engineering</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Technical viability of each case: data, infrastructure, models, integration, acceptable latency. Production-grade from the design.</p>
+    </div>
+    <div>
+      <p class="h-serif text-3xl mb-3">Operations</p>
+      <p class="text-sm text-ink/70 leading-relaxed">AI FinOps: cost per inference, monitoring, eval harness, rollback. The path between PoC and sustainable operation at scale.</p>
+    </div>
+  </div>
+  {% else %}
   <p class="eyebrow mb-4">Cobertura do Sprint</p>
   <h2 class="h-serif text-3xl md:text-4xl mb-10 leading-tight max-w-3xl">Os três pilares que avaliamos.</h2>
 
@@ -127,17 +242,27 @@
       <p class="text-sm text-ink/70 leading-relaxed">FinOps de IA: custo por inferência, monitoramento, eval harness, rollback. O caminho entre PoC e operação sustentável em escala.</p>
     </div>
   </div>
+  {% endif %}
 </section>
 
 <div class="rule max-w-5xl mx-auto px-6"></div>
 
 <section class="max-w-4xl mx-auto px-6 py-20 text-center">
+  {% if lang == 'en' %}
+  <h2 class="h-serif text-3xl md:text-4xl leading-tight mb-6">Next steps after the Sprint.</h2>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">A typical client decides, based on the roadmap, whether to build a priority case in a dedicated sprint, set up a multi-agent platform, or contract a retainer for continuous follow-up. No mandatory commitment.</p>
+  <div class="flex flex-col sm:flex-row gap-4 justify-center">
+    <a href="/ai" class="btn-ghost text-base inline-block">See the full Anuvia AI catalog</a>
+    <a href="#signup" class="btn-primary text-base inline-block">Take the diagnostic</a>
+  </div>
+  {% else %}
   <h2 class="h-serif text-3xl md:text-4xl leading-tight mb-6">Próximos passos depois do Sprint.</h2>
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Cliente típico decide com base no roadmap se quer construir um caso prioritário em sprint dedicado, montar plataforma multi-agente, ou contratar retainer para acompanhamento contínuo. Sem fidelidade obrigatória.</p>
   <div class="flex flex-col sm:flex-row gap-4 justify-center">
     <a href="/ai" class="btn-ghost text-base inline-block">Ver catálogo completo Anuvia AI</a>
     <a href="#signup" class="btn-primary text-base inline-block">Fazer diagnóstico</a>
   </div>
+  {% endif %}
 </section>
 
 {% endblock %}

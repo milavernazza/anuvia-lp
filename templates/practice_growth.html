@@ -3,6 +3,17 @@
 {% block content %}
 
 <section class="max-w-6xl mx-auto px-6 pt-20 pb-16">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-6">Anuvia · Practices · 04</p>
+  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">Anuvia Growth</h1>
+  <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-12">
+    Automated RevOps, marketing tech and customer experience. Home of <span class="italic">Anuvia AI Ops</span> — the same stack we use to run Anuvia, cloned and customized for you.
+  </p>
+  <div class="flex flex-col sm:flex-row gap-4">
+    <a href="/growth/sales-ops" class="btn-primary text-base inline-block">Sales Ops Diagnostic</a>
+    <a href="#offerings" class="btn-ghost text-base inline-block">See all offerings</a>
+  </div>
+  {% else %}
   <p class="eyebrow mb-6">Anuvia · Práticas · 04</p>
   <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">Anuvia Growth</h1>
   <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-12">
@@ -12,6 +23,7 @@
     <a href="/growth/sales-ops" class="btn-primary text-base inline-block">Sales Ops Diagnostic</a>
     <a href="#offerings" class="btn-ghost text-base inline-block">Ver todas as ofertas</a>
   </div>
+  {% endif %}
 </section>
 
 <div class="rule max-w-6xl mx-auto px-6"></div>
@@ -19,12 +31,29 @@
 <section class="max-w-6xl mx-auto px-6 py-20">
   <div class="grid md:grid-cols-5 gap-10">
     <div class="md:col-span-2">
+      {% if lang == 'en' %}
+      <p class="eyebrow mb-4">Anchor offering</p>
+      <h2 class="h-serif text-4xl mb-6 leading-tight">Sales Ops<br>Diagnostic</h2>
+      <p class="text-ink/70 leading-relaxed mb-8">A 2-week diagnostic of the current commercial funnel: process gaps, automation gaps, lead leakage, time-to-respond. Roadmap prioritized by ROI.</p>
+      <a href="/growth/sales-ops" class="btn-primary text-sm inline-block">Request the diagnostic</a>
+      {% else %}
       <p class="eyebrow mb-4">Anchor offering</p>
       <h2 class="h-serif text-4xl mb-6 leading-tight">Sales Ops<br>Diagnostic</h2>
       <p class="text-ink/70 leading-relaxed mb-8">Diagnóstico de 2 semanas no funnel comercial atual: gaps de processo, automation gaps, lead leakage, time-to-respond. Roadmap priorizado por ROI.</p>
       <a href="/growth/sales-ops" class="btn-primary text-sm inline-block">Solicitar diagnóstico</a>
+      {% endif %}
     </div>
     <div class="md:col-span-3 card p-10">
+      {% if lang == 'en' %}
+      <p class="eyebrow mb-4">Why Anuvia Growth</p>
+      <p class="text-ink/80 leading-relaxed mb-6">Anuvia runs 100% on AI. Our agent squad handles outbound, qualification, scheduling, follow-up, content. <strong>What you buy is literally the stack we use to grow Anuvia</strong>, customized to your ICP, brand voice, and channels.</p>
+      <ul class="space-y-3 text-sm text-ink/70">
+        <li>• <strong>Anuvia AI Ops</strong> — multi-tenant SaaS with an agent squad active in your Slack</li>
+        <li>• <strong>Custom setup</strong> aligned to your ICP, brand voice, channels, and tools</li>
+        <li>• <strong>Supervision dashboard</strong> with kill switch + approval queue</li>
+        <li>• <strong>Cross-channel orchestration</strong> (LinkedIn, email, messaging, IG)</li>
+      </ul>
+      {% else %}
       <p class="eyebrow mb-4">Por que comprar Anuvia Growth</p>
       <p class="text-ink/80 leading-relaxed mb-6">A Anuvia roda 100% em IA. Nossa squad de agentes faz outbound, qualification, scheduling, follow-up, content. <strong>O que você compra é literalmente o stack que usamos pra crescer a Anuvia</strong>, customizado pro seu ICP, brand voice, channels.</p>
       <ul class="space-y-3 text-sm text-ink/70">
@@ -33,6 +62,7 @@
         <li>• <strong>Dashboard supervisão</strong> com kill switch + approval queue</li>
         <li>• <strong>Cross-channel orchestration</strong> (LinkedIn, email, WhatsApp, IG)</li>
       </ul>
+      {% endif %}
     </div>
   </div>
 </section>
@@ -40,12 +70,27 @@
 <div class="rule max-w-6xl mx-auto px-6"></div>
 
 <section id="offerings" class="max-w-6xl mx-auto px-6 py-20">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-4">Full catalog</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight max-w-3xl">From diagnostic to full RevOps stack.</h2>
+  {% else %}
   <p class="eyebrow mb-4">Catálogo completo</p>
   <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight max-w-3xl">Do diagnóstico ao stack completo de RevOps.</h2>
+  {% endif %}
 
   <div class="grid md:grid-cols-2 gap-6">
 
     <div class="card p-8 flex flex-col">
+      {% if lang == 'en' %}
+      <p class="eyebrow mb-3 text-accent">Diagnostic</p>
+      <h3 class="h-serif text-2xl mb-3">Sales Ops Audit</h3>
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Diagnostic of the current funnel, gaps and opportunities. Roadmap prioritized by ROI.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
+        <span class="text-subtle">2 weeks</span>
+        <span class="font-medium">{{ fmt_price('R$ 15-25k') }}</span>
+      </div>
+      <a href="/growth/sales-ops" class="text-sm font-medium underline hover:text-accent mt-auto">Request diagnostic →</a>
+      {% else %}
       <p class="eyebrow mb-3 text-accent">Diagnóstico</p>
       <h3 class="h-serif text-2xl mb-3">Sales Ops Audit</h3>
       <p class="text-sm text-ink/70 leading-relaxed mb-5">Diagnóstico do funnel atual, gaps e oportunidades. Roadmap priorizado por ROI.</p>
@@ -54,20 +99,40 @@
         <span class="font-medium">R$ 15-25k</span>
       </div>
       <a href="/growth/sales-ops" class="text-sm font-medium underline hover:text-accent mt-auto">Solicitar diagnóstico →</a>
+      {% endif %}
     </div>
 
     <div class="card p-8 flex flex-col">
       <p class="eyebrow mb-3 text-accent">Quick Win</p>
       <h3 class="h-serif text-2xl mb-3">AI Quick Win</h3>
+      {% if lang == 'en' %}
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Implementation of 1 high-impact automation (e.g.: messaging auto-qualifier, proposal generator).</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
+        <span class="text-subtle">2-3 weeks</span>
+        <span class="font-medium">{{ fmt_price('R$ 8-15k') }}</span>
+      </div>
+      <a href="/growth/sales-ops" class="text-sm font-medium underline hover:text-accent mt-auto">Start with Sales Ops →</a>
+      {% else %}
       <p class="text-sm text-ink/70 leading-relaxed mb-5">Implementação de 1 automação alto-impacto (ex: WhatsApp auto-qualifier, proposal generator).</p>
       <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
         <span class="text-subtle">2-3 semanas</span>
         <span class="font-medium">R$ 8-15k</span>
       </div>
       <a href="/growth/sales-ops" class="text-sm font-medium underline hover:text-accent mt-auto">Começar pelo Sales Ops →</a>
+      {% endif %}
     </div>
 
     <div class="card p-8 bg-accent text-paper flex flex-col">
+      {% if lang == 'en' %}
+      <p class="eyebrow mb-3 text-paper/60">Product</p>
+      <h3 class="h-serif text-2xl mb-3">Anuvia AI Ops Setup</h3>
+      <p class="text-sm text-paper/80 leading-relaxed mb-5">Full setup of the Anuvia agent stack customized to your operation. White-label, dedicated Slack, supervision dashboard.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-paper/20 text-xs mb-4">
+        <span class="text-paper/60">+ recurring</span>
+        <span class="font-medium">{{ fmt_price('R$ 10-25k') }}</span>
+      </div>
+      <a href="/growth/sales-ops" class="text-sm font-medium underline text-paper hover:text-paper/80 mt-auto">Start with Sales Ops →</a>
+      {% else %}
       <p class="eyebrow mb-3 text-paper/60">Produto</p>
       <h3 class="h-serif text-2xl mb-3">Anuvia AI Ops Setup</h3>
       <p class="text-sm text-paper/80 leading-relaxed mb-5">Setup completo do stack de agentes Anuvia customizado pra sua operação. White-label, Slack próprio, dashboard supervisão.</p>
@@ -76,39 +141,67 @@
         <span class="font-medium">R$ 10-25k</span>
       </div>
       <a href="/growth/sales-ops" class="text-sm font-medium underline text-paper hover:text-paper/80 mt-auto">Começar pelo Sales Ops →</a>
+      {% endif %}
     </div>
 
     <div class="card p-8 flex flex-col">
       <p class="eyebrow mb-3 text-accent">Recurring</p>
       <h3 class="h-serif text-2xl mb-3">Anuvia AI Ops Subscription</h3>
+      {% if lang == 'en' %}
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Agent squad running 24/7. Ops + sales + content. The same stack that runs Anuvia.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
+        <span class="text-subtle">Recurring</span>
+        <span class="font-medium">{{ fmt_price('R$ 3-8k') }}/month</span>
+      </div>
+      <a href="/growth/sales-ops" class="text-sm font-medium underline hover:text-accent mt-auto">Start with Sales Ops →</a>
+      {% else %}
       <p class="text-sm text-ink/70 leading-relaxed mb-5">Squad de agentes rodando 24/7. Ops + sales + content. Mesmo stack que roda Anuvia.</p>
       <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
         <span class="text-subtle">Recurring</span>
         <span class="font-medium">R$ 3-8k/mês</span>
       </div>
       <a href="/growth/sales-ops" class="text-sm font-medium underline hover:text-accent mt-auto">Começar pelo Sales Ops →</a>
+      {% endif %}
     </div>
 
     <div class="card p-8 flex flex-col">
       <p class="eyebrow mb-3 text-accent">RevOps</p>
       <h3 class="h-serif text-2xl mb-3">RevOps Stack Implementation</h3>
+      {% if lang == 'en' %}
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">CRM setup, pipeline automation, lead enrichment, analytics. Build of the full RevOps stack.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
+        <span class="text-subtle">6-10 weeks</span>
+        <span class="font-medium">{{ fmt_price('R$ 40-100k') }}</span>
+      </div>
+      <a href="/growth/sales-ops" class="text-sm font-medium underline hover:text-accent mt-auto">Start with Sales Ops →</a>
+      {% else %}
       <p class="text-sm text-ink/70 leading-relaxed mb-5">CRM setup, pipeline automation, lead enrichment, analytics. Build da stack RevOps inteira.</p>
       <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
         <span class="text-subtle">6-10 semanas</span>
         <span class="font-medium">R$ 40-100k</span>
       </div>
       <a href="/growth/sales-ops" class="text-sm font-medium underline hover:text-accent mt-auto">Começar pelo Sales Ops →</a>
+      {% endif %}
     </div>
 
     <div class="card p-8 flex flex-col">
       <p class="eyebrow mb-3 text-accent">Retainer</p>
       <h3 class="h-serif text-2xl mb-3">Growth Engineering Retainer</h3>
+      {% if lang == 'en' %}
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Fractional Growth Engineer for continuous optimization, new automations, A/B tests, attribution.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
+        <span class="text-subtle">Ongoing</span>
+        <span class="font-medium">{{ fmt_price('R$ 10-20k') }}/month</span>
+      </div>
+      <a href="/contact?offering=growth-retainer&practice=growth" class="text-sm font-medium underline hover:text-accent mt-auto">Talk to a Solutions Architect →</a>
+      {% else %}
       <p class="text-sm text-ink/70 leading-relaxed mb-5">Fractional Growth Engineer pra otimização contínua, novas automations, A/B tests, attribution.</p>
       <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
         <span class="text-subtle">Ongoing</span>
         <span class="font-medium">R$ 10-20k/mês</span>
       </div>
       <a href="/contact?offering=growth-retainer&practice=growth" class="text-sm font-medium underline hover:text-accent mt-auto">Falar com Solutions Architect →</a>
+      {% endif %}
     </div>
 
   </div>
@@ -117,6 +210,40 @@
 <div class="rule max-w-6xl mx-auto px-6"></div>
 
 <section class="max-w-6xl mx-auto px-6 py-20">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-4">Who it's for</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-10 leading-tight">Ideal Anuvia Growth client.</h2>
+
+  <div class="grid md:grid-cols-3 gap-8">
+    <div class="card p-7">
+      <p class="font-semibold mb-3">Company profile</p>
+      <ul class="space-y-2 text-sm text-ink/70">
+        <li>• SMB 10-100 employees</li>
+        <li>• B2B sales (ticket $1k+)</li>
+        <li>• Consultancy, agency, SaaS</li>
+        <li>• Founder/CEO leading commercial</li>
+      </ul>
+    </div>
+    <div class="card p-7">
+      <p class="font-semibold mb-3">Decision maker</p>
+      <ul class="space-y-2 text-sm text-ink/70">
+        <li>• Founder / CEO</li>
+        <li>• Head of Growth / Revenue</li>
+        <li>• Head of Sales / Marketing</li>
+        <li>• COO / Operations</li>
+      </ul>
+    </div>
+    <div class="card p-7">
+      <p class="font-semibold mb-3">Typical pain</p>
+      <ul class="space-y-2 text-sm text-ink/70">
+        <li>• Small team + blocked growth</li>
+        <li>• Cold leads sitting in messaging/email</li>
+        <li>• Too many manual processes</li>
+        <li>• Lack of pipeline visibility</li>
+      </ul>
+    </div>
+  </div>
+  {% else %}
   <p class="eyebrow mb-4">Pra quem é</p>
   <h2 class="h-serif text-4xl md:text-5xl mb-10 leading-tight">Cliente ideal Anuvia Growth.</h2>
 
@@ -149,15 +276,25 @@
       </ul>
     </div>
   </div>
+  {% endif %}
 </section>
 
 <section class="max-w-4xl mx-auto px-6 py-24 text-center">
+  {% if lang == 'en' %}
+  <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Next step.</h2>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Pre-qualification for the Sales Ops Diagnostic takes 90 seconds and returns a preliminary analysis within 24h. Then we decide the next steps together.</p>
+  <div class="flex flex-col sm:flex-row gap-4 justify-center">
+    <a href="/growth/sales-ops" class="btn-primary text-base inline-block">Pre-qualification</a>
+    <a href="/contact" class="btn-ghost text-base inline-block">Talk to a Solutions Architect</a>
+  </div>
+  {% else %}
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Próximo passo.</h2>
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Pré-qualificação do Sales Ops Diagnostic leva 90 segundos e devolve análise preliminar em até 24h. Depois decidimos juntos os próximos passos.</p>
   <div class="flex flex-col sm:flex-row gap-4 justify-center">
     <a href="/growth/sales-ops" class="btn-primary text-base inline-block">Pré-qualificação</a>
     <a href="/contact" class="btn-ghost text-base inline-block">Falar com um Solutions Architect</a>
   </div>
+  {% endif %}
 </section>
 
 {% endblock %}

@@ -13,6 +13,37 @@
 <!-- STEP 3 — PII gate for receiving report + booking option -->
 <section id="step-contact" class="hidden max-w-3xl mx-auto px-6 py-16">
   <div class="card p-8 md:p-10">
+    {% if lang == 'en' %}
+    <p class="eyebrow mb-3">Get the full report by email</p>
+    <h3 class="h-serif text-3xl mb-4 leading-tight">Want to go deeper?</h3>
+    <p class="text-ink/70 leading-relaxed mb-8">We'll send the full report to your inbox + recommendations specific to your case. Optionally, book 30 min with a Solutions Architect to review it together.</p>
+
+    <form id="diag-contact-form" class="space-y-5">
+      <input type="hidden" name="lead_id" id="contact-lead-id">
+      <div>
+        <label class="eyebrow block mb-2">Full name</label>
+        <input type="text" name="name" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+      </div>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div>
+          <label class="eyebrow block mb-2">Work email</label>
+          <input type="email" name="email" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        </div>
+        <div>
+          <label class="eyebrow block mb-2">WhatsApp</label>
+          <input type="tel" name="whatsapp" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        </div>
+      </div>
+      <div>
+        <label class="eyebrow block mb-2">Company</label>
+        <input type="text" name="company" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+      </div>
+      <div class="flex flex-col sm:flex-row gap-3 items-center justify-between pt-2">
+        <p class="text-xs text-subtle">Your data stays with Anuvia. Zero spam.</p>
+        <button type="submit" class="btn-primary text-sm">Send the report by email</button>
+      </div>
+    </form>
+    {% else %}
     <p class="eyebrow mb-3">Receba o relatório completo por email</p>
     <h3 class="h-serif text-3xl mb-4 leading-tight">Quer aprofundar?</h3>
     <p class="text-ink/70 leading-relaxed mb-8">Te mandamos o relatório completo no email + recomendações específicas pro seu caso. Opcionalmente, agenda 30min com um Solutions Architect pra revisar junto.</p>
@@ -42,15 +73,22 @@
         <button type="submit" class="btn-primary text-sm">Enviar relatório por email</button>
       </div>
     </form>
+    {% endif %}
   </div>
 </section>
 
 <!-- STEP 4 — Confirmation + embedded booking -->
 <section id="step-booking" class="hidden max-w-5xl mx-auto px-6 py-16">
   <div class="text-center mb-12">
+    {% if lang == 'en' %}
+    <p class="eyebrow text-accent mb-3">Report sent</p>
+    <h3 class="h-serif text-3xl mb-4 leading-tight">Want to book 30 min now?</h3>
+    <p class="text-ink/70 max-w-2xl mx-auto leading-relaxed">Talk to an Anuvia Solutions Architect to review the diagnostic together and design the next step. No deck, no proposal at the end — just a technical conversation.</p>
+    {% else %}
     <p class="eyebrow text-accent mb-3">Relatório enviado</p>
     <h3 class="h-serif text-3xl mb-4 leading-tight">Quer agendar 30min agora?</h3>
     <p class="text-ink/70 max-w-2xl mx-auto leading-relaxed">Conversa com um Solutions Architect da Anuvia pra revisar o diagnóstico junto e desenhar o próximo passo. Sem deck, sem proposta no encerramento — só conversa técnica.</p>
+    {% endif %}
   </div>
   {% include "_booking_widget.html" %}
 </section>
@@ -67,6 +105,26 @@
   if (!businessForm || !contactForm) return;
   const diagBase = businessForm.dataset.diagBase;
   if (!diagBase) { console.warn('Missing data-diag-base on business form'); return; }
+  const LANG = {{ ('en' if lang == 'en' else 'pt') | tojson }};
+  const STR = LANG === 'en' ? {
+    analyzing: 'Analyzing…',
+    sending: 'Sending…',
+    fillAll: 'Please fill in all fields.',
+    errAnalysis: 'Error generating analysis. Please try again.',
+    connErr: 'Connection error. Please try again.',
+    sessionExpired: 'Session expired. Please run the diagnostic again.',
+    checkFields: 'Please check the fields.',
+    errRegister: 'Error registering. Please try again.',
+  } : {
+    analyzing: 'Analisando…',
+    sending: 'Enviando…',
+    fillAll: 'Preencha todos os campos.',
+    errAnalysis: 'Erro ao gerar análise. Tente novamente.',
+    connErr: 'Erro de conexão. Tente novamente.',
+    sessionExpired: 'Sessão expirada. Faz o diagnóstico de novo.',
+    checkFields: 'Verifique os campos.',
+    errRegister: 'Erro ao registrar. Tente novamente.',
+  };
 
   // STEP 1 — Business diagnostic submission
   businessForm.addEventListener('submit', async (e) => {
@@ -76,7 +134,7 @@
     const btn = e.target.querySelector('button[type=submit]');
     const origLabel = btn.textContent;
     btn.disabled = true;
-    btn.textContent = 'Analisando…';
+    btn.textContent = STR.analyzing;
     try {
       const res = await fetch(diagBase + '/analyze', {
         method: 'POST',
@@ -92,12 +150,12 @@
         businessForm.parentElement.classList.add('hidden');
         analysisSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } else {
-        alert((result && result.detail && (Array.isArray(result.detail) ? 'Preencha todos os campos.' : result.detail)) || 'Erro ao gerar análise. Tente novamente.');
+        alert((result && result.detail && (Array.isArray(result.detail) ? STR.fillAll : result.detail)) || STR.errAnalysis);
         btn.disabled = false;
         btn.textContent = origLabel;
       }
     } catch (err) {
-      alert('Erro de conexão. Tente novamente.');
+      alert(STR.connErr);
       btn.disabled = false;
       btn.textContent = origLabel;
     }
@@ -109,13 +167,13 @@
     const fd = new FormData(e.target);
     const data = Object.fromEntries(fd.entries());
     if (!data.lead_id) {
-      alert('Sessão expirada. Faz o diagnóstico de novo.');
+      alert(STR.sessionExpired);
       return;
     }
     const btn = e.target.querySelector('button[type=submit]');
     const origLabel = btn.textContent;
     btn.disabled = true;
-    btn.textContent = 'Enviando…';
+    btn.textContent = STR.sending;
     try {
       const res = await fetch(diagBase + '/contact', {
         method: 'POST',
@@ -128,12 +186,12 @@
         bookingSection.classList.remove('hidden');
         bookingSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } else {
-        alert((result && result.detail && (Array.isArray(result.detail) ? 'Verifique os campos.' : result.detail)) || 'Erro ao registrar. Tente novamente.');
+        alert((result && result.detail && (Array.isArray(result.detail) ? STR.checkFields : result.detail)) || STR.errRegister);
         btn.disabled = false;
         btn.textContent = origLabel;
       }
     } catch (err) {
-      alert('Erro de conexão. Tente novamente.');
+      alert(STR.connErr);
       btn.disabled = false;
       btn.textContent = origLabel;
     }

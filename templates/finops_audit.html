@@ -4,6 +4,21 @@
 
 <!-- HERO -->
 <section class="max-w-5xl mx-auto px-6 pt-20 pb-12">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-6">Anuvia Cloud · FinOps · Anchor offering</p>
+  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
+    AWS Cost Audit<br><span class="italic">Risk-Free.</span>
+  </h1>
+  <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
+    In 4 weeks we identify 25-40% annualized savings on your AWS bill. Guarantee: if we don't find 3× your investment, you don't pay.
+  </p>
+  <p class="text-sm text-subtle mb-12">15+ AWS certifications · Ex-AWS Solutions Architect · Ex-Google</p>
+
+  <div class="card p-6 max-w-2xl bg-ink text-paper">
+    <p class="eyebrow text-paper/60 mb-3">The guarantee, translated</p>
+    <p class="text-sm leading-relaxed">Investment {{ fmt_price('R$ 45-60k') }}. If the annualized savings identified are not at least 3× what you paid (= {{ fmt_price('R$ 135-180k') }}+/year), you get a full refund. Has it happened? Never.</p>
+  </div>
+  {% else %}
   <p class="eyebrow mb-6">Anuvia Cloud · FinOps · Anchor offering</p>
   <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
     AWS Cost Audit<br><span class="italic">Risk-Free.</span>
@@ -17,12 +32,77 @@
     <p class="eyebrow text-paper/60 mb-3">A garantia, traduzida</p>
     <p class="text-sm leading-relaxed">Investimento R$ 45-60k. Se a economia anualizada identificada não for ao menos 3× o que pagou (= R$ 135-180k+/ano), você recebe reembolso integral. Já aconteceu? Nunca.</p>
   </div>
+  {% endif %}
 </section>
 
 <div class="rule max-w-5xl mx-auto px-6"></div>
 
 <!-- STEP 1 — Anonymous business diagnostic (no PII) -->
 <section class="max-w-3xl mx-auto px-6 py-16" id="signup">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-3 text-center">Interactive diagnostic</p>
+  <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Answer 4 questions. See your estimate in 30 seconds.</h2>
+  <p class="text-center text-ink/60 mb-12">No signup. You decide whether you want the report by email afterward.</p>
+
+  <form id="diag-business-form" data-diag-base="/api/finops-audit" class="space-y-6 card p-8 md:p-10">
+    <div>
+      <label class="eyebrow block mb-2">Role / function</label>
+      <select name="role" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option>CTO / VP Engineering</option>
+        <option>Head of Platform / Infrastructure</option>
+        <option>Cloud Architect / DevOps Lead</option>
+        <option>CFO / Finance Leader</option>
+        <option>Founder / CEO</option>
+        <option>Other</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="eyebrow block mb-2">Approximate monthly AWS bill (USD)</label>
+      <select name="aws_spend" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="under_10k">&lt; $10,000/month</option>
+        <option value="10k_30k">$10,000 - $30,000/month</option>
+        <option value="30k_100k">$30,000 - $100,000/month</option>
+        <option value="100k_300k">$100,000 - $300,000/month</option>
+        <option value="300k_plus">&gt; $300,000/month</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="eyebrow block mb-2">Biggest concern today</label>
+      <select name="main_pain" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="bill_growth">The bill grew significantly and we don't know why</option>
+        <option value="no_visibility">Lack of visibility per team/product/feature</option>
+        <option value="ri_savings">Reserved Instances / Savings Plans poorly optimized</option>
+        <option value="architecture">Inherited architecture doesn't scale economically</option>
+        <option value="finops_practice">We want to establish an internal FinOps practice</option>
+        <option value="cfo_pressure">Board pressure to cut cloud spend</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="eyebrow block mb-2">How long on AWS?</label>
+      <select name="aws_tenure" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="under_1y">Less than 1 year</option>
+        <option value="1_3y">1-3 years</option>
+        <option value="3_5y">3-5 years</option>
+        <option value="5_plus">More than 5 years</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="eyebrow block mb-2">Additional context (optional)</label>
+      <textarea name="context" rows="3" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Anything specific? E.g.: recent migration, multi-account, regulation…"></textarea>
+    </div>
+
+    <button type="submit" class="btn-primary w-full text-base">See my analysis</button>
+    <p class="text-xs text-subtle text-center">No signup at this step. The analysis appears immediately below.</p>
+  </form>
+  {% else %}
   <p class="eyebrow mb-3 text-center">Diagnóstico interativo</p>
   <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Responda 4 perguntas. Veja sua estimativa em 30 segundos.</h2>
   <p class="text-center text-ink/60 mb-12">Sem cadastro. Você decide se quer receber o relatório por email depois.</p>
@@ -85,6 +165,7 @@
     <button type="submit" class="btn-primary w-full text-base">Ver minha análise</button>
     <p class="text-xs text-subtle text-center">Sem cadastro nessa etapa. A análise aparece imediatamente abaixo.</p>
   </form>
+  {% endif %}
 </section>
 
 {% include "_diag_flow_steps.html" %}
@@ -93,6 +174,45 @@
 
 <!-- METHODOLOGY -->
 <section class="max-w-5xl mx-auto px-6 py-20">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-4">Methodology</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight">4 weeks. 4 deliverables.</h2>
+
+  <div class="space-y-10">
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">01</p><p class="eyebrow mt-2">Week 1</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Discovery & Data Collection</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">2-hour workshop with your cloud team. We extract Cost &amp; Usage Reports (CUR), AWS Cost Explorer data, Trusted Advisor findings, billing configuration. We map accounts, services, tags, ownership.</p>
+        <p class="text-sm text-subtle"><strong>Deliverable:</strong> full data extraction + documented spend baseline</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">02</p><p class="eyebrow mt-2">Week 2</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Analysis & Identification</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Systematic analysis: compute (right-sizing, RI/SP coverage, Spot opportunities), storage (lifecycle, intelligent tiering, orphan snapshots), network (egress, NAT, transit gateway), data transfer, RDS/Aurora, S3, third-party SaaS, support tier.</p>
+        <p class="text-sm text-subtle"><strong>Deliverable:</strong> findings list with estimated savings per category + effort/risk scoring</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">03</p><p class="eyebrow mt-2">Week 3</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Quick Wins Implementation</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">We execute the low-risk, high-impact recommendations during the audit (with your approval). Typically 10-15% immediate savings: idle resources, snapshot cleanup, unused EBS, redundant data transfer, S3 lifecycle.</p>
+        <p class="text-sm text-subtle"><strong>Deliverable:</strong> measurable savings already in production + documented change log</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">04</p><p class="eyebrow mt-2">Week 4</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Report & Roadmap</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Final executive report with total savings identified, breakdown by category, calculated ROI, prioritized roadmap of remaining opportunities. Executive presentation for the board.</p>
+        <p class="text-sm text-subtle"><strong>Deliverable:</strong> executive report + 6-month roadmap + presentation + retainer option</p>
+      </div>
+    </div>
+  </div>
+  {% else %}
   <p class="eyebrow mb-4">Metodologia</p>
   <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight">4 semanas. 4 entregáveis.</h2>
 
@@ -130,12 +250,40 @@
       </div>
     </div>
   </div>
+  {% endif %}
 </section>
 
 <div class="rule max-w-5xl mx-auto px-6"></div>
 
 <!-- FAQ -->
 <section class="max-w-3xl mx-auto px-6 py-20">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-4">Frequently asked</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight">FAQ.</h2>
+
+  <div class="space-y-6">
+    <details class="card p-6 group">
+      <summary class="cursor-pointer font-semibold flex justify-between items-center">How does the 3× ROI guarantee work?<span class="text-accent group-open:rotate-45 transition-transform">+</span></summary>
+      <p class="text-sm text-ink/70 leading-relaxed mt-4">Typical investment {{ fmt_price('R$ 45-60k') }}. If the annualized savings identified are not at least 3× that (e.g.: {{ fmt_price('R$ 135-180k') }}+/year), you receive a full refund. The criterion is objective: identified savings vs. amount invested. Documented in the contract.</p>
+    </details>
+    <details class="card p-6 group">
+      <summary class="cursor-pointer font-semibold flex justify-between items-center">How much access to the AWS account is needed?<span class="text-accent group-open:rotate-45 transition-transform">+</span></summary>
+      <p class="text-sm text-ink/70 leading-relaxed mt-4">Read-only IAM role with specific policies: Cost Explorer, Trusted Advisor, Compute Optimizer, Billing, Resource Discovery. No write access for our audit. The client can revoke at any time.</p>
+    </details>
+    <details class="card p-6 group">
+      <summary class="cursor-pointer font-semibold flex justify-between items-center">Why can you save 25-40%?<span class="text-accent group-open:rotate-45 transition-transform">+</span></summary>
+      <p class="text-sm text-ink/70 leading-relaxed mt-4">Most AWS-native companies grew their bill faster than their FinOps maturity. Recurring patterns: under-used Reserved Instances / Savings Plans, over-sized compute, invisible data transfer costs, orphaned snapshots/EBS, S3 without lifecycle, third-party SaaS on Marketplace above market. We know where to look.</p>
+    </details>
+    <details class="card p-6 group">
+      <summary class="cursor-pointer font-semibold flex justify-between items-center">What if our company is too large / too small?<span class="text-accent group-open:rotate-45 transition-transform">+</span></summary>
+      <p class="text-sm text-ink/70 leading-relaxed mt-4">Sweet spot is $30k-$300k/month AWS bill. Below $10k/month the savings in absolute value probably won't cover the audit. Above $300k/month the scope is negotiated case by case (8-12 week engagement).</p>
+    </details>
+    <details class="card p-6 group">
+      <summary class="cursor-pointer font-semibold flex justify-between items-center">Do you implement the recommendations or only flag them?<span class="text-accent group-open:rotate-45 transition-transform">+</span></summary>
+      <p class="text-sm text-ink/70 leading-relaxed mt-4">During the audit, in week 3, we execute low-risk quick wins with your approval (typically 10-15% immediate savings). The rest is documented for you to execute — or contract Managed FinOps Retainer for Anuvia to run continuously.</p>
+    </details>
+  </div>
+  {% else %}
   <p class="eyebrow mb-4">Perguntas frequentes</p>
   <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight">FAQ.</h2>
 
@@ -161,15 +309,22 @@
       <p class="text-sm text-ink/70 leading-relaxed mt-4">Durante o audit, na semana 3, executamos quick wins de baixo risco com sua aprovação (tipicamente 10-15% economia imediata). O resto fica documentado pra você executar — ou contratar Managed FinOps Retainer pra Anuvia tocar continuamente.</p>
     </details>
   </div>
+  {% endif %}
 </section>
 
 <div class="rule max-w-5xl mx-auto px-6"></div>
 
 <!-- FINAL CTA -->
 <section class="max-w-4xl mx-auto px-6 py-24 text-center">
+  {% if lang == 'en' %}
+  <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Ready to cut 25-40%?</h2>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Take the interactive diagnostic above. No signup up front — you decide afterward whether you want the report.</p>
+  <a href="#signup" class="btn-primary text-base inline-block">Back to the diagnostic</a>
+  {% else %}
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Pronto pra reduzir 25-40%?</h2>
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Faz o diagnóstico interativo acima. Sem cadastro inicial — só decide se quer receber o relatório depois.</p>
   <a href="#signup" class="btn-primary text-base inline-block">Voltar ao diagnóstico</a>
+  {% endif %}
 </section>
 
 {% endblock %}

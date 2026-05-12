@@ -3,6 +3,17 @@
 {% block content %}
 
 <section class="max-w-6xl mx-auto px-6 pt-20 pb-16">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-6">Anuvia · Practices · 02</p>
+  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">Anuvia Engineering</h1>
+  <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-12">
+    DevOps, SRE, observability, IoT/Edge. Platforms that hold under real load, deploys that don't wake anyone at 3am, observability from day one.
+  </p>
+  <div class="flex flex-col sm:flex-row gap-4">
+    <a href="/engineering/devops/maturity" class="btn-primary text-base inline-block">DevOps Maturity Assessment</a>
+    <a href="#offerings" class="btn-ghost text-base inline-block">See all offerings</a>
+  </div>
+  {% else %}
   <p class="eyebrow mb-6">Anuvia · Práticas · 02</p>
   <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">Anuvia Engineering</h1>
   <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-12">
@@ -12,6 +23,7 @@
     <a href="/engineering/devops/maturity" class="btn-primary text-base inline-block">DevOps Maturity Assessment</a>
     <a href="#offerings" class="btn-ghost text-base inline-block">Ver todas as ofertas</a>
   </div>
+  {% endif %}
 </section>
 
 <div class="rule max-w-6xl mx-auto px-6"></div>
@@ -19,12 +31,30 @@
 <section class="max-w-6xl mx-auto px-6 py-20">
   <div class="grid md:grid-cols-5 gap-10">
     <div class="md:col-span-2">
+      {% if lang == 'en' %}
+      <p class="eyebrow mb-4">Anchor offering</p>
+      <h2 class="h-serif text-4xl mb-6 leading-tight">DevOps Maturity<br>Assessment</h2>
+      <p class="text-ink/70 leading-relaxed mb-8">A 4-week audit of the current DevOps state: deploy frequency, MTTR, change failure rate, lead time. Benchmark vs. high-performers (DORA metrics) and prioritized roadmap.</p>
+      <a href="/engineering/devops/maturity" class="btn-primary text-sm inline-block">Request the assessment</a>
+      {% else %}
       <p class="eyebrow mb-4">Anchor offering</p>
       <h2 class="h-serif text-4xl mb-6 leading-tight">DevOps Maturity<br>Assessment</h2>
       <p class="text-ink/70 leading-relaxed mb-8">Audit de 4 semanas no estado atual de DevOps: deploy frequency, MTTR, change failure rate, lead time. Benchmark vs. high-performers (DORA metrics) e roadmap priorizado.</p>
       <a href="/engineering/devops/maturity" class="btn-primary text-sm inline-block">Solicitar assessment</a>
+      {% endif %}
     </div>
     <div class="md:col-span-3 card p-10">
+      {% if lang == 'en' %}
+      <p class="eyebrow mb-4">You leave with</p>
+      <ul class="space-y-4 text-sm">
+        <li class="flex gap-3"><span class="text-accent">▸</span><span><strong>DORA metrics baseline</strong> (deploy frequency, lead time, MTTR, change failure rate) measured in your context</span></li>
+        <li class="flex gap-3"><span class="text-accent">▸</span><span><strong>Gap analysis</strong> against high-performer benchmarks (DORA report) + Elite teams</span></li>
+        <li class="flex gap-3"><span class="text-accent">▸</span><span><strong>Pipeline assessment</strong> — CI/CD maturity, test automation coverage, IaC adoption, GitOps readiness</span></li>
+        <li class="flex gap-3"><span class="text-accent">▸</span><span><strong>Incident response review</strong> — runbooks, on-call rotation, post-mortem culture, observability gaps</span></li>
+        <li class="flex gap-3"><span class="text-accent">▸</span><span><strong>6-month roadmap</strong> prioritized by impact/effort with timelines and dependencies</span></li>
+        <li class="flex gap-3"><span class="text-accent">▸</span><span><strong>Executive presentation</strong> with investment proposal for leadership</span></li>
+      </ul>
+      {% else %}
       <p class="eyebrow mb-4">Você sai com</p>
       <ul class="space-y-4 text-sm">
         <li class="flex gap-3"><span class="text-accent">▸</span><span><strong>DORA metrics baseline</strong> (deploy frequency, lead time, MTTR, change failure rate) medidos no seu contexto</span></li>
@@ -34,6 +64,7 @@
         <li class="flex gap-3"><span class="text-accent">▸</span><span><strong>Roadmap 6 meses</strong> priorizado por impacto/effort com timelines e dependencies</span></li>
         <li class="flex gap-3"><span class="text-accent">▸</span><span><strong>Apresentação executiva</strong> com proposta de investimentos pra liderança</span></li>
       </ul>
+      {% endif %}
     </div>
   </div>
 </section>
@@ -41,97 +72,174 @@
 <div class="rule max-w-6xl mx-auto px-6"></div>
 
 <section id="offerings" class="max-w-6xl mx-auto px-6 py-20">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-4">Full catalog</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight max-w-3xl">From assessment to full platform engineering.</h2>
+  {% else %}
   <p class="eyebrow mb-4">Catálogo completo</p>
   <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight max-w-3xl">Do assessment ao platform engineering completo.</h2>
+  {% endif %}
 
   <div class="grid md:grid-cols-2 gap-6">
 
     <div class="card p-8 flex flex-col">
       <p class="eyebrow mb-3 text-accent">DevOps</p>
       <h3 class="h-serif text-2xl mb-3">DevOps Maturity Assessment</h3>
+      {% if lang == 'en' %}
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">DORA metrics + gap analysis + prioritized roadmap.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
+        <span class="text-subtle">4 weeks</span>
+        <span class="font-medium">{{ fmt_price('R$ 35-50k') }}</span>
+      </div>
+      <a href="/engineering/devops/maturity" class="text-sm font-medium underline hover:text-accent mt-auto">Request diagnostic →</a>
+      {% else %}
       <p class="text-sm text-ink/70 leading-relaxed mb-5">DORA metrics + gap analysis + roadmap priorizado.</p>
       <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
         <span class="text-subtle">4 semanas</span>
         <span class="font-medium">R$ 35-50k</span>
       </div>
       <a href="/engineering/devops/maturity" class="text-sm font-medium underline hover:text-accent mt-auto">Solicitar diagnóstico →</a>
+      {% endif %}
     </div>
 
     <div class="card p-8 flex flex-col">
       <p class="eyebrow mb-3 text-accent">DevOps</p>
       <h3 class="h-serif text-2xl mb-3">CI/CD Pipeline Implementation</h3>
+      {% if lang == 'en' %}
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Build of a new pipeline (GitHub Actions, GitLab CI, or Jenkins X) with IaC and automated testing integrated.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
+        <span class="text-subtle">6-12 weeks</span>
+        <span class="font-medium">{{ fmt_price('R$ 50-150k') }}</span>
+      </div>
+      <a href="/engineering/devops/maturity" class="text-sm font-medium underline hover:text-accent mt-auto">Start with the DevOps Maturity →</a>
+      {% else %}
       <p class="text-sm text-ink/70 leading-relaxed mb-5">Build do pipeline novo (GitHub Actions, GitLab CI, ou Jenkins X) com IaC e testes automáticos integrados.</p>
       <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
         <span class="text-subtle">6-12 semanas</span>
         <span class="font-medium">R$ 50-150k</span>
       </div>
       <a href="/engineering/devops/maturity" class="text-sm font-medium underline hover:text-accent mt-auto">Começar pelo DevOps Maturity →</a>
+      {% endif %}
     </div>
 
     <div class="card p-8 flex flex-col">
       <p class="eyebrow mb-3 text-accent">Platform</p>
       <h3 class="h-serif text-2xl mb-3">Kubernetes / EKS Migration</h3>
+      {% if lang == 'en' %}
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Migration from monoliths or ECS to EKS with Helm, GitOps (ArgoCD/Flux), and a full observability stack.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
+        <span class="text-subtle">8-16 weeks</span>
+        <span class="font-medium">{{ fmt_price('R$ 80-250k') }}</span>
+      </div>
+      <a href="/engineering/devops/maturity" class="text-sm font-medium underline hover:text-accent mt-auto">Start with the DevOps Maturity →</a>
+      {% else %}
       <p class="text-sm text-ink/70 leading-relaxed mb-5">Migração de monolitos ou ECS pra EKS com Helm, GitOps (ArgoCD/Flux), and full observability stack.</p>
       <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
         <span class="text-subtle">8-16 semanas</span>
         <span class="font-medium">R$ 80-250k</span>
       </div>
       <a href="/engineering/devops/maturity" class="text-sm font-medium underline hover:text-accent mt-auto">Começar pelo DevOps Maturity →</a>
+      {% endif %}
     </div>
 
     <div class="card p-8 flex flex-col">
       <p class="eyebrow mb-3 text-accent">Observability</p>
       <h3 class="h-serif text-2xl mb-3">Observability Stack</h3>
+      {% if lang == 'en' %}
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Datadog, New Relic, Grafana Cloud or CloudWatch — vendor-agnostic choice based on the current stack and budget.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
+        <span class="text-subtle">4-8 weeks</span>
+        <span class="font-medium">{{ fmt_price('R$ 40-100k') }}</span>
+      </div>
+      <a href="/engineering/devops/maturity" class="text-sm font-medium underline hover:text-accent mt-auto">Start with the DevOps Maturity →</a>
+      {% else %}
       <p class="text-sm text-ink/70 leading-relaxed mb-5">Datadog, New Relic, Grafana Cloud ou CloudWatch — escolha vendor-agnóstica baseada no stack atual + budget.</p>
       <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
         <span class="text-subtle">4-8 semanas</span>
         <span class="font-medium">R$ 40-100k</span>
       </div>
       <a href="/engineering/devops/maturity" class="text-sm font-medium underline hover:text-accent mt-auto">Começar pelo DevOps Maturity →</a>
+      {% endif %}
     </div>
 
     <div class="card p-8 flex flex-col">
       <p class="eyebrow mb-3 text-accent">GitOps</p>
       <h3 class="h-serif text-2xl mb-3">GitOps Implementation</h3>
+      {% if lang == 'en' %}
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">ArgoCD or Flux as source of truth for deploys. Multi-cluster, RBAC, secrets management, automatic rollback.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
+        <span class="text-subtle">6-10 weeks</span>
+        <span class="font-medium">{{ fmt_price('R$ 50-120k') }}</span>
+      </div>
+      <a href="/engineering/devops/maturity" class="text-sm font-medium underline hover:text-accent mt-auto">Start with the DevOps Maturity →</a>
+      {% else %}
       <p class="text-sm text-ink/70 leading-relaxed mb-5">ArgoCD ou Flux como source of truth pra deploys. Multi-cluster, RBAC, secrets management, rollback automático.</p>
       <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
         <span class="text-subtle">6-10 semanas</span>
         <span class="font-medium">R$ 50-120k</span>
       </div>
       <a href="/engineering/devops/maturity" class="text-sm font-medium underline hover:text-accent mt-auto">Começar pelo DevOps Maturity →</a>
+      {% endif %}
     </div>
 
     <div class="card p-8 flex flex-col">
       <p class="eyebrow mb-3 text-accent">SRE</p>
       <h3 class="h-serif text-2xl mb-3">SRE Practice Build</h3>
+      {% if lang == 'en' %}
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Build of the internal SRE practice: SLO/SLI definition, error budgets, incident response, chaos engineering, on-call.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
+        <span class="text-subtle">12-20 weeks</span>
+        <span class="font-medium">{{ fmt_price('R$ 80-200k') }}</span>
+      </div>
+      <a href="/engineering/devops/maturity" class="text-sm font-medium underline hover:text-accent mt-auto">Start with the DevOps Maturity →</a>
+      {% else %}
       <p class="text-sm text-ink/70 leading-relaxed mb-5">Build da prática SRE interna: SLO/SLI definition, error budgets, incident response, chaos engineering, on-call.</p>
       <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
         <span class="text-subtle">12-20 semanas</span>
         <span class="font-medium">R$ 80-200k</span>
       </div>
       <a href="/engineering/devops/maturity" class="text-sm font-medium underline hover:text-accent mt-auto">Começar pelo DevOps Maturity →</a>
+      {% endif %}
     </div>
 
     <div class="card p-8 flex flex-col">
       <p class="eyebrow mb-3 text-accent">Platform</p>
       <h3 class="h-serif text-2xl mb-3">Platform Engineering Retainer</h3>
+      {% if lang == 'en' %}
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Fractional Platform Engineer available to the team. Strategic guidance + occasional hands-on.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
+        <span class="text-subtle">Ongoing</span>
+        <span class="font-medium">{{ fmt_price('R$ 15-25k') }}/month</span>
+      </div>
+      <a href="/contact?offering=platform-retainer&practice=engineering" class="text-sm font-medium underline hover:text-accent mt-auto">Talk to a Solutions Architect →</a>
+      {% else %}
       <p class="text-sm text-ink/70 leading-relaxed mb-5">Fractional Platform Engineer disponível pro time. Strategic guidance + occasional hands-on.</p>
       <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
         <span class="text-subtle">Ongoing</span>
         <span class="font-medium">R$ 15-25k/mês</span>
       </div>
       <a href="/contact?offering=platform-retainer&practice=engineering" class="text-sm font-medium underline hover:text-accent mt-auto">Falar com Solutions Architect →</a>
+      {% endif %}
     </div>
 
     <div class="card p-8 flex flex-col">
       <p class="eyebrow mb-3 text-accent">IoT/Edge</p>
       <h3 class="h-serif text-2xl mb-3">IoT / Edge Computing Sprint</h3>
+      {% if lang == 'en' %}
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Offline-first edge devices, secure telemetry ingestion, real-time dashboards, fleet management at scale.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
+        <span class="text-subtle">6-12 weeks</span>
+        <span class="font-medium">{{ fmt_price('R$ 50-150k') }}</span>
+      </div>
+      <a href="/contact?offering=iot-edge&practice=engineering" class="text-sm font-medium underline hover:text-accent mt-auto">Talk to a Solutions Architect →</a>
+      {% else %}
       <p class="text-sm text-ink/70 leading-relaxed mb-5">Edge devices offline-first, ingestão segura de telemetria, dashboards real-time, fleet management em escala.</p>
       <div class="flex justify-between items-end pt-4 border-t border-rule text-xs mb-4">
         <span class="text-subtle">6-12 semanas</span>
         <span class="font-medium">R$ 50-150k</span>
       </div>
       <a href="/contact?offering=iot-edge&practice=engineering" class="text-sm font-medium underline hover:text-accent mt-auto">Falar com Solutions Architect →</a>
+      {% endif %}
     </div>
 
   </div>
@@ -140,6 +248,40 @@
 <div class="rule max-w-6xl mx-auto px-6"></div>
 
 <section class="max-w-6xl mx-auto px-6 py-20">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-4">Who it's for</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-10 leading-tight">Ideal Anuvia Engineering client.</h2>
+
+  <div class="grid md:grid-cols-3 gap-8">
+    <div class="card p-7">
+      <p class="font-semibold mb-3">Company profile</p>
+      <ul class="space-y-2 text-sm text-ink/70">
+        <li>• Tech team of 10-200 engineers</li>
+        <li>• Series A-C or mid-market</li>
+        <li>• Critical digital product in production</li>
+        <li>• Signs of incident frequency or release pain</li>
+      </ul>
+    </div>
+    <div class="card p-7">
+      <p class="font-semibold mb-3">Decision maker</p>
+      <ul class="space-y-2 text-sm text-ink/70">
+        <li>• VP Engineering / CTO</li>
+        <li>• Head of Platform / DevOps</li>
+        <li>• Head of SRE</li>
+        <li>• Director of Engineering</li>
+      </ul>
+    </div>
+    <div class="card p-7">
+      <p class="font-semibold mb-3">Typical pain</p>
+      <ul class="space-y-2 text-sm text-ink/70">
+        <li>• Deploy is an event, not a routine</li>
+        <li>• Frequent incidents, high MTTR</li>
+        <li>• Lack of observability, debugging in the dark</li>
+        <li>• Team overloaded with on-call</li>
+      </ul>
+    </div>
+  </div>
+  {% else %}
   <p class="eyebrow mb-4">Pra quem é</p>
   <h2 class="h-serif text-4xl md:text-5xl mb-10 leading-tight">Cliente ideal Anuvia Engineering.</h2>
 
@@ -172,15 +314,25 @@
       </ul>
     </div>
   </div>
+  {% endif %}
 </section>
 
 <section class="max-w-4xl mx-auto px-6 py-24 text-center">
+  {% if lang == 'en' %}
+  <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Next step.</h2>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">If deploy or incident frequency worries you, start with the DevOps Maturity Assessment. Not sure? Book 30 min, no pitch.</p>
+  <div class="flex flex-col sm:flex-row gap-4 justify-center">
+    <a href="/engineering/devops/maturity" class="btn-primary text-base inline-block">DevOps Maturity Assessment</a>
+    <a href="/contact" class="btn-ghost text-base inline-block">Talk to a Solutions Architect</a>
+  </div>
+  {% else %}
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Próximo passo.</h2>
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Se deploy ou incident frequency te preocupa, comece pelo DevOps Maturity Assessment. Não sabe? Agenda 30min sem pitch.</p>
   <div class="flex flex-col sm:flex-row gap-4 justify-center">
     <a href="/engineering/devops/maturity" class="btn-primary text-base inline-block">DevOps Maturity Assessment</a>
     <a href="/contact" class="btn-ghost text-base inline-block">Falar com um Solutions Architect</a>
   </div>
+  {% endif %}
 </section>
 
 {% endblock %}

@@ -3,6 +3,16 @@
 {% block content %}
 
 <section class="max-w-5xl mx-auto px-6 pt-20 pb-12">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-6">Anuvia Growth · RevOps · Anchor offering</p>
+  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
+    Sales Ops<br><span class="italic">Diagnostic.</span>
+  </h1>
+  <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
+    Two weeks mapping the current commercial funnel: process gaps, automation opportunities, lead leakage, response time. Roadmap prioritized by ROI.
+  </p>
+  <p class="text-sm text-subtle mb-12">2 weeks · {{ fmt_price('R$ 15-25k') }} · funnel audit + automation map + 90-day plan</p>
+  {% else %}
   <p class="eyebrow mb-6">Anuvia Growth · RevOps · Anchor offering</p>
   <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
     Sales Ops<br><span class="italic">Diagnostic.</span>
@@ -11,6 +21,7 @@
     Duas semanas mapeando o funil comercial atual: gaps de processo, oportunidades de automação, vazamentos de lead, tempo de resposta. Roadmap priorizado por ROI.
   </p>
   <p class="text-sm text-subtle mb-12">2 semanas · R$ 15-25k · funnel audit + automation map + 90-day plan</p>
+  {% endif %}
 </section>
 
 <div class="rule max-w-5xl mx-auto px-6"></div>
@@ -18,6 +29,17 @@
 <section class="max-w-5xl mx-auto px-6 py-16">
   <div class="grid md:grid-cols-2 gap-12">
     <div>
+      {% if lang == 'en' %}
+      <p class="eyebrow mb-4">What we map</p>
+      <ul class="space-y-4 text-sm text-ink/80 leading-relaxed">
+        <li><strong>End-to-end funnel.</strong> From demand generation to closed-won, with conversion rates between each stage and average dwell time.</li>
+        <li><strong>Leakage points.</strong> Where leads cool down, where follow-up fails, where the channel handoff breaks the experience.</li>
+        <li><strong>Real response time.</strong> SLA measured — not declared — at each entry channel (form, messaging, referral, inbound).</li>
+        <li><strong>Applicable automation map.</strong> Which stages can be automated today (qualification, scheduling, follow-up, nurture) and the expected ROI of each.</li>
+        <li><strong>Stack assessment.</strong> Current CRM, email sequences, ancillary tools — what makes sense to keep, integrate or replace.</li>
+        <li><strong>90-day roadmap.</strong> Next steps prioritized by impact/effort, with executable timeline and KPIs per phase.</li>
+      </ul>
+      {% else %}
       <p class="eyebrow mb-4">O que mapeamos</p>
       <ul class="space-y-4 text-sm text-ink/80 leading-relaxed">
         <li><strong>Funil ponta a ponta.</strong> Da geração de demanda até closed-won, com taxas de conversão entre cada estágio e tempo médio de permanência.</li>
@@ -27,8 +49,21 @@
         <li><strong>Stack assessment.</strong> CRM atual, sequências de email, ferramentas auxiliares — o que faz sentido manter, integrar ou substituir.</li>
         <li><strong>Roadmap 90 dias.</strong> Próximos passos priorizados por impact/effort, com timeline executável e KPIs de cada etapa.</li>
       </ul>
+      {% endif %}
     </div>
     <div>
+      {% if lang == 'en' %}
+      <p class="eyebrow mb-4">Why this format</p>
+      <p class="text-sm text-ink/80 leading-relaxed mb-5">
+        Commercial operations tend to evolve by aggregation — a tool here, a spreadsheet there, an SDR who tweaks a script. In two years it becomes a system no one fully understands, with leads cooling down in invisible gaps.
+      </p>
+      <p class="text-sm text-ink/80 leading-relaxed mb-5">
+        The Diagnostic produces a single view of the current funnel: where each lead is, how long it stays in each stage, which entries convert best. From there we decide together where automation has real ROI and where team maturity needs to develop first.
+      </p>
+      <p class="text-sm text-ink/80 leading-relaxed">
+        A typical client closes the diagnostic with clarity about the next three investments — and the three that seemed urgent but weren't.
+      </p>
+      {% else %}
       <p class="eyebrow mb-4">Por que esse formato</p>
       <p class="text-sm text-ink/80 leading-relaxed mb-5">
         Operações comerciais costumam evoluir por agregação — uma ferramenta aqui, uma planilha lá, um SDR que ajusta um script. Em dois anos vira um sistema que ninguém entende inteiro, com leads esfriando em buracos invisíveis.
@@ -39,6 +74,7 @@
       <p class="text-sm text-ink/80 leading-relaxed">
         Cliente típico encerra o diagnóstico com clareza sobre os três investimentos seguintes — e os três que pareciam urgentes mas não eram.
       </p>
+      {% endif %}
     </div>
   </div>
 </section>
@@ -46,6 +82,64 @@
 <div class="rule max-w-5xl mx-auto px-6"></div>
 
 <section class="max-w-3xl mx-auto px-6 py-16" id="signup">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-3 text-center">Interactive diagnostic</p>
+  <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Answer 4 questions. See a preliminary read of your funnel.</h2>
+  <p class="text-center text-ink/60 mb-12">No signup. You decide whether you want the report by email afterward.</p>
+
+  <form id="diag-business-form" data-diag-base="/api/growth-sales-ops" class="space-y-6 card p-8 md:p-10">
+    <div>
+      <label class="eyebrow block mb-2">Role</label>
+      <select name="role" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option>Founder / CEO</option>
+        <option>Head of Growth / Revenue</option>
+        <option>Head of Sales</option>
+        <option>Head of Marketing</option>
+        <option>COO / Operations</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Commercial team size</label>
+      <select name="team_size" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="solo">Founder selling alone</option>
+        <option value="2_5">2-5 (closer, SDR)</option>
+        <option value="5_15">5-15</option>
+        <option value="15_plus">15+</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Average ticket</label>
+      <select name="ticket_size" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="under_5k">Below $1k</option>
+        <option value="5k_25k">$1k-5k</option>
+        <option value="25k_100k">$5k-20k</option>
+        <option value="100k_plus">Above $20k</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Main stated pain</label>
+      <select name="main_pain" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="lead_leakage">Leads cooling down before we respond</option>
+        <option value="manual_ops">Too many manual processes consuming time</option>
+        <option value="no_visibility">Lack of pipeline visibility</option>
+        <option value="low_conversion">Conversion rate between stages unexpectedly drops</option>
+        <option value="team_burnout">Commercial team overloaded</option>
+        <option value="founder_blocked">Founder is still the bottleneck in every sale</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Additional context (optional)</label>
+      <textarea name="context" rows="4" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="How much did the team grow last year? Current CRM? Any specific funnel point that concerns you?"></textarea>
+    </div>
+    <button type="submit" class="btn-primary w-full text-base">See my analysis</button>
+    <p class="text-xs text-subtle text-center">No signup at this step.</p>
+  </form>
+  {% else %}
   <p class="eyebrow mb-3 text-center">Diagnóstico interativo</p>
   <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Responda 4 perguntas. Veja leitura preliminar do seu funil.</h2>
   <p class="text-center text-ink/60 mb-12">Sem cadastro. Você decide se quer receber o relatório por email depois.</p>
@@ -102,6 +196,7 @@
     <button type="submit" class="btn-primary w-full text-base">Ver minha análise</button>
     <p class="text-xs text-subtle text-center">Sem cadastro nessa etapa.</p>
   </form>
+  {% endif %}
 </section>
 
 {% include "_diag_flow_steps.html" %}
@@ -109,6 +204,28 @@
 <div class="rule max-w-5xl mx-auto px-6"></div>
 
 <section class="max-w-5xl mx-auto px-6 py-16">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-4">What comes out of the diagnostic</p>
+  <h2 class="h-serif text-3xl md:text-4xl mb-10 leading-tight max-w-3xl">Three deliverables a typical client uses for months.</h2>
+
+  <div class="grid md:grid-cols-3 gap-8">
+    <div>
+      <p class="h-serif text-3xl mb-3">01</p>
+      <p class="eyebrow mb-3">Funnel map</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Visual document with each stage, conversion rate, average time and where each leak sits. Becomes the commercial team's internal reference.</p>
+    </div>
+    <div>
+      <p class="h-serif text-3xl mb-3">02</p>
+      <p class="eyebrow mb-3">Automation playbook</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Prioritized list of automations with impact/effort, recommended tools, expected ROI and execution order. Ready to discuss with finance.</p>
+    </div>
+    <div>
+      <p class="h-serif text-3xl mb-3">03</p>
+      <p class="eyebrow mb-3">90-day roadmap</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Executable 13-week plan with suggested owners, KPIs per phase and evolution gates. Can be implemented by your team or by Anuvia.</p>
+    </div>
+  </div>
+  {% else %}
   <p class="eyebrow mb-4">O que sai do diagnóstico</p>
   <h2 class="h-serif text-3xl md:text-4xl mb-10 leading-tight max-w-3xl">Três entregas que cliente típico usa por meses.</h2>
 
@@ -129,17 +246,27 @@
       <p class="text-sm text-ink/70 leading-relaxed">Plano executável de 13 semanas com responsáveis sugeridos, KPIs por etapa e gates de evolução. Pode ser implementado pelo seu time ou pela Anuvia.</p>
     </div>
   </div>
+  {% endif %}
 </section>
 
 <div class="rule max-w-5xl mx-auto px-6"></div>
 
 <section class="max-w-4xl mx-auto px-6 py-20 text-center">
+  {% if lang == 'en' %}
+  <h2 class="h-serif text-3xl md:text-4xl leading-tight mb-6">Next steps after the diagnostic.</h2>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">A typical client chooses between implementing one priority automation (AI Quick Win, {{ fmt_price('R$ 8-15k') }}), building the full RevOps stack, or hiring Anuvia AI Ops as an outsourced agent squad. No mandatory commitment.</p>
+  <div class="flex flex-col sm:flex-row gap-4 justify-center">
+    <a href="/growth" class="btn-ghost text-base inline-block">See the full Anuvia Growth catalog</a>
+    <a href="#signup" class="btn-primary text-base inline-block">Take the diagnostic</a>
+  </div>
+  {% else %}
   <h2 class="h-serif text-3xl md:text-4xl leading-tight mb-6">Próximos passos depois do diagnóstico.</h2>
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Cliente típico escolhe entre implementar uma automação prioritária (AI Quick Win, R$ 8-15k), montar o stack RevOps inteiro, ou contratar o Anuvia AI Ops como squad de agentes terceirizada. Sem fidelidade obrigatória.</p>
   <div class="flex flex-col sm:flex-row gap-4 justify-center">
     <a href="/growth" class="btn-ghost text-base inline-block">Ver catálogo completo Anuvia Growth</a>
     <a href="#signup" class="btn-primary text-base inline-block">Fazer diagnóstico</a>
   </div>
+  {% endif %}
 </section>
 
 {% endblock %}

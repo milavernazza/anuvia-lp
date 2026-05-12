@@ -3,6 +3,15 @@
 {% block content %}
 
 <section class="max-w-5xl mx-auto px-6 pt-20 pb-12">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-6">Anuvia · Cases</p>
+  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
+    Real delivery examples.
+  </h1>
+  <p class="text-xl text-ink/70 leading-relaxed max-w-3xl">
+    Anonymized patterns from projects we completed. No fictional names. No invented metrics. For specific case details under NDA, book a call with a Solutions Architect.
+  </p>
+  {% else %}
   <p class="eyebrow mb-6">Anuvia · Cases</p>
   <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
     Exemplos reais de entrega.
@@ -10,12 +19,32 @@
   <p class="text-xl text-ink/70 leading-relaxed max-w-3xl">
     Padrões anonimizados de projetos que concluímos. Sem nomes fictícios. Sem métricas inventadas. Para detalhes específicos sob NDA, agende uma conversa com um Solutions Architect.
   </p>
+  {% endif %}
 </section>
 
 <div class="rule max-w-5xl mx-auto px-6"></div>
 
 <!-- Case 1 - Manufacturing -->
 <section class="max-w-5xl mx-auto px-6 py-16">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-6 text-accent">Manufacturing · Predictive Maintenance</p>
+  <h2 class="h-serif text-3xl md:text-4xl mb-10 leading-tight">Predictive maintenance in a mid-sized plant</h2>
+
+  <div class="grid md:grid-cols-3 gap-8">
+    <div>
+      <p class="eyebrow mb-3">Problem</p>
+      <p class="text-ink/70 leading-relaxed text-sm">A mid-sized industrial plant lost hours of production at every unplanned interruption. Maintenance operated reactively, with high emergency repair costs and direct impact on delivery deadlines.</p>
+    </div>
+    <div>
+      <p class="eyebrow mb-3">Approach</p>
+      <p class="text-ink/70 leading-relaxed text-sm">We implemented a predictive maintenance system combining fusion of existing sensors, anomaly detection models trained on historical data, and native integration with the CMMS to automatically generate work orders when risk crosses threshold.</p>
+    </div>
+    <div>
+      <p class="eyebrow mb-3">Result</p>
+      <p class="text-ink/70 leading-relaxed text-sm">Unplanned downtime fell significantly. The maintenance function moved from reactive to condition-based, with a clear reduction in emergency repair costs and better predictability in production planning.</p>
+    </div>
+  </div>
+  {% else %}
   <p class="eyebrow mb-6 text-accent">Manufatura · Predictive Maintenance</p>
   <h2 class="h-serif text-3xl md:text-4xl mb-10 leading-tight">Manutenção preditiva em planta de médio porte</h2>
 
@@ -33,12 +62,32 @@
       <p class="text-ink/70 leading-relaxed text-sm">Tempo de inatividade não planejado caiu significativamente. A função de manutenção passou de reativa para baseada em condição, com redução clara nos custos de reparo emergencial e melhor previsibilidade no planejamento de produção.</p>
     </div>
   </div>
+  {% endif %}
 </section>
 
 <div class="rule max-w-5xl mx-auto px-6"></div>
 
 <!-- Case 2 - Logistics -->
 <section class="max-w-5xl mx-auto px-6 py-16">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-6 text-accent">Logistics · Fleet Telemetry</p>
+  <h2 class="h-serif text-3xl md:text-4xl mb-10 leading-tight">Continuous fleet visibility on routes with unstable connectivity</h2>
+
+  <div class="grid md:grid-cols-3 gap-8">
+    <div>
+      <p class="eyebrow mb-3">Problem</p>
+      <p class="text-ink/70 leading-relaxed text-sm">A logistics company operated without real-time fleet visibility. Unstable cellular connectivity on rural routes caused loss of telemetry data and inability to identify operational exceptions in time.</p>
+    </div>
+    <div>
+      <p class="eyebrow mb-3">Approach</p>
+      <p class="text-ink/70 leading-relaxed text-sm">We built an edge-first telemetry platform with secure local storage during connection loss, satellite-link fallback for critical events, and a centralized dashboard consolidating data as devices reconnect.</p>
+    </div>
+    <div>
+      <p class="eyebrow mb-3">Result</p>
+      <p class="text-ink/70 leading-relaxed text-sm">Fleet visibility no longer depended on route connectivity. Position updates with sub-minute latency, automated exception alerts and reliable dashboards for the operations team.</p>
+    </div>
+  </div>
+  {% else %}
   <p class="eyebrow mb-6 text-accent">Logística · Fleet Telemetry</p>
   <h2 class="h-serif text-3xl md:text-4xl mb-10 leading-tight">Visibilidade contínua de frota em rotas com conectividade instável</h2>
 
@@ -56,12 +105,32 @@
       <p class="text-ink/70 leading-relaxed text-sm">Visibilidade da frota deixou de depender da conectividade da rota. Atualizações de posição com latência abaixo do minuto, alertas automatizados de exceção e dashboards confiáveis para o time de operações.</p>
     </div>
   </div>
+  {% endif %}
 </section>
 
 <div class="rule max-w-5xl mx-auto px-6"></div>
 
 <!-- Case 3 - Retail GenAI -->
 <section class="max-w-5xl mx-auto px-6 py-16">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-6 text-accent">Retail · GenAI · Knowledge Assistant</p>
+  <h2 class="h-serif text-3xl md:text-4xl mb-10 leading-tight">Internal knowledge assistant with per-document access control</h2>
+
+  <div class="grid md:grid-cols-3 gap-8">
+    <div>
+      <p class="eyebrow mb-3">Problem</p>
+      <p class="text-ink/70 leading-relaxed text-sm">A retail group wanted to apply GenAI to internal operations, but needed to guarantee response accuracy, control access to sensitive documents, and have full query auditability for internal compliance.</p>
+    </div>
+    <div>
+      <p class="eyebrow mb-3">Approach</p>
+      <p class="text-ink/70 leading-relaxed text-sm">We implemented a RAG assistant with per-document access control (aligned to user role), mandatory citations on every response pointing to the original source, and an automated evaluation harness to detect hallucination before each new version deploys.</p>
+    </div>
+    <div>
+      <p class="eyebrow mb-3">Result</p>
+      <p class="text-ink/70 leading-relaxed text-sm">Operations teams adopted the assistant as a daily working tool. Measured accuracy above the agreed pre-project target, with a full audit trail per query for compliance review.</p>
+    </div>
+  </div>
+  {% else %}
   <p class="eyebrow mb-6 text-accent">Varejo · GenAI · Knowledge Assistant</p>
   <h2 class="h-serif text-3xl md:text-4xl mb-10 leading-tight">Assistente interno de conhecimento com controle de acesso por documento</h2>
 
@@ -79,12 +148,32 @@
       <p class="text-ink/70 leading-relaxed text-sm">Equipes de operações adotaram o assistente como ferramenta de trabalho diário. Acurácia mensurada acima da meta acordada em pré-projeto, com trilha de auditoria completa por consulta para revisão de compliance.</p>
     </div>
   </div>
+  {% endif %}
 </section>
 
 <div class="rule max-w-5xl mx-auto px-6"></div>
 
 <!-- Case 4 - FinOps -->
 <section class="max-w-5xl mx-auto px-6 py-16">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-6 text-accent">B2B SaaS · FinOps · AWS Cost Audit</p>
+  <h2 class="h-serif text-3xl md:text-4xl mb-10 leading-tight">Structural AWS bill reduction in a B2B SaaS at scale</h2>
+
+  <div class="grid md:grid-cols-3 gap-8">
+    <div>
+      <p class="eyebrow mb-3">Problem</p>
+      <p class="text-ink/70 leading-relaxed text-sm">A B2B SaaS with a six-figure monthly AWS bill observed costs growing out of alignment with revenue. No visibility per product and no established internal FinOps practice.</p>
+    </div>
+    <div>
+      <p class="eyebrow mb-3">Approach</p>
+      <p class="text-ink/70 leading-relaxed text-sm">Full four-week audit: analysis of Cost and Usage Reports, systematic identification of opportunities in compute, storage, networking and third-party SaaS, and direct implementation of low-risk quick wins during the audit itself.</p>
+    </div>
+    <div>
+      <p class="eyebrow mb-3">Result</p>
+      <p class="text-ink/70 leading-relaxed text-sm">Substantial reduction of recurring monthly billing in the first month post-audit. Prioritized roadmap for the following months and establishment of an internal FinOps practice with tagging and showback per product.</p>
+    </div>
+  </div>
+  {% else %}
   <p class="eyebrow mb-6 text-accent">SaaS B2B · FinOps · AWS Cost Audit</p>
   <h2 class="h-serif text-3xl md:text-4xl mb-10 leading-tight">Redução estrutural de fatura AWS em SaaS B2B em escala</h2>
 
@@ -102,12 +191,32 @@
       <p class="text-ink/70 leading-relaxed text-sm">Redução substancial da fatura mensal recorrente já no primeiro mês pós-audit. Roadmap priorizado para os meses seguintes e estabelecimento de prática FinOps interna com tagging e showback por produto.</p>
     </div>
   </div>
+  {% endif %}
 </section>
 
 <div class="rule max-w-5xl mx-auto px-6"></div>
 
 <!-- Case 5 - DevOps -->
 <section class="max-w-5xl mx-auto px-6 py-16">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-6 text-accent">Scaleup · DevOps · Platform Engineering</p>
+  <h2 class="h-serif text-3xl md:text-4xl mb-10 leading-tight">Kubernetes migration in a post-Series B scaleup</h2>
+
+  <div class="grid md:grid-cols-3 gap-8">
+    <div>
+      <p class="eyebrow mb-3">Problem</p>
+      <p class="text-ink/70 leading-relaxed text-sm">A post-Series B scaleup ran manual deploys at every release, with mean time to recovery above tolerable. Engineering team growth made the model unsustainable.</p>
+    </div>
+    <div>
+      <p class="eyebrow mb-3">Approach</p>
+      <p class="text-ink/70 leading-relaxed text-sm">Migration to EKS with GitOps via ArgoCD, integrated observability with distributed tracing, CI/CD pipeline with automated testing per layer, and introduction of SRE practices — including SLO definition and incident review process.</p>
+    </div>
+    <div>
+      <p class="eyebrow mb-3">Result</p>
+      <p class="text-ink/70 leading-relaxed text-sm">Deploy frequency went from occasional to multiple times per day. MTTR dropped to minutes. The engineering team reallocated time from manual operations to product build.</p>
+    </div>
+  </div>
+  {% else %}
   <p class="eyebrow mb-6 text-accent">Scaleup · DevOps · Platform Engineering</p>
   <h2 class="h-serif text-3xl md:text-4xl mb-10 leading-tight">Migração para Kubernetes em scaleup pós-Série B</h2>
 
@@ -125,14 +234,21 @@
       <p class="text-ink/70 leading-relaxed text-sm">Frequência de deploys passou de eventual para múltiplas vezes por dia. MTTR caiu para minutos. Time de engenharia reorientou tempo de operações manuais para construção de produto.</p>
     </div>
   </div>
+  {% endif %}
 </section>
 
 <div class="rule max-w-5xl mx-auto px-6"></div>
 
 <section class="max-w-4xl mx-auto px-6 py-24 text-center">
+  {% if lang == 'en' %}
+  <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Discuss your scenario</h2>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">To discuss specific case details under NDA or explore how a similar approach would apply to your context, book a call with an Anuvia Solutions Architect.</p>
+  <a href="/contact" class="btn-primary text-base inline-block">Pick a slot</a>
+  {% else %}
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Conversar sobre seu cenário</h2>
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Para discutir detalhes de casos específicos sob NDA ou explorar como uma abordagem similar se aplicaria ao seu contexto, agende uma conversa com um Solutions Architect da Anuvia.</p>
   <a href="/contact" class="btn-primary text-base inline-block">Escolha um horário</a>
+  {% endif %}
 </section>
 
 {% endblock %}
