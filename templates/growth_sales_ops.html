@@ -1,0 +1,204 @@
+{% extends "_base.html" %}
+
+{% block content %}
+
+<section class="max-w-5xl mx-auto px-6 pt-20 pb-12">
+  <p class="eyebrow mb-6">Anuvia Growth · RevOps · Anchor offering</p>
+  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
+    Sales Ops<br><span class="italic">Diagnostic.</span>
+  </h1>
+  <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
+    Duas semanas mapeando o funil comercial atual: gaps de processo, oportunidades de automação, vazamentos de lead, tempo de resposta. Roadmap priorizado por ROI.
+  </p>
+  <p class="text-sm text-subtle mb-12">2 semanas · R$ 15-25k · funnel audit + automation map + 90-day plan</p>
+</section>
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<section class="max-w-5xl mx-auto px-6 py-16">
+  <div class="grid md:grid-cols-2 gap-12">
+    <div>
+      <p class="eyebrow mb-4">O que mapeamos</p>
+      <ul class="space-y-4 text-sm text-ink/80 leading-relaxed">
+        <li><strong>Funil ponta a ponta.</strong> Da geração de demanda até closed-won, com taxas de conversão entre cada estágio e tempo médio de permanência.</li>
+        <li><strong>Pontos de vazamento.</strong> Onde leads esfriam, onde o follow-up falha, onde o handoff entre canais quebra a experiência.</li>
+        <li><strong>Tempo de resposta real.</strong> SLA medido — não declarado — em cada canal de entrada (formulário, WhatsApp, indicação, inbound).</li>
+        <li><strong>Mapa de automação aplicável.</strong> Quais etapas podem ser automatizadas hoje (qualificação, scheduling, follow-up, nurture) e qual o ROI esperado de cada uma.</li>
+        <li><strong>Stack assessment.</strong> CRM atual, sequências de email, ferramentas auxiliares — o que faz sentido manter, integrar ou substituir.</li>
+        <li><strong>Roadmap 90 dias.</strong> Próximos passos priorizados por impact/effort, com timeline executável e KPIs de cada etapa.</li>
+      </ul>
+    </div>
+    <div>
+      <p class="eyebrow mb-4">Por que esse formato</p>
+      <p class="text-sm text-ink/80 leading-relaxed mb-5">
+        Operações comerciais costumam evoluir por agregação — uma ferramenta aqui, uma planilha lá, um SDR que ajusta um script. Em dois anos vira um sistema que ninguém entende inteiro, com leads esfriando em buracos invisíveis.
+      </p>
+      <p class="text-sm text-ink/80 leading-relaxed mb-5">
+        O Diagnostic produz a vista única do funil atual: onde está cada lead, quanto tempo permanece em cada estágio, quais entradas convertem melhor. Daí decidimos juntos onde automação tem ROI real e onde a maturidade do time precisa amadurecer antes.
+      </p>
+      <p class="text-sm text-ink/80 leading-relaxed">
+        Cliente típico encerra o diagnóstico com clareza sobre os três investimentos seguintes — e os três que pareciam urgentes mas não eram.
+      </p>
+    </div>
+  </div>
+</section>
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<section class="max-w-3xl mx-auto px-6 py-16" id="signup">
+  <p class="eyebrow mb-3 text-center">Pré-qualificação</p>
+  <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Cinco campos. Análise preliminar.</h2>
+  <p class="text-center text-ink/60 mb-12">Te respondemos em 24h com leitura inicial do funil e proposta de agendamento.</p>
+
+  <form id="salesops-form" class="space-y-6 card p-8 md:p-10">
+    <div>
+      <label class="eyebrow block mb-2">Nome completo</label>
+      <input type="text" name="name" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+    </div>
+    <div class="grid md:grid-cols-2 gap-4">
+      <div>
+        <label class="eyebrow block mb-2">Email corporativo</label>
+        <input type="email" name="email" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+      </div>
+      <div>
+        <label class="eyebrow block mb-2">WhatsApp</label>
+        <input type="tel" name="whatsapp" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+      </div>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Empresa</label>
+      <input type="text" name="company" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Cargo</label>
+      <select name="role" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option>Founder / CEO</option>
+        <option>Head of Growth / Revenue</option>
+        <option>Head of Sales</option>
+        <option>Head of Marketing</option>
+        <option>COO / Operations</option>
+        <option>Outro</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Tamanho do time comercial</label>
+      <select name="team_size" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="solo">Founder vendendo sozinho</option>
+        <option value="2_5">2-5 (closer, SDR)</option>
+        <option value="5_15">5-15</option>
+        <option value="15_plus">15+</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Ticket médio</label>
+      <select name="ticket_size" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="under_5k">Abaixo de R$ 5k</option>
+        <option value="5k_25k">R$ 5-25k</option>
+        <option value="25k_100k">R$ 25-100k</option>
+        <option value="100k_plus">Acima de R$ 100k</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Maior dor declarada</label>
+      <select name="main_pain" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="lead_leakage">Leads esfriando antes da gente responder</option>
+        <option value="manual_ops">Processos manuais demais consumindo tempo</option>
+        <option value="no_visibility">Falta de visibilidade no pipeline</option>
+        <option value="low_conversion">Taxa de conversão entre estágios cai inesperada</option>
+        <option value="team_burnout">Time comercial sobrecarregado</option>
+        <option value="founder_blocked">Founder ainda é gargalo em toda venda</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Contexto adicional (opcional)</label>
+      <textarea name="context" rows="4" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Quanto cresceu o time no último ano? CRM atual? Algum ponto específico do funil que preocupa?"></textarea>
+    </div>
+    <div class="flex flex-col sm:flex-row gap-3 items-center justify-between pt-2">
+      <p class="text-xs text-subtle">Resposta em até 24h com análise preliminar e proposta de agendamento.</p>
+      <button type="submit" class="btn-primary text-sm">Enviar pré-qualificação</button>
+    </div>
+  </form>
+
+  <div id="salesops-result" class="hidden mt-10"></div>
+</section>
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<section class="max-w-5xl mx-auto px-6 py-16">
+  <p class="eyebrow mb-4">O que sai do diagnóstico</p>
+  <h2 class="h-serif text-3xl md:text-4xl mb-10 leading-tight max-w-3xl">Três entregas que cliente típico usa por meses.</h2>
+
+  <div class="grid md:grid-cols-3 gap-8">
+    <div>
+      <p class="h-serif text-3xl mb-3">01</p>
+      <p class="eyebrow mb-3">Funnel map</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Documento visual com cada estágio, taxa de conversão, tempo médio e onde está cada vazamento. Vira referência interna do time comercial.</p>
+    </div>
+    <div>
+      <p class="h-serif text-3xl mb-3">02</p>
+      <p class="eyebrow mb-3">Automation playbook</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Lista priorizada de automações com impact/effort, ferramentas recomendadas, ROI esperado e ordem de execução. Pronto para discutir com financeiro.</p>
+    </div>
+    <div>
+      <p class="h-serif text-3xl mb-3">03</p>
+      <p class="eyebrow mb-3">90-day roadmap</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Plano executável de 13 semanas com responsáveis sugeridos, KPIs por etapa e gates de evolução. Pode ser implementado pelo seu time ou pela Anuvia.</p>
+    </div>
+  </div>
+</section>
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<section class="max-w-4xl mx-auto px-6 py-20 text-center">
+  <h2 class="h-serif text-3xl md:text-4xl leading-tight mb-6">Próximos passos depois do diagnóstico.</h2>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Cliente típico escolhe entre implementar uma automação prioritária (AI Quick Win, R$ 8-15k), montar o stack RevOps inteiro, ou contratar o Anuvia AI Ops como squad de agentes terceirizada. Sem fidelidade obrigatória.</p>
+  <div class="flex flex-col sm:flex-row gap-4 justify-center">
+    <a href="/growth" class="btn-ghost text-base inline-block">Ver catálogo completo Anuvia Growth</a>
+    <a href="/contact" class="btn-primary text-base inline-block">Falar com um Solutions Architect</a>
+  </div>
+</section>
+
+<script>
+(function() {
+  const form = document.getElementById('salesops-form');
+  const resultEl = document.getElementById('salesops-result');
+  if (!form) return;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const data = Object.fromEntries(fd.entries());
+    const btn = form.querySelector('button[type=submit]');
+    btn.disabled = true;
+    btn.textContent = 'Analisando…';
+    try {
+      const res = await fetch('/api/growth-sales-ops', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await res.json();
+      if (res.ok && result.ok) {
+        form.classList.add('hidden');
+        resultEl.innerHTML = result.html || '<p class="text-ink/70">Análise enviada. Mila responde em até 24h.</p>';
+        resultEl.classList.remove('hidden');
+        resultEl.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        alert((result && result.detail) || 'Erro ao enviar. Tente novamente.');
+        btn.disabled = false;
+        btn.textContent = 'Enviar pré-qualificação';
+      }
+    } catch (err) {
+      alert('Erro de conexão. Tente novamente.');
+      btn.disabled = false;
+      btn.textContent = 'Enviar pré-qualificação';
+    }
+  });
+})();
+</script>
+
+{% endblock %}

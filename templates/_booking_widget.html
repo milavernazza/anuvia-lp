@@ -3,6 +3,10 @@
    to create the lead + book the appointment in one shot. #}
 
 <div class="booking-widget" data-booking-source="{{ source|default('lp_brand') }}">
+  <div class="bw-offering-context hidden mb-8 p-5 border-l-2 border-accent bg-white">
+    <p class="eyebrow mb-1">Contexto pré-carregado</p>
+    <p class="text-sm text-ink/80 bw-offering-label"></p>
+  </div>
   <div class="grid md:grid-cols-12 gap-8">
     <!-- Days column -->
     <div class="md:col-span-7">
@@ -83,6 +87,61 @@
   const timeInput = widget.querySelector('.bw-time');
   const successBlock = widget.querySelector('.bw-success');
   const successLabel = widget.querySelector('.bw-success-label');
+  const offeringCtx = widget.querySelector('.bw-offering-context');
+  const offeringLabel = widget.querySelector('.bw-offering-label');
+
+  // Read ?offering= and ?practice= from URL — pre-fill context for the SA.
+  const OFFERING_LABELS = {
+    // Cloud
+    'aws-cost-audit': 'Cloud · AWS Cost Audit Risk-Free',
+    'finops-practice': 'Cloud · FinOps Practice Implementation',
+    'managed-finops': 'Cloud · Managed FinOps Retainer',
+    'aws-well-architected': 'Cloud · AWS Well-Architected Review',
+    'aws-migration': 'Cloud · AWS Migration Planning',
+    'landing-zone': 'Cloud · Multi-Account / Landing Zone',
+    'security-posture': 'Cloud · Security Posture Assessment',
+    'gcp-migration': 'Cloud · GCP Migration Strategy',
+    'sa-fractional': 'Cloud · Solutions Architect Fractional',
+    // Engineering
+    'devops-maturity': 'Engineering · DevOps Maturity Assessment',
+    'cicd-pipeline': 'Engineering · CI/CD Pipeline Implementation',
+    'k8s-migration': 'Engineering · Kubernetes / EKS Migration',
+    'observability': 'Engineering · Observability Stack',
+    'gitops': 'Engineering · GitOps Implementation',
+    'sre-practice': 'Engineering · SRE Practice Build',
+    'platform-retainer': 'Engineering · Platform Engineering Retainer',
+    'iot-edge': 'Engineering · IoT / Edge Computing Sprint',
+    // AI
+    'ai-readiness': 'AI · AI Strategy Sprint (Readiness)',
+    'ai-usecase': 'AI · AI Use Case Sprint',
+    'ai-platform': 'AI · Custom AI Platform Build',
+    'rag-assistant': 'AI · RAG / Knowledge Assistant',
+    'mlops-practice': 'AI · MLOps Practice Build',
+    'ai-retainer': 'AI · AI Engineering Retainer',
+    'aiops-product': 'AI · Anuvia AI Ops (produto)',
+    'termofisher': 'AI · Termofisher AI Drafter (vertical)',
+    'media': 'AI · Med.ia (vertical)',
+    // Growth
+    'sales-ops-audit': 'Growth · Sales Ops Audit',
+    'ai-quickwin': 'Growth · AI Quick Win',
+    'aiops-setup': 'Growth · Anuvia AI Ops Setup',
+    'aiops-subscription': 'Growth · Anuvia AI Ops Subscription',
+    'revops-stack': 'Growth · RevOps Stack Implementation',
+    'growth-retainer': 'Growth · Growth Engineering Retainer',
+  };
+  const urlParams = new URLSearchParams(window.location.search);
+  const offeringSlug = urlParams.get('offering');
+  const practiceSlug = urlParams.get('practice');
+  const offeringDisplay = offeringSlug ? (OFFERING_LABELS[offeringSlug] || offeringSlug) : null;
+  if (offeringDisplay && offeringCtx && offeringLabel) {
+    offeringCtx.classList.remove('hidden');
+    offeringLabel.textContent = 'Interesse: ' + offeringDisplay;
+    // Pre-fill context field if empty
+    const ctxField = widget.querySelector('textarea[name="context"]');
+    if (ctxField && !ctxField.value) {
+      ctxField.value = 'Cheguei pela página da oferta: ' + offeringDisplay + '. ';
+    }
+  }
 
   async function loadAvailability() {
     try {
@@ -154,6 +213,8 @@
     const fd = new FormData(e.target);
     const data = Object.fromEntries(fd.entries());
     data.source = source;
+    if (offeringSlug) data.offering = offeringSlug;
+    if (practiceSlug) data.practice = practiceSlug;
     const btn = e.target.querySelector('button[type=submit]');
     btn.disabled = true;
     btn.textContent = 'Confirmando…';

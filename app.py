@@ -877,6 +877,8 @@ class ContactBookForm(BaseModel):
     date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
     time: str = Field(..., pattern=r"^\d{2}:\d{2}$")
     source: Optional[str] = "lp_brand"
+    offering: Optional[str] = Field(default=None, max_length=80)
+    practice: Optional[str] = Field(default=None, max_length=40)
 
     @field_validator("whatsapp")
     @classmethod
@@ -897,6 +899,19 @@ async def api_contact_book(form: ContactBookForm, request: Request) -> JSONRespo
 
     async with httpx.AsyncClient(timeout=30) as client:
         # 1. Insert lead
+        meta = {
+            "context": form.context or "",
+            "booking_via": "contact_widget",
+        }
+        if form.offering:
+            meta["offering"] = form.offering
+        if form.practice:
+            meta["practice"] = form.practice
+        tags = ["lp_brand", "contact_widget"]
+        if form.practice:
+            tags.append(f"practice:{form.practice}")
+        if form.offering:
+            tags.append(f"offering:{form.offering}")
         lead_payload = {
             "funnel_id": funnel,
             "name": form.name,
@@ -904,8 +919,8 @@ async def api_contact_book(form: ContactBookForm, request: Request) -> JSONRespo
             "phone_e164": form.whatsapp,
             "company": form.company or None,
             "source": form.source or "lp_brand",
-            "meta": {"context": form.context or "", "booking_via": "contact_widget"},
-            "tags": ["lp_brand", "contact_widget"],
+            "meta": meta,
+            "tags": tags,
             "current_stage": "qualified",
         }
         lead_id = None
@@ -947,6 +962,9 @@ async def api_contact_book(form: ContactBookForm, request: Request) -> JSONRespo
             f"Email: {form.email}",
             f"WhatsApp: {form.whatsapp}",
         ]
+        if form.offering or form.practice:
+            notes_lines.append("")
+            notes_lines.append(f"Oferta de interesse: {form.offering or '(n/a)'} (prática: {form.practice or '(n/a)'})")
         if form.context:
             notes_lines.append("")
             notes_lines.append("Contexto compartilhado:")
@@ -1014,6 +1032,7 @@ async def api_contact_book(form: ContactBookForm, request: Request) -> JSONRespo
                             f"*{form.name}* — {form.company or '(sem empresa)'}\n"
                             f"📅 {form.date} {form.time} (SP)\n"
                             f"📞 {form.whatsapp}  ✉️ {form.email}\n"
+                            f"Oferta: {form.offering or '(n/a)'} · Prática: {form.practice or '(n/a)'}\n"
                             f"Source: {form.source}\n"
                             f"Easyappointments id: {booking.get('appointment_id')}"
                         )
@@ -1138,6 +1157,16 @@ async def lp_aws_well_architected(request: Request):
 @app.get("/engineering/devops/maturity", response_class=HTMLResponse)
 async def lp_devops_maturity(request: Request):
     return templates.TemplateResponse("devops_maturity.html", {"request": request})
+
+
+@app.get("/ai/readiness", response_class=HTMLResponse)
+async def lp_ai_readiness(request: Request):
+    return templates.TemplateResponse("ai_readiness.html", {"request": request})
+
+
+@app.get("/growth/sales-ops", response_class=HTMLResponse)
+async def lp_growth_sales_ops(request: Request):
+    return templates.TemplateResponse("growth_sales_ops.html", {"request": request})
 
 
 @app.get("/about", response_class=HTMLResponse)
@@ -1575,6 +1604,277 @@ async def api_devops_maturity(form: DevOpsMaturityForm):
             log.exception("devops_maturity_email_failed")
 
     return JSONResponse({"ok": True, "dora_level": level, "deliverable_html": deliverable_html})
+
+
+# ----------------------------------------------------------------------------
+# AI Readiness Sprint — pré-qualificação form
+# ----------------------------------------------------------------------------
+
+class AIReadinessForm(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    name: str = Field(..., min_length=2, max_length=120)
+    email: EmailStr
+    whatsapp: str = Field(..., min_length=8, max_length=30)
+    company: str = Field(..., min_length=2, max_length=200)
+    role: str
+    ai_stage: str
+    main_pain: str
+    revenue_tier: str
+    context: Optional[str] = ""
+
+    @field_validator("whatsapp")
+    @classmethod
+    def validate_whatsapp(cls, v: str) -> str:
+        normalized = normalize_phone(v)
+        if not normalized:
+            raise ValueError("WhatsApp inválido.")
+        return normalized
+
+
+AI_STAGE_INSIGHT = {
+    "exploring": "Na fase exploratória, Readiness Sprint costuma ser o primeiro investimento defensável — antes de comprometer R$ 100-300k em uma plataforma. Saídas típicas: 2-3 casos prioritários com business case calibrado.",
+    "experimenting": "Quando há PoCs em paralelo sem ordem, o Sprint normalmente identifica que metade dos experimentos não justifica investimento de produção. Foco na metade que justifica.",
+    "early_prod": "Com 1-2 casos rodando, próxima etapa costuma ser MLOps Practice Build (governança, observabilidade, custo) antes de adicionar mais casos. Sprint formaliza esse caminho.",
+    "scaling": "Em escala, o ROI maior costuma vir de FinOps de IA (otimizar custo por inferência) e governance, não de novos casos. Sprint redireciona o roadmap.",
+    "mature": "Operação madura tipicamente busca o Sprint para validar próximas fronteiras: agentes autônomos, multi-modelo, especialização vertical. Discussão técnica direta.",
+}
+
+AI_PAIN_INSIGHT = {
+    "poc_to_prod": "PoC que não vira produção é quase sempre falha no desenho inicial — sem gates de evolução claros e sem critério técnico de aprovação. Sprint formaliza esses gates desde o discovery.",
+    "cost_runaway": "Custo fora de controle costuma vir de combinação: prompt caching ausente, modelo errado para a tarefa, e ausência de cap por tenant. Sprint identifica e quantifica cada vetor.",
+    "no_eval": "Sem eval harness, qualquer melhoria de prompt é cega. Estabelecer baseline de avaliação é a primeira entrega sempre — sem isso o resto é teatro.",
+    "usecase_blur": "Casos pouco claros são o cenário em que o Sprint mais agrega. Saída típica: 8-15 candidatos mapeados, 3-5 priorizados, business case explícito para cada.",
+    "vendor_lock": "Estratégia multi-modelo é viável com a abstração correta. Sprint avalia trade-offs Bedrock vs OpenAI vs Vertex vs self-hosted considerando custo, latência e governança.",
+    "governance": "Governança bloqueando avanço normalmente vem de risco mal mapeado. Sprint produz o registro de risco que o time jurídico/compliance precisa para destravar.",
+}
+
+
+@app.post("/api/ai-readiness")
+async def api_ai_readiness(form: AIReadinessForm):
+    """Recebe form pré-qualificação AI Readiness Sprint."""
+    stage_insight = AI_STAGE_INSIGHT.get(form.ai_stage, "")
+    pain_insight = AI_PAIN_INSIGHT.get(form.main_pain, "")
+    is_fit = form.revenue_tier in ("5m_30m", "30m_100m", "100m_plus")
+
+    if is_fit:
+        deliverable_html = f"""
+<div class="card p-8 md:p-10">
+  <p class="eyebrow mb-4">Pré-análise · gerada agora</p>
+  <p class="h-serif text-4xl mb-6 leading-tight">Olá, {form.name.split()[0]}.</p>
+
+  <div class="my-8 p-6 bg-paper border border-rule">
+    <p class="eyebrow mb-3">Sobre seu estágio atual</p>
+    <p class="text-ink/80 leading-relaxed">{stage_insight}</p>
+  </div>
+
+  <div class="my-8 p-6 bg-paper border border-rule">
+    <p class="eyebrow mb-3">Sobre sua dor principal</p>
+    <p class="text-ink/80 leading-relaxed">{pain_insight}</p>
+  </div>
+
+  <div class="my-8">
+    <p class="eyebrow mb-3">Próximo passo</p>
+    <p class="text-ink/80 leading-relaxed mb-5">Em até 24h, Mila te manda email com escopo do Sprint adaptado pro seu contexto + sugestão de horários para discovery call de 30 minutos.</p>
+    <a href="/contact?offering=ai-readiness&practice=ai" class="btn-primary text-sm inline-block">Ou agende você mesmo agora</a>
+  </div>
+
+  <div class="rule"></div>
+
+  <p class="text-xs text-subtle leading-relaxed">AI Readiness Sprint: 2-3 semanas, R$ 25-40k. Entrega inventário de use cases + ROI estimado + roadmap 12 meses + decisão build vs buy.</p>
+</div>
+""".strip()
+    else:
+        deliverable_html = f"""
+<div class="card p-8 md:p-10">
+  <p class="eyebrow mb-4">Pré-análise</p>
+  <p class="h-serif text-4xl mb-6 leading-tight">Obrigada, {form.name.split()[0]}.</p>
+  <p class="text-ink/80 leading-relaxed mb-5">Pelo perfil de faturamento, Sprint completo de R$ 25-40k provavelmente não cobre ROI necessário pra valer a pena pra você agora.</p>
+  <p class="text-ink/80 leading-relaxed mb-5">Alternativas mais adequadas:</p>
+  <ul class="space-y-2 text-sm text-ink/80 mb-5">
+    <li>• <strong>Office hours de 90 min com Mila</strong> — R$ 1.500. Discussão técnica direcionada com saídas acionáveis no mesmo dia.</li>
+    <li>• <strong>AI Quick Win</strong> (Anuvia Growth) — R$ 8-15k. Implementação de 1 automação alto-impacto pronta em 2-3 semanas.</li>
+    <li>• <strong>Anuvia AI Ops</strong> — squad de agentes recorrente, R$ 3-8k/mês, sem investimento inicial pesado.</li>
+  </ul>
+  <p class="text-sm text-ink/70">Mila te manda essas opções por email em até 24h.</p>
+</div>
+""".strip()
+
+    async with httpx.AsyncClient(timeout=15) as client:
+        try:
+            lead_payload = {
+                "funnel_id": "BR_AI",
+                "name": form.name,
+                "email": form.email,
+                "phone_e164": form.whatsapp,
+                "company": form.company,
+                "source": "lp_ai_readiness",
+                "meta": {
+                    "role": form.role,
+                    "ai_stage": form.ai_stage,
+                    "main_pain": form.main_pain,
+                    "revenue_tier": form.revenue_tier,
+                    "is_fit": is_fit,
+                    "context": form.context,
+                },
+                "tags": ["lp_ai_readiness", "br_ai"],
+            }
+            r = await client.post(f"{SUPA_URL}/leads", headers=SUPA_HEADERS, json=lead_payload)
+            if r.status_code not in (200, 201):
+                log.warning("supabase_lead_insert non-200: %s", r.status_code)
+        except Exception:
+            log.exception("ai_readiness lead_insert failed")
+
+        try:
+            if RESEND_API_KEY:
+                first = form.name.split()[0]
+                subject = f"AI Readiness Sprint — pré-análise pra {first}"
+                email_html = f"""<!DOCTYPE html><html><body style="background:#fafaf9;font-family:Inter,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;"><div style="max-width:640px;margin:0 auto;"><p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;">Anuvia · AI</p><p style="font-family:Georgia,serif;font-size:32px;margin:0 0 16px 0;">Olá, {first}</p><p style="color:#475569;line-height:1.65;">{stage_insight}</p><p style="color:#475569;line-height:1.65;">{pain_insight}</p><p style="margin:24px 0;"><a href="https://anuvia.com.br/contact?offering=ai-readiness&practice=ai" style="background:#1a1a1a;color:#fafaf9;padding:12px 22px;text-decoration:none;">Agendar Discovery Call</a></p><p style="color:#78716c;font-size:13px;margin-top:32px;">Mila Vernazza · Founder Anuvia<br>Ex-AWS · Ex-Google · 15+ AWS Certifications</p></div></body></html>"""
+                await client.post(
+                    "https://api.resend.com/emails",
+                    headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
+                    json={
+                        "from": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
+                        "to": [form.email],
+                        "reply_to": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
+                        "subject": subject,
+                        "html": email_html,
+                        "tags": [{"name": "category", "value": "ai_readiness_signup"}],
+                    },
+                    timeout=20,
+                )
+        except Exception:
+            log.exception("ai_readiness_email_failed")
+
+    return JSONResponse({"ok": True, "html": deliverable_html})
+
+
+# ----------------------------------------------------------------------------
+# Growth Sales Ops Diagnostic — pré-qualificação form
+# ----------------------------------------------------------------------------
+
+class GrowthSalesOpsForm(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    name: str = Field(..., min_length=2, max_length=120)
+    email: EmailStr
+    whatsapp: str = Field(..., min_length=8, max_length=30)
+    company: str = Field(..., min_length=2, max_length=200)
+    role: str
+    team_size: str
+    ticket_size: str
+    main_pain: str
+    context: Optional[str] = ""
+
+    @field_validator("whatsapp")
+    @classmethod
+    def validate_whatsapp(cls, v: str) -> str:
+        normalized = normalize_phone(v)
+        if not normalized:
+            raise ValueError("WhatsApp inválido.")
+        return normalized
+
+
+SALESOPS_PAIN_INSIGHT = {
+    "lead_leakage": "Lead esfriando antes da resposta é métrica direta de SLA quebrado. Diagnóstico mede tempo real de resposta por canal e identifica o canal que merece automação imediata.",
+    "manual_ops": "Processo manual demais costuma se concentrar em 3-5 atividades repetitivas (qualificação, scheduling, follow-up). Diagnóstico quantifica horas/semana gastas em cada uma.",
+    "no_visibility": "Sem visibilidade no pipeline normalmente é sintoma de CRM mal configurado ou stages mal definidos. Diagnóstico produz funnel map e estados consistentes em 2 semanas.",
+    "low_conversion": "Queda inesperada de conversão entre estágios costuma ter causa identificável em uma transição específica. Diagnóstico isola onde está e propõe intervenção.",
+    "team_burnout": "Time sobrecarregado é sintoma — não causa. Diagnóstico identifica se é volume excessivo de leads de baixa qualidade, processo manual, ou problema de alocação.",
+    "founder_blocked": "Founder como gargalo em toda venda costuma vir de ausência de playbook documentado + falta de qualificação automática. Diagnóstico produz os dois.",
+}
+
+
+@app.post("/api/growth-sales-ops")
+async def api_growth_sales_ops(form: GrowthSalesOpsForm):
+    """Recebe form pré-qualificação Sales Ops Diagnostic."""
+    pain_insight = SALESOPS_PAIN_INSIGHT.get(form.main_pain, "")
+    # Fit calc: ticket size 5k+ AND team has at least a founder. Solo with under_5k tickets = sugerir AI Quick Win
+    is_fit = form.ticket_size in ("5k_25k", "25k_100k", "100k_plus")
+
+    if is_fit:
+        deliverable_html = f"""
+<div class="card p-8 md:p-10">
+  <p class="eyebrow mb-4">Pré-análise · gerada agora</p>
+  <p class="h-serif text-4xl mb-6 leading-tight">Olá, {form.name.split()[0]}.</p>
+
+  <div class="my-8 p-6 bg-paper border border-rule">
+    <p class="eyebrow mb-3">Sobre sua dor declarada</p>
+    <p class="text-ink/80 leading-relaxed">{pain_insight}</p>
+  </div>
+
+  <div class="my-8">
+    <p class="eyebrow mb-3">Próximo passo</p>
+    <p class="text-ink/80 leading-relaxed mb-5">Em até 24h, Mila te manda email com escopo do diagnóstico adaptado pro seu funil + sugestão de horários para discovery call de 30 minutos.</p>
+    <a href="/contact?offering=sales-ops-audit&practice=growth" class="btn-primary text-sm inline-block">Ou agende você mesmo agora</a>
+  </div>
+
+  <div class="rule"></div>
+
+  <p class="text-xs text-subtle leading-relaxed">Sales Ops Diagnostic: 2 semanas, R$ 15-25k. Entrega funnel map + automation playbook + roadmap 90 dias.</p>
+</div>
+""".strip()
+    else:
+        deliverable_html = f"""
+<div class="card p-8 md:p-10">
+  <p class="eyebrow mb-4">Pré-análise</p>
+  <p class="h-serif text-4xl mb-6 leading-tight">Obrigada, {form.name.split()[0]}.</p>
+  <p class="text-ink/80 leading-relaxed mb-5">Com ticket abaixo de R$ 5k, diagnóstico completo de R$ 15-25k provavelmente não cobre o ROI necessário no curto prazo.</p>
+  <p class="text-ink/80 leading-relaxed mb-5">Alternativas mais adequadas:</p>
+  <ul class="space-y-2 text-sm text-ink/80 mb-5">
+    <li>• <strong>AI Quick Win</strong> — R$ 8-15k, 2-3 semanas. Implementação de 1 automação alto-impacto (ex: WhatsApp auto-qualifier, proposal generator).</li>
+    <li>• <strong>Anuvia AI Ops Subscription</strong> — R$ 3-8k/mês. Squad de agentes recorrente sem investimento inicial pesado.</li>
+    <li>• <strong>Office hours de 90 min com Mila</strong> — R$ 1.500. Discussão direcionada com saídas acionáveis no mesmo dia.</li>
+  </ul>
+  <p class="text-sm text-ink/70">Mila te manda essas opções por email em até 24h.</p>
+</div>
+""".strip()
+
+    async with httpx.AsyncClient(timeout=15) as client:
+        try:
+            lead_payload = {
+                "funnel_id": "BR_GROWTH",
+                "name": form.name,
+                "email": form.email,
+                "phone_e164": form.whatsapp,
+                "company": form.company,
+                "source": "lp_growth_sales_ops",
+                "meta": {
+                    "role": form.role,
+                    "team_size": form.team_size,
+                    "ticket_size": form.ticket_size,
+                    "main_pain": form.main_pain,
+                    "is_fit": is_fit,
+                    "context": form.context,
+                },
+                "tags": ["lp_growth_sales_ops", "br_growth"],
+            }
+            r = await client.post(f"{SUPA_URL}/leads", headers=SUPA_HEADERS, json=lead_payload)
+            if r.status_code not in (200, 201):
+                log.warning("supabase_lead_insert non-200: %s", r.status_code)
+        except Exception:
+            log.exception("growth_sales_ops lead_insert failed")
+
+        try:
+            if RESEND_API_KEY:
+                first = form.name.split()[0]
+                subject = f"Sales Ops Diagnostic — pré-análise pra {first}"
+                email_html = f"""<!DOCTYPE html><html><body style="background:#fafaf9;font-family:Inter,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;"><div style="max-width:640px;margin:0 auto;"><p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;">Anuvia · Growth</p><p style="font-family:Georgia,serif;font-size:32px;margin:0 0 16px 0;">Olá, {first}</p><p style="color:#475569;line-height:1.65;">{pain_insight}</p><p style="margin:24px 0;"><a href="https://anuvia.com.br/contact?offering=sales-ops-audit&practice=growth" style="background:#1a1a1a;color:#fafaf9;padding:12px 22px;text-decoration:none;">Agendar Discovery Call</a></p><p style="color:#78716c;font-size:13px;margin-top:32px;">Mila Vernazza · Founder Anuvia<br>Ex-AWS · Ex-Google · 15+ AWS Certifications</p></div></body></html>"""
+                await client.post(
+                    "https://api.resend.com/emails",
+                    headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
+                    json={
+                        "from": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
+                        "to": [form.email],
+                        "reply_to": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
+                        "subject": subject,
+                        "html": email_html,
+                        "tags": [{"name": "category", "value": "growth_sales_ops_signup"}],
+                    },
+                    timeout=20,
+                )
+        except Exception:
+            log.exception("growth_sales_ops_email_failed")
+
+    return JSONResponse({"ok": True, "html": deliverable_html})
 
 
 async def send_diagnostic_email(

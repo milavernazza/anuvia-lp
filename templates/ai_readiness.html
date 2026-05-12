@@ -1,0 +1,202 @@
+{% extends "_base.html" %}
+
+{% block content %}
+
+<section class="max-w-5xl mx-auto px-6 pt-20 pb-12">
+  <p class="eyebrow mb-6">Anuvia AI · Strategy · Anchor offering</p>
+  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
+    AI Readiness<br><span class="italic">Sprint.</span>
+  </h1>
+  <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
+    Duas a três semanas mapeando onde Inteligência Artificial efetivamente move ROI na sua operação. Sem hype, sem PoC isolado, sem deck genérico — análise técnica honesta de viabilidade e impacto.
+  </p>
+  <p class="text-sm text-subtle mb-12">2-3 semanas · R$ 25-40k · use case inventory + ROI estimado + roadmap 12 meses</p>
+</section>
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<section class="max-w-5xl mx-auto px-6 py-16">
+  <div class="grid md:grid-cols-2 gap-12">
+    <div>
+      <p class="eyebrow mb-4">O que entregamos</p>
+      <ul class="space-y-4 text-sm text-ink/80 leading-relaxed">
+        <li><strong>Inventário de casos de uso.</strong> Levantamos 8-15 oportunidades candidatas no seu negócio, classificadas por valor potencial e maturidade técnica necessária.</li>
+        <li><strong>Filtro de viabilidade.</strong> Cada caso recebe avaliação técnica honesta: dados disponíveis, custo de inferência estimado, latência aceitável, regras de compliance aplicáveis.</li>
+        <li><strong>ROI estimado por caso.</strong> Modelo financeiro com hipóteses explícitas. Você sabe exatamente onde os números vêm.</li>
+        <li><strong>Roadmap 12 meses.</strong> Sequenciamento priorizado por impact/effort, com gates claros de evolução (discovery → PoV → produção).</li>
+        <li><strong>Decisão build vs. buy.</strong> Para cada caso priorizado: usar SaaS existente, construir custom, ou aguardar maturidade.</li>
+        <li><strong>Apresentação executiva.</strong> Material pronto para conversa com board ou liderança técnica.</li>
+      </ul>
+    </div>
+    <div>
+      <p class="eyebrow mb-4">Por que esse formato</p>
+      <p class="text-sm text-ink/80 leading-relaxed mb-5">
+        A maioria das empresas começa IA pelo experimento — um PoC isolado que não escala, ou um chatbot que gera tickets em vez de fechá-los. O Readiness Sprint inverte essa ordem: primeiro mapeia onde IA tem business case real, depois desenha o caminho de execução.
+      </p>
+      <p class="text-sm text-ink/80 leading-relaxed mb-5">
+        A entrega é técnica, não comercial. Se três dos cinco casos investigados não justificam o investimento, dizemos isso — e indicamos os que justificam. O objetivo é evitar gastar R$ 200-300k em projetos que viram screenshot de demo e nunca chegam à produção.
+      </p>
+      <p class="text-sm text-ink/80 leading-relaxed">
+        O entregável final não é deck de venda. É a base sobre a qual você decide quanto vale investir e em qual caso começar.
+      </p>
+    </div>
+  </div>
+</section>
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<section class="max-w-3xl mx-auto px-6 py-16" id="signup">
+  <p class="eyebrow mb-3 text-center">Pré-qualificação</p>
+  <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Cinco campos. Análise preliminar.</h2>
+  <p class="text-center text-ink/60 mb-12">Te respondemos em 24h com leitura inicial do contexto e proposta de agendamento.</p>
+
+  <form id="ai-readiness-form" class="space-y-6 card p-8 md:p-10">
+    <div>
+      <label class="eyebrow block mb-2">Nome completo</label>
+      <input type="text" name="name" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+    </div>
+    <div class="grid md:grid-cols-2 gap-4">
+      <div>
+        <label class="eyebrow block mb-2">Email corporativo</label>
+        <input type="email" name="email" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+      </div>
+      <div>
+        <label class="eyebrow block mb-2">WhatsApp</label>
+        <input type="tel" name="whatsapp" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+      </div>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Empresa</label>
+      <input type="text" name="company" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Cargo</label>
+      <select name="role" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option>CEO / Founder</option>
+        <option>CTO / VP Engineering</option>
+        <option>Head of AI / ML / Data</option>
+        <option>Chief Product Officer</option>
+        <option>Director of Engineering</option>
+        <option>Outro</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Estágio atual com IA</label>
+      <select name="ai_stage" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="exploring">Exploração inicial — sem nada em produção</option>
+        <option value="experimenting">PoCs e experimentos em paralelo</option>
+        <option value="early_prod">1-2 casos rodando em produção</option>
+        <option value="scaling">Múltiplos casos em produção, escalando</option>
+        <option value="mature">Operação madura, otimizando custo e governança</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Principal dor declarada</label>
+      <select name="main_pain" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="poc_to_prod">PoCs não viram produção</option>
+        <option value="cost_runaway">Custo de inferência fora de controle</option>
+        <option value="no_eval">Falta de avaliação, monitoramento, rollback</option>
+        <option value="usecase_blur">Não sabemos por onde começar (use cases pouco claros)</option>
+        <option value="vendor_lock">Receio de vendor lock-in (OpenAI, AWS, GCP)</option>
+        <option value="governance">Governança e compliance bloqueando avanço</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Faturamento ou ARR aproximado</label>
+      <select name="revenue_tier" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="under_5m">Até R$ 5M/ano</option>
+        <option value="5m_30m">R$ 5-30M/ano</option>
+        <option value="30m_100m">R$ 30-100M/ano</option>
+        <option value="100m_plus">Acima de R$ 100M/ano</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Contexto adicional (opcional)</label>
+      <textarea name="context" rows="4" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Algum sistema, time ou decisão específica que motivou essa consulta?"></textarea>
+    </div>
+    <div class="flex flex-col sm:flex-row gap-3 items-center justify-between pt-2">
+      <p class="text-xs text-subtle">Resposta em até 24h com análise preliminar e proposta de agendamento.</p>
+      <button type="submit" class="btn-primary text-sm">Enviar pré-qualificação</button>
+    </div>
+  </form>
+
+  <div id="ai-readiness-result" class="hidden mt-10"></div>
+</section>
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<section class="max-w-5xl mx-auto px-6 py-16">
+  <p class="eyebrow mb-4">Cobertura do Sprint</p>
+  <h2 class="h-serif text-3xl md:text-4xl mb-10 leading-tight max-w-3xl">Os três pilares que avaliamos.</h2>
+
+  <div class="grid md:grid-cols-3 gap-8">
+    <div>
+      <p class="h-serif text-3xl mb-3">Strategy</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Onde IA gera valor real no seu negócio, separado do que é marketing pitch. Use case discovery, business case e priorização por effort/impact.</p>
+    </div>
+    <div>
+      <p class="h-serif text-3xl mb-3">Engineering</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Viabilidade técnica de cada caso: dados, infraestrutura, modelos, integração, latência aceitável. Production-grade desde o desenho.</p>
+    </div>
+    <div>
+      <p class="h-serif text-3xl mb-3">Operations</p>
+      <p class="text-sm text-ink/70 leading-relaxed">FinOps de IA: custo por inferência, monitoramento, eval harness, rollback. O caminho entre PoC e operação sustentável em escala.</p>
+    </div>
+  </div>
+</section>
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<section class="max-w-4xl mx-auto px-6 py-20 text-center">
+  <h2 class="h-serif text-3xl md:text-4xl leading-tight mb-6">Próximos passos depois do Sprint.</h2>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Cliente típico decide com base no roadmap se quer construir um caso prioritário em sprint dedicado, montar plataforma multi-agente, ou contratar retainer para acompanhamento contínuo. Sem fidelidade obrigatória.</p>
+  <div class="flex flex-col sm:flex-row gap-4 justify-center">
+    <a href="/ai" class="btn-ghost text-base inline-block">Ver catálogo completo Anuvia AI</a>
+    <a href="/contact" class="btn-primary text-base inline-block">Falar com um Solutions Architect</a>
+  </div>
+</section>
+
+<script>
+(function() {
+  const form = document.getElementById('ai-readiness-form');
+  const resultEl = document.getElementById('ai-readiness-result');
+  if (!form) return;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const data = Object.fromEntries(fd.entries());
+    const btn = form.querySelector('button[type=submit]');
+    btn.disabled = true;
+    btn.textContent = 'Analisando…';
+    try {
+      const res = await fetch('/api/ai-readiness', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await res.json();
+      if (res.ok && result.ok) {
+        form.classList.add('hidden');
+        resultEl.innerHTML = result.html || '<p class="text-ink/70">Análise enviada. Mila responde em até 24h.</p>';
+        resultEl.classList.remove('hidden');
+        resultEl.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        alert((result && result.detail) || 'Erro ao enviar. Tente novamente.');
+        btn.disabled = false;
+        btn.textContent = 'Enviar pré-qualificação';
+      }
+    } catch (err) {
+      alert('Erro de conexão. Tente novamente.');
+      btn.disabled = false;
+      btn.textContent = 'Enviar pré-qualificação';
+    }
+  });
+})();
+</script>
+
+{% endblock %}
