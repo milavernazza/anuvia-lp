@@ -1,16 +1,24 @@
 <!DOCTYPE html>
-<html lang="{{ lang|default('pt-BR') }}">
+<html lang="{{ lang_full|default('pt-BR') }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  {% if lang == 'en' %}
+  <title>{{ page_title|default('Anuvia — Senior engineering for Cloud, AI, Platform and RevOps') }}</title>
+  <meta name="description" content="{{ page_description|default('Anuvia delivers senior engineering across AWS, FinOps, DevOps, AI and RevOps. Production-grade from day one. Ex-AWS, ex-Google, 15+ AWS certifications.') }}">
+  <meta property="og:locale" content="en_US">
+  {% else %}
   <title>{{ page_title|default('Anuvia — Engenharia sênior em Cloud, IA, Plataforma e RevOps') }}</title>
   <meta name="description" content="{{ page_description|default('Anuvia entrega engenharia sênior em AWS, FinOps, DevOps, IA e RevOps. Production-grade desde dia 1. Ex-AWS, ex-Google, 15+ certificações AWS.') }}">
+  <meta property="og:locale" content="pt_BR">
+  {% endif %}
 
   <meta property="og:type" content="website">
-  <meta property="og:title" content="{{ page_title|default('Anuvia — Engenharia sênior em Cloud, IA, Plataforma e RevOps') }}">
-  <meta property="og:description" content="{{ page_description|default('Production-grade engineering. Ex-AWS, ex-Google, 15+ certificações AWS.') }}">
-  <meta property="og:locale" content="pt_BR">
   <meta property="og:site_name" content="Anuvia">
+
+  <link rel="alternate" hreflang="pt-BR" href="https://anuvia.com.br{{ request.url.path }}">
+  <link rel="alternate" hreflang="en-US" href="https://anuvia.net{{ request.url.path }}">
+  <link rel="alternate" hreflang="x-default" href="https://anuvia.com.br{{ request.url.path }}">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -50,24 +58,29 @@
     .btn-ghost:hover { background: #1a1a1a; color: #fafaf9; }
     .prose-anuvia p { line-height: 1.75; }
     .prose-anuvia h2 { font-family: 'Playfair Display', serif; }
+    .lang-pill { font-size: 11px; letter-spacing: 0.12em; padding: 4px 8px; border: 1px solid #e7e5e4; color: #78716c; }
+    .lang-pill:hover { border-color: #1a1a1a; color: #1a1a1a; }
   </style>
   {% block head_extra %}{% endblock %}
 </head>
 <body class="min-h-screen">
 
   <header class="border-b border-rule bg-paper">
-    <div class="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
+    <div class="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between gap-4">
       <a href="/" class="h-serif text-xl tracking-tight">Anuvia</a>
       <nav class="hidden md:flex items-center gap-7 text-sm text-ink/80">
-        <a href="/cloud" class="hover:text-ink transition">Cloud</a>
-        <a href="/engineering" class="hover:text-ink transition">Engineering</a>
-        <a href="/ai" class="hover:text-ink transition">AI</a>
-        <a href="/growth" class="hover:text-ink transition">Growth</a>
-        <a href="/industry" class="hover:text-ink transition">Industry</a>
-        <a href="/cases" class="hover:text-ink transition">Cases</a>
-        <a href="/about" class="hover:text-ink transition">Sobre</a>
+        <a href="/cloud" class="hover:text-ink transition">{{ t.nav_cloud }}</a>
+        <a href="/engineering" class="hover:text-ink transition">{{ t.nav_engineering }}</a>
+        <a href="/ai" class="hover:text-ink transition">{{ t.nav_ai }}</a>
+        <a href="/growth" class="hover:text-ink transition">{{ t.nav_growth }}</a>
+        <a href="/industry" class="hover:text-ink transition">{{ t.nav_industry }}</a>
+        <a href="/cases" class="hover:text-ink transition">{{ t.nav_cases }}</a>
+        <a href="/about" class="hover:text-ink transition">{{ t.nav_about }}</a>
       </nav>
-      <a href="/contact" class="btn-primary text-sm hidden md:inline-block">Agendar conversa</a>
+      <div class="flex items-center gap-3">
+        <a href="{{ t.lang_toggle_to_url }}" class="lang-pill font-medium uppercase hidden sm:inline-block" aria-label="Switch language">{{ t.lang_toggle_to }}</a>
+        <a href="/contact" class="btn-primary text-sm hidden md:inline-block">{{ t.cta_book }}</a>
+      </div>
     </div>
   </header>
 
@@ -77,10 +90,10 @@
     <div class="max-w-6xl mx-auto px-6 py-12 grid md:grid-cols-4 gap-10 text-sm">
       <div>
         <p class="h-serif text-lg mb-3">Anuvia</p>
-        <p class="text-subtle leading-relaxed">Engenharia sênior em Cloud, IA, Plataforma e RevOps. Production-grade desde dia 1.</p>
+        <p class="text-subtle leading-relaxed">{{ t.footer_tagline }}</p>
       </div>
       <div>
-        <p class="eyebrow mb-4">Práticas</p>
+        <p class="eyebrow mb-4">{{ t.footer_practices }}</p>
         <ul class="space-y-2 text-ink/80">
           <li><a href="/cloud" class="hover:text-ink">Anuvia Cloud</a></li>
           <li><a href="/engineering" class="hover:text-ink">Anuvia Engineering</a></li>
@@ -90,7 +103,7 @@
         </ul>
       </div>
       <div>
-        <p class="eyebrow mb-4">Diagnósticos</p>
+        <p class="eyebrow mb-4">{{ t.footer_diagnostics }}</p>
         <ul class="space-y-2 text-ink/80">
           <li><a href="/cloud/finops/audit" class="hover:text-ink">FinOps Audit</a></li>
           <li><a href="/cloud/aws/well-architected" class="hover:text-ink">AWS Well-Architected</a></li>
@@ -100,20 +113,23 @@
         </ul>
       </div>
       <div>
-        <p class="eyebrow mb-4">Anuvia</p>
+        <p class="eyebrow mb-4">{{ t.footer_company }}</p>
         <ul class="space-y-2 text-ink/80">
-          <li><a href="/about" class="hover:text-ink">Sobre</a></li>
-          <li><a href="/cases" class="hover:text-ink">Cases</a></li>
-          <li><a href="/blog" class="hover:text-ink">Blog</a></li>
-          <li><a href="/contact" class="hover:text-ink">Contato</a></li>
+          <li><a href="/about" class="hover:text-ink">{{ t.footer_about }}</a></li>
+          <li><a href="/cases" class="hover:text-ink">{{ t.footer_cases }}</a></li>
+          <li><a href="/blog" class="hover:text-ink">{{ t.footer_blog }}</a></li>
+          <li><a href="/contact" class="hover:text-ink">{{ t.footer_contact }}</a></li>
           <li><a href="https://www.linkedin.com/company/anuvia-ltda" class="hover:text-ink">LinkedIn</a></li>
         </ul>
       </div>
     </div>
     <div class="border-t border-rule">
-      <div class="max-w-6xl mx-auto px-6 py-6 text-xs text-subtle flex flex-col md:flex-row justify-between gap-2">
-        <p>© 2026 Anuvia · CNPJ XX.XXX.XXX/0001-XX</p>
-        <p>São Paulo · Available globally</p>
+      <div class="max-w-6xl mx-auto px-6 py-6 text-xs text-subtle flex flex-col md:flex-row justify-between gap-2 items-center">
+        <p>© 2026 Anuvia · {% if lang == 'en' %}Operating from São Paulo, available globally{% else %}CNPJ XX.XXX.XXX/0001-XX{% endif %}</p>
+        <div class="flex items-center gap-3">
+          <a href="{{ t.lang_toggle_to_url }}" class="lang-pill font-medium uppercase">{{ t.lang_toggle_to }}</a>
+          <p>{% if lang == 'en' %}São Paulo · Available globally{% else %}São Paulo · Available globally{% endif %}</p>
+        </div>
       </div>
     </div>
   </footer>

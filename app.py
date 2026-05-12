@@ -1097,9 +1097,166 @@ async def api_contact_book(form: ContactBookForm, request: Request) -> JSONRespo
 
 
 def _is_brand_host(request: Request) -> bool:
-    """True if host is the main brand site (anuvia.com.br or www.anuvia.com.br)."""
+    """True if host is the main brand site (anuvia.com.br or anuvia.net + www variants)."""
     host = (request.headers.get("host") or "").lower().split(":")[0]
-    return host in ("anuvia.com.br", "www.anuvia.com.br", "localhost", "127.0.0.1")
+    return host in (
+        "anuvia.com.br", "www.anuvia.com.br",
+        "anuvia.net", "www.anuvia.net",
+        "localhost", "127.0.0.1",
+    )
+
+
+# ============================================================================
+# i18n — Locale detection for anuvia.com.br (PT/BRL) vs anuvia.net (EN/USD)
+# Priority: ?lang= override > cookie > host > Accept-Language > default PT
+# ============================================================================
+
+LOCALE_COOKIE = "anuvia_lang"
+SUPPORTED_LANGS = ("pt", "en")
+DEFAULT_LANG = "pt"
+
+
+def get_locale(request: Request) -> dict:
+    """Resolve language + currency for this request.
+    Returns: {lang: 'pt'|'en', lang_full: 'pt-BR'|'en-US', currency: 'BRL'|'USD',
+              currency_symbol, host_default_lang, market: 'BR'|'US'}"""
+    host = (request.headers.get("host") or "").lower().split(":")[0]
+    host_lang = "en" if host.endswith("anuvia.net") else "pt"
+
+    # 1. URL override
+    qlang = request.query_params.get("lang", "").lower()
+    if qlang in SUPPORTED_LANGS:
+        chosen = qlang
+    else:
+        # 2. Cookie
+        cookie_lang = (request.cookies.get(LOCALE_COOKIE, "") or "").lower()
+        if cookie_lang in SUPPORTED_LANGS:
+            chosen = cookie_lang
+        else:
+            # 3. Host default
+            chosen = host_lang
+
+    lang_full = "pt-BR" if chosen == "pt" else "en-US"
+    market = "BR" if chosen == "pt" else "US"
+    currency = "BRL" if chosen == "pt" else "USD"
+    currency_symbol = "R$" if chosen == "pt" else "US$"
+
+    return {
+        "lang": chosen,
+        "lang_full": lang_full,
+        "market": market,
+        "currency": currency,
+        "currency_symbol": currency_symbol,
+        "host_default_lang": host_lang,
+        "host": host,
+    }
+
+
+# Currency conversion (rough — premium pricing pra US market)
+# BRL → USD divisor (effectively R$5,50 = US$1 + small premium)
+USD_FX_DIVISOR = 5.0
+
+
+def format_price(brl_text: str, currency: str = "BRL") -> str:
+    """Convert 'R$ 45-60k' → 'US$ 9-12k' for English markets.
+    Handles formats: 'R$ 45-60k', 'R$ 15-30k/mês', 'R$ 200k+', 'R$ 8-15k/mês', etc."""
+    if currency != "USD":
+        return brl_text
+    import re as _re
+    def conv_num(m):
+        n = float(m.group(0).replace(',', '.'))
+        # Round to nearest reasonable USD
+        usd = n / USD_FX_DIVISOR
+        if usd >= 100:
+            usd = round(usd / 10) * 10
+        else:
+            usd = round(usd)
+        return str(int(usd))
+    # Drop the R$, swap k pattern, then prepend US$
+    text = brl_text.replace("R$", "US$").replace("R $", "US$")
+    text = _re.sub(r"\d+(?:[.,]\d+)?", conv_num, text)
+    return text
+
+
+# Translation strings — keep small, only critical UI chrome and nav.
+# Page-specific copy stays in templates with {% if lang == 'en' %} blocks.
+TRANSLATIONS = {
+    "pt": {
+        "nav_cloud": "Cloud",
+        "nav_engineering": "Engineering",
+        "nav_ai": "AI",
+        "nav_growth": "Growth",
+        "nav_industry": "Industry",
+        "nav_cases": "Cases",
+        "nav_about": "Sobre",
+        "cta_book": "Agendar conversa",
+        "cta_sa": "Falar com um Solutions Architect",
+        "cta_view_all": "Ver todas as ofertas",
+        "footer_tagline": "Engenharia sênior em Cloud, IA, Plataforma e RevOps. Production-grade desde dia 1.",
+        "footer_practices": "Práticas",
+        "footer_diagnostics": "Diagnósticos",
+        "footer_company": "Anuvia",
+        "footer_about": "Sobre",
+        "footer_cases": "Cases",
+        "footer_blog": "Blog",
+        "footer_contact": "Contato",
+        "lang_toggle_to": "EN",
+        "lang_toggle_to_url": "?lang=en",
+    },
+    "en": {
+        "nav_cloud": "Cloud",
+        "nav_engineering": "Engineering",
+        "nav_ai": "AI",
+        "nav_growth": "Growth",
+        "nav_industry": "Industry",
+        "nav_cases": "Cases",
+        "nav_about": "About",
+        "cta_book": "Book a call",
+        "cta_sa": "Talk to a Solutions Architect",
+        "cta_view_all": "See full catalog",
+        "footer_tagline": "Senior engineering in Cloud, AI, Platform and RevOps. Production-grade from day one.",
+        "footer_practices": "Practices",
+        "footer_diagnostics": "Diagnostics",
+        "footer_company": "Anuvia",
+        "footer_about": "About",
+        "footer_cases": "Cases",
+        "footer_blog": "Blog",
+        "footer_contact": "Contact",
+        "lang_toggle_to": "PT",
+        "lang_toggle_to_url": "?lang=pt",
+    },
+}
+
+
+def tpl_ctx(request: Request, **extra) -> dict:
+    """Build the standard template context with locale, t (translations), currency."""
+    loc = get_locale(request)
+    ctx = {
+        "request": request,
+        "lang": loc["lang"],
+        "lang_full": loc["lang_full"],
+        "market": loc["market"],
+        "currency": loc["currency"],
+        "currency_symbol": loc["currency_symbol"],
+        "host": loc["host"],
+        "t": TRANSLATIONS[loc["lang"]],
+        "fmt_price": lambda s: format_price(s, loc["currency"]),
+    }
+    ctx.update(extra)
+    return ctx
+
+
+@app.middleware("http")
+async def set_lang_cookie(request: Request, call_next):
+    """When user clicks ?lang= toggle, persist choice in cookie for 30 days."""
+    qlang = request.query_params.get("lang", "").lower()
+    response = await call_next(request)
+    if qlang in SUPPORTED_LANGS:
+        response.set_cookie(
+            LOCALE_COOKIE, qlang, max_age=60 * 60 * 24 * 30,
+            samesite="lax", httponly=False,
+        )
+    return response
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -1109,7 +1266,7 @@ async def home(request: Request):
         return RedirectResponse(url="/blog", status_code=302)
     # anuvia.com.br -> new multi-practice brand home
     if _is_brand_host(request):
-        return templates.TemplateResponse("home.html", {"request": request})
+        return templates.TemplateResponse("home.html", tpl_ctx(request))
     # diagnostico.anuvia.com.br / roadmap.anuvia.com.br -> funnel LPs
     funnel = detect_funnel(request)
     cfg = FUNNEL_CONFIG[funnel]
@@ -1126,31 +1283,31 @@ async def home(request: Request):
 @app.get("/cloud", response_class=HTMLResponse)
 @app.get("/cloud/", response_class=HTMLResponse)
 async def practice_cloud(request: Request):
-    return templates.TemplateResponse("practice_cloud.html", {"request": request})
+    return templates.TemplateResponse("practice_cloud.html", tpl_ctx(request))
 
 
 @app.get("/engineering", response_class=HTMLResponse)
 @app.get("/engineering/", response_class=HTMLResponse)
 async def practice_engineering(request: Request):
-    return templates.TemplateResponse("practice_engineering.html", {"request": request})
+    return templates.TemplateResponse("practice_engineering.html", tpl_ctx(request))
 
 
 @app.get("/ai", response_class=HTMLResponse)
 @app.get("/ai/", response_class=HTMLResponse)
 async def practice_ai(request: Request):
-    return templates.TemplateResponse("practice_ai.html", {"request": request})
+    return templates.TemplateResponse("practice_ai.html", tpl_ctx(request))
 
 
 @app.get("/growth", response_class=HTMLResponse)
 @app.get("/growth/", response_class=HTMLResponse)
 async def practice_growth(request: Request):
-    return templates.TemplateResponse("practice_growth.html", {"request": request})
+    return templates.TemplateResponse("practice_growth.html", tpl_ctx(request))
 
 
 @app.get("/industry", response_class=HTMLResponse)
 @app.get("/industry/", response_class=HTMLResponse)
 async def practice_industry(request: Request):
-    return templates.TemplateResponse("practice_industry.html", {"request": request})
+    return templates.TemplateResponse("practice_industry.html", tpl_ctx(request))
 
 
 # ----------------------------------------------------------------------------
@@ -1159,42 +1316,42 @@ async def practice_industry(request: Request):
 
 @app.get("/cloud/finops/audit", response_class=HTMLResponse)
 async def lp_finops_audit(request: Request):
-    return templates.TemplateResponse("finops_audit.html", {"request": request})
+    return templates.TemplateResponse("finops_audit.html", tpl_ctx(request))
 
 
 @app.get("/cloud/aws/well-architected", response_class=HTMLResponse)
 async def lp_aws_well_architected(request: Request):
-    return templates.TemplateResponse("aws_well_architected.html", {"request": request})
+    return templates.TemplateResponse("aws_well_architected.html", tpl_ctx(request))
 
 
 @app.get("/engineering/devops/maturity", response_class=HTMLResponse)
 async def lp_devops_maturity(request: Request):
-    return templates.TemplateResponse("devops_maturity.html", {"request": request})
+    return templates.TemplateResponse("devops_maturity.html", tpl_ctx(request))
 
 
 @app.get("/ai/readiness", response_class=HTMLResponse)
 async def lp_ai_readiness(request: Request):
-    return templates.TemplateResponse("ai_readiness.html", {"request": request})
+    return templates.TemplateResponse("ai_readiness.html", tpl_ctx(request))
 
 
 @app.get("/growth/sales-ops", response_class=HTMLResponse)
 async def lp_growth_sales_ops(request: Request):
-    return templates.TemplateResponse("growth_sales_ops.html", {"request": request})
+    return templates.TemplateResponse("growth_sales_ops.html", tpl_ctx(request))
 
 
 @app.get("/about", response_class=HTMLResponse)
 async def about(request: Request):
-    return templates.TemplateResponse("about.html", {"request": request})
+    return templates.TemplateResponse("about.html", tpl_ctx(request))
 
 
 @app.get("/cases", response_class=HTMLResponse)
 async def cases(request: Request):
-    return templates.TemplateResponse("cases.html", {"request": request})
+    return templates.TemplateResponse("cases.html", tpl_ctx(request))
 
 
 @app.get("/contact", response_class=HTMLResponse)
 async def contact(request: Request):
-    return templates.TemplateResponse("contact.html", {"request": request})
+    return templates.TemplateResponse("contact.html", tpl_ctx(request))
 
 
 # ============================================================================
@@ -1488,7 +1645,7 @@ def _build_finops_deliverable(form_data: dict, with_name: Optional[str] = None) 
 
 
 @app.post("/api/finops-audit/analyze")
-async def api_finops_audit_analyze(form: FinOpsAnalyzeForm):
+async def api_finops_audit_analyze(form: FinOpsAnalyzeForm, request: Request):
     """Step 1 — receive business answers, return analysis HTML + lead_id (no PII)."""
     form_data = form.model_dump()
     analysis_meta, html = _build_finops_deliverable(form_data)
@@ -1503,9 +1660,11 @@ async def api_finops_audit_analyze(form: FinOpsAnalyzeForm):
     async with httpx.AsyncClient(timeout=15) as client:
         lead_id = await _create_anonymous_diag_lead(
             client,
-            funnel_id="BR_FINOPS",
+            funnel_id=f"{get_locale(request)['market']}_FINOPS",
             source="lp_finops_audit",
             diag_type="finops_audit",
+            market=get_locale(request)["market"],
+            language=get_locale(request)["lang_full"],
             business_meta=business_meta,
             deliverable_html=html,
             tags=["lp_finops_audit", "br_finops"],
@@ -1593,7 +1752,7 @@ def _build_wa_deliverable(form_data: dict, with_name: Optional[str] = None) -> t
 
 
 @app.post("/api/aws-well-architected/analyze")
-async def api_aws_wa_analyze(form: WAAnalyzeForm):
+async def api_aws_wa_analyze(form: WAAnalyzeForm, request: Request):
     form_data = form.model_dump()
     analysis_meta, html = _build_wa_deliverable(form_data)
     business_meta = {
@@ -1606,9 +1765,11 @@ async def api_aws_wa_analyze(form: WAAnalyzeForm):
     async with httpx.AsyncClient(timeout=15) as client:
         lead_id = await _create_anonymous_diag_lead(
             client,
-            funnel_id="BR_AWS_WA",
+            funnel_id=f"{get_locale(request)['market']}_AWS_WA",
             source="lp_aws_well_architected",
             diag_type="aws_well_architected",
+            market=get_locale(request)["market"],
+            language=get_locale(request)["lang_full"],
             business_meta=business_meta,
             deliverable_html=html,
             tags=["lp_aws_wa", "br_aws_wa"],
@@ -1689,7 +1850,7 @@ def _build_devops_deliverable(form_data: dict, with_name: Optional[str] = None) 
 
 
 @app.post("/api/devops-maturity/analyze")
-async def api_devops_analyze(form: DevOpsAnalyzeForm):
+async def api_devops_analyze(form: DevOpsAnalyzeForm, request: Request):
     form_data = form.model_dump()
     analysis_meta, html = _build_devops_deliverable(form_data)
     business_meta = {
@@ -1704,9 +1865,11 @@ async def api_devops_analyze(form: DevOpsAnalyzeForm):
     async with httpx.AsyncClient(timeout=15) as client:
         lead_id = await _create_anonymous_diag_lead(
             client,
-            funnel_id="BR_DEVOPS",
+            funnel_id=f"{get_locale(request)['market']}_DEVOPS",
             source="lp_devops_maturity",
             diag_type="devops_maturity",
+            market=get_locale(request)["market"],
+            language=get_locale(request)["lang_full"],
             business_meta=business_meta,
             deliverable_html=html,
             tags=["lp_devops_maturity", "br_devops"],
@@ -1802,7 +1965,7 @@ def _build_ai_readiness_deliverable(form_data: dict, with_name: Optional[str] = 
 
 
 @app.post("/api/ai-readiness/analyze")
-async def api_ai_readiness_analyze(form: AIReadinessAnalyzeForm):
+async def api_ai_readiness_analyze(form: AIReadinessAnalyzeForm, request: Request):
     form_data = form.model_dump()
     analysis_meta, html = _build_ai_readiness_deliverable(form_data)
     business_meta = {
@@ -1816,9 +1979,11 @@ async def api_ai_readiness_analyze(form: AIReadinessAnalyzeForm):
     async with httpx.AsyncClient(timeout=15) as client:
         lead_id = await _create_anonymous_diag_lead(
             client,
-            funnel_id="BR_AI",
+            funnel_id=f"{get_locale(request)['market']}_AI",
             source="lp_ai_readiness",
             diag_type="ai_readiness",
+            market=get_locale(request)["market"],
+            language=get_locale(request)["lang_full"],
             business_meta=business_meta,
             deliverable_html=html,
             tags=["lp_ai_readiness", "br_ai"],
@@ -1911,7 +2076,7 @@ def _build_growth_deliverable(form_data: dict, with_name: Optional[str] = None) 
 
 
 @app.post("/api/growth-sales-ops/analyze")
-async def api_growth_analyze(form: GrowthAnalyzeForm):
+async def api_growth_analyze(form: GrowthAnalyzeForm, request: Request):
     form_data = form.model_dump()
     analysis_meta, html = _build_growth_deliverable(form_data)
     business_meta = {
@@ -1925,9 +2090,11 @@ async def api_growth_analyze(form: GrowthAnalyzeForm):
     async with httpx.AsyncClient(timeout=15) as client:
         lead_id = await _create_anonymous_diag_lead(
             client,
-            funnel_id="BR_GROWTH",
+            funnel_id=f"{get_locale(request)['market']}_GROWTH",
             source="lp_growth_sales_ops",
             diag_type="growth_sales_ops",
+            market=get_locale(request)["market"],
+            language=get_locale(request)["lang_full"],
             business_meta=business_meta,
             deliverable_html=html,
             tags=["lp_growth_sales_ops", "br_growth"],

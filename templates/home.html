@@ -5,6 +5,18 @@
 <!-- HERO -->
 <section class="max-w-6xl mx-auto px-6 pt-24 pb-20">
   <p class="eyebrow mb-6">Cloud · Engineering · AI · Growth · Industry</p>
+  {% if lang == 'en' %}
+  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
+    Engineering that <span class="italic">survives production.</span>
+  </h1>
+  <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-12">
+    Anuvia is a multi-practice engineering firm covering cloud, platform and applied AI. We work with technical teams who need to take projects from spec to monitored production — with architecture, cost plan and operational ownership defined before the first deploy.
+  </p>
+  <div class="flex flex-col sm:flex-row gap-4">
+    <a href="/contact" class="btn-primary text-base inline-block">Book a call with a Solutions Architect</a>
+    <a href="#practices" class="btn-ghost text-base inline-block">See the practices</a>
+  </div>
+  {% else %}
   <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
     Engenharia que <span class="italic">aguenta produção.</span>
   </h1>
@@ -15,6 +27,7 @@
     <a href="/contact" class="btn-primary text-base inline-block">Agendar conversa com um Solutions Architect</a>
     <a href="#practices" class="btn-ghost text-base inline-block">Conhecer as práticas</a>
   </div>
+  {% endif %}
 </section>
 
 <div class="rule max-w-6xl mx-auto px-6"></div>
@@ -22,6 +35,23 @@
 <!-- AUTHORITY -->
 <section class="max-w-6xl mx-auto px-6 py-20">
   <div class="grid md:grid-cols-3 gap-12 mb-16">
+    {% if lang == 'en' %}
+    <div>
+      <p class="eyebrow mb-3">Background</p>
+      <p class="h-serif text-3xl mb-2">AWS · Google</p>
+      <p class="text-subtle text-sm leading-relaxed">Technical leadership shaped inside two of the world's three largest cloud providers. The architecture decisions we make today come from prior experience operating workloads at scale.</p>
+    </div>
+    <div>
+      <p class="eyebrow mb-3">Verifiable depth</p>
+      <p class="h-serif text-3xl mb-2">15+ AWS certifications</p>
+      <p class="text-subtle text-sm leading-relaxed">Full stack coverage: Architecture, Security, ML, Data Analytics, DevOps, Database, Networking. A narrow band of Solutions Architects globally hold this certified depth.</p>
+    </div>
+    <div>
+      <p class="eyebrow mb-3">Delivery model</p>
+      <p class="h-serif text-3xl mb-2">Hybrid squad</p>
+      <p class="text-subtle text-sm leading-relaxed">Senior Solutions Architects on strategy, specialized AI agents on delivery. You get speed without sacrificing depth of technical decision.</p>
+    </div>
+    {% else %}
     <div>
       <p class="eyebrow mb-3">Background</p>
       <p class="h-serif text-3xl mb-2">AWS · Google</p>
@@ -37,6 +67,7 @@
       <p class="h-serif text-3xl mb-2">Squad híbrida</p>
       <p class="text-subtle text-sm leading-relaxed">Solutions Architects sêniores na estratégia, squad de agentes especializados em delivery. Você ganha velocidade sem sacrificar a profundidade da decisão técnica.</p>
     </div>
+    {% endif %}
   </div>
 </section>
 
@@ -44,73 +75,121 @@
 
 <!-- PRACTICES GRID -->
 <section id="practices" class="max-w-6xl mx-auto px-6 py-20">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-6 text-center">The 5 practices</p>
+  <h2 class="h-serif text-4xl md:text-5xl text-center mb-4 leading-tight">One firm. Five deep competencies.</h2>
+  <p class="text-center text-ink/60 max-w-2xl mx-auto mb-16 text-lg leading-relaxed">Each practice has its own squad, fixed-scope offerings and defined ICP. You start with one and discover the others as the relationship matures.</p>
+  {% else %}
   <p class="eyebrow mb-6 text-center">As 5 práticas</p>
   <h2 class="h-serif text-4xl md:text-5xl text-center mb-4 leading-tight">Uma firma. Cinco competências profundas.</h2>
   <p class="text-center text-ink/60 max-w-2xl mx-auto mb-16 text-lg leading-relaxed">Cada prática tem squad próprio, ofertas com escopo fixo e ICP definido. Você entra por uma e descobre as outras conforme o relacionamento amadurece.</p>
+  {% endif %}
 
   <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-
-    <!-- Cloud -->
     <a href="/cloud" class="card card-hover p-8 group">
       <p class="eyebrow mb-3">01 · Cloud</p>
       <h3 class="h-serif text-2xl mb-4">Anuvia Cloud</h3>
+      {% if lang == 'en' %}
+      <p class="text-sm text-ink/70 leading-relaxed mb-6">FinOps, AWS, GCP and multi-cloud. Where we typically deliver the fastest return: 25-40% reductions in AWS bills and architectures redesigned to scale economically.</p>
+      {% else %}
       <p class="text-sm text-ink/70 leading-relaxed mb-6">FinOps, AWS, GCP e multi-cloud. Onde costumamos entregar mais retorno imediato: economias de 25% a 40% em fatura AWS e arquiteturas redesenhadas para escalar de forma econômica.</p>
+      {% endif %}
       <p class="text-xs text-subtle">FinOps · AWS Practice · GCP · Multi-Cloud Strategy</p>
     </a>
 
-    <!-- Engineering -->
     <a href="/engineering" class="card card-hover p-8 group">
       <p class="eyebrow mb-3">02 · Engineering</p>
       <h3 class="h-serif text-2xl mb-4">Anuvia Engineering</h3>
+      {% if lang == 'en' %}
+      <p class="text-sm text-ink/70 leading-relaxed mb-6">DevOps, SRE, observability, IoT and Edge. Platforms that hold under real load, deploy pipelines that don't wake anyone at 3 AM, observability built in from the first commit.</p>
+      {% else %}
       <p class="text-sm text-ink/70 leading-relaxed mb-6">DevOps, SRE, observability, IoT e Edge. Plataformas que aguentam carga real, pipelines de deploy que não despertam ninguém às 3 da manhã, observabilidade implementada desde o primeiro commit.</p>
+      {% endif %}
       <p class="text-xs text-subtle">DevOps · SRE · Observability · IoT/Edge</p>
     </a>
 
-    <!-- AI -->
     <a href="/ai" class="card card-hover p-8 group">
       <p class="eyebrow mb-3">03 · AI</p>
       <h3 class="h-serif text-2xl mb-4">Anuvia AI</h3>
+      {% if lang == 'en' %}
+      <p class="text-sm text-ink/70 leading-relaxed mb-6">Strategy, engineering, MLOps and vertical products. We build AI systems with engineering rigor: eval harness, rollback plans, cost measured per inference. No demos without destination.</p>
+      {% else %}
       <p class="text-sm text-ink/70 leading-relaxed mb-6">Estratégia, engenharia, MLOps e produtos verticais. Desenvolvemos sistemas de IA com rigor de engenharia: harness de avaliação, plano de rollback, custo medido por inferência. Sem demos sem destino.</p>
+      {% endif %}
       <p class="text-xs text-subtle">Strategy · Engineering · MLOps · Products</p>
     </a>
 
-    <!-- Growth -->
     <a href="/growth" class="card card-hover p-8 group">
       <p class="eyebrow mb-3">04 · Growth</p>
       <h3 class="h-serif text-2xl mb-4">Anuvia Growth</h3>
+      {% if lang == 'en' %}
+      <p class="text-sm text-ink/70 leading-relaxed mb-6">Automated RevOps, marketing tech and customer experience. Home of Anuvia AI Ops — the same agent stack we run internally, offered as multi-tenant SaaS to clients who want to operate with more agility.</p>
+      {% else %}
       <p class="text-sm text-ink/70 leading-relaxed mb-6">RevOps, marketing tech e customer experience automatizados. Aqui mora o Anuvia AI Ops — a mesma stack de agentes que usamos internamente, oferecida como SaaS multi-tenant para clientes que querem operar com mais agilidade.</p>
+      {% endif %}
       <p class="text-xs text-subtle">RevOps · MarketingOps · AI Ops SMB</p>
     </a>
 
-    <!-- Industry -->
     <a href="/industry" class="card card-hover p-8 group">
       <p class="eyebrow mb-3">05 · Industry</p>
       <h3 class="h-serif text-2xl mb-4">Anuvia Industry</h3>
+      {% if lang == 'en' %}
+      <p class="text-sm text-ink/70 leading-relaxed mb-6">Verticalized solutions across manufacturing, logistics, healthcare, life sciences and financial services. We bring playbooks accumulated from prior projects and, when the pattern repeats, turn it into a productized offering.</p>
+      {% else %}
       <p class="text-sm text-ink/70 leading-relaxed mb-6">Soluções verticalizadas em manufatura, logística, healthcare, life sciences e serviços financeiros. Trazemos playbooks acumulados de projetos prévios e, quando o padrão se repete, transformamos em produto próprio.</p>
+      {% endif %}
       <p class="text-xs text-subtle">Manufacturing · Logistics · Healthcare · Life Sciences · FinServ</p>
     </a>
 
-    <!-- Diagnostic -->
     <a href="/contact" class="card card-hover p-8 group bg-ink text-paper hover:bg-ink/90">
+      {% if lang == 'en' %}
+      <p class="eyebrow mb-3 text-paper/60">Start here</p>
+      <h3 class="h-serif text-2xl mb-4">Not sure where to start</h3>
+      <p class="text-sm text-paper/80 leading-relaxed mb-6">A 30-minute call with one of our Solutions Architects. We'll understand your pain, point you to the practice (or combination of practices) that fits, and propose a concrete next step. No sales deck.</p>
+      <p class="text-xs text-paper/60">Book →</p>
+      {% else %}
       <p class="eyebrow mb-3 text-paper/60">Comece por aqui</p>
       <h3 class="h-serif text-2xl mb-4">Ainda não sei o ponto de entrada</h3>
       <p class="text-sm text-paper/80 leading-relaxed mb-6">Uma conversa de 30 minutos com um dos nossos Solutions Architects. Vamos entender sua dor, indicar a prática (ou combinação de práticas) que faz sentido, e propor um próximo passo concreto. Sem apresentação comercial.</p>
       <p class="text-xs text-paper/60">Agendar →</p>
+      {% endif %}
     </a>
-
   </div>
 </section>
 
 <div class="rule max-w-6xl mx-auto px-6"></div>
 
-<!-- DIFFERENTIATION (AI specifically) -->
+<!-- DIFFERENTIATION -->
 <section class="max-w-6xl mx-auto px-6 py-20">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-4">How we differ in the AI market</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-6 leading-tight max-w-3xl">Engineering before marketing.</h2>
+  <p class="text-lg text-ink/70 leading-relaxed max-w-3xl mb-14">
+    The AI market is saturated with surface-level approaches — prototypes sold as products, demos with no rollback, invisible costs. Anuvia AI prioritizes engineering excellence over commercial appeal. Three concrete principles sustain the difference.
+  </p>
+  <div class="grid md:grid-cols-3 gap-10">
+    <div>
+      <p class="h-serif text-5xl mb-4">01</p>
+      <p class="eyebrow mb-3">Production-ready from day one</p>
+      <p class="text-sm text-ink/70 leading-relaxed">We set evaluation criteria, documented rollback plan and integrated monitoring before the first deploy. PoVs validate viability — they don't move to production without passing technical gates. Discovery, Proof-of-Value, Build and Operate model has explicit gates between phases.</p>
+    </div>
+    <div>
+      <p class="h-serif text-5xl mb-4">02</p>
+      <p class="eyebrow mb-3">Cloud-native architecture with cost awareness</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Every architecture we deliver includes measured cost per inference, account separation for isolation, and native cloud observability. We work with Bedrock, SageMaker and Vertex AI when the case calls — we pick the right tool, not the trendy one.</p>
+    </div>
+    <div>
+      <p class="h-serif text-5xl mb-4">03</p>
+      <p class="eyebrow mb-3">We prove before we promise</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Anuvia's internal operation runs on our own agent squad — sales, delivery, admin, content. When you talk to us, you can see in practice how we apply the same principles we sell. Verifiable demonstrations instead of promises.</p>
+    </div>
+  </div>
+  {% else %}
   <p class="eyebrow mb-4">Como nos diferenciamos no mercado de IA</p>
   <h2 class="h-serif text-4xl md:text-5xl mb-6 leading-tight max-w-3xl">Engenharia antes de marketing.</h2>
   <p class="text-lg text-ink/70 leading-relaxed max-w-3xl mb-14">
     O mercado de Inteligência Artificial está saturado por abordagens superficiais — protótipos vendidos como produto, demos sem rollback, custos invisíveis. A Anuvia AI prioriza excelência em engenharia sobre apelo comercial. Três princípios concretos sustentam essa diferença.
   </p>
-
   <div class="grid md:grid-cols-3 gap-10">
     <div>
       <p class="h-serif text-5xl mb-4">01</p>
@@ -128,15 +207,41 @@
       <p class="text-sm text-ink/70 leading-relaxed">A operação interna da Anuvia roda em squad de agentes próprios — vendas, entrega, administração, conteúdo. Quando você fala com a gente, pode ver na prática como aplicamos os mesmos princípios que vendemos. Demonstrações verificáveis em vez de promessas.</p>
     </div>
   </div>
+  {% endif %}
 </section>
 
 <div class="rule max-w-6xl mx-auto px-6"></div>
 
 <!-- HOW WE WORK -->
 <section class="max-w-6xl mx-auto px-6 py-20">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-4">How we deliver</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight">Clear deliverables. No black box.</h2>
+  <div class="grid md:grid-cols-4 gap-6">
+    <div class="card p-7">
+      <p class="h-serif text-3xl mb-3 text-accent">01</p>
+      <p class="font-semibold mb-3">Discovery Sprint</p>
+      <p class="text-sm text-ink/70 leading-relaxed">We audit systems, rank opportunities by ROI, sketch initial architecture. You leave with an opportunity map.</p>
+    </div>
+    <div class="card p-7">
+      <p class="h-serif text-3xl mb-3 text-accent">02</p>
+      <p class="font-semibold mb-3">Architecture & PoV</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Production-grade architecture. Proof-of-value that validates viability and impact before the full build.</p>
+    </div>
+    <div class="card p-7">
+      <p class="h-serif text-3xl mb-3 text-accent">03</p>
+      <p class="font-semibold mb-3">Build & Integration</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Solution implementation. Wiring to systems, data pipelines, workflows. Everything tested and documented.</p>
+    </div>
+    <div class="card p-7">
+      <p class="h-serif text-3xl mb-3 text-accent">04</p>
+      <p class="font-semibold mb-3">Scale & Operate</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Production deploy with MLOps/DataOps. Monitoring, optimization, scaling. Operational ownership handover.</p>
+    </div>
+  </div>
+  {% else %}
   <p class="eyebrow mb-4">Como entregamos</p>
   <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight">Entregáveis claros. Sem caixa preta.</h2>
-
   <div class="grid md:grid-cols-4 gap-6">
     <div class="card p-7">
       <p class="h-serif text-3xl mb-3 text-accent">01</p>
@@ -159,50 +264,45 @@
       <p class="text-sm text-ink/70 leading-relaxed">Deploy em produção com MLOps/DataOps. Monitoramento, otimização, escala. Transferência de propriedade operacional.</p>
     </div>
   </div>
+  {% endif %}
 </section>
 
 <div class="rule max-w-6xl mx-auto px-6"></div>
 
-<!-- ENGINEERING STANDARDS -->
+<!-- DIAGNOSTICS -->
 <section class="max-w-6xl mx-auto px-6 py-20">
-  <p class="eyebrow mb-4">Padrões inegociáveis</p>
-  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight max-w-3xl">Integrados em cada sistema que entregamos.</h2>
-
-  <div class="grid md:grid-cols-3 gap-8">
-    <div>
-      <p class="font-semibold mb-2">Observabilidade</p>
-      <p class="text-sm text-ink/70 leading-relaxed">Logging, métricas, tracing e dashboards desde o dia um.</p>
-    </div>
-    <div>
-      <p class="font-semibold mb-2">Segurança por design</p>
-      <p class="text-sm text-ink/70 leading-relaxed">Criptografia, RBAC, audit trails e least-privilege na arquitetura.</p>
-    </div>
-    <div>
-      <p class="font-semibold mb-2">Avaliação e testes</p>
-      <p class="text-sm text-ink/70 leading-relaxed">Testes automatizados, harnesses de avaliação de modelos, suítes de integração antes de cada deploy.</p>
-    </div>
-    <div>
-      <p class="font-semibold mb-2">Planos de rollback</p>
-      <p class="text-sm text-ink/70 leading-relaxed">Cada deploy tem procedimento de rollback documentado. Sem portas de mão única.</p>
-    </div>
-    <div>
-      <p class="font-semibold mb-2">Documentação</p>
-      <p class="text-sm text-ink/70 leading-relaxed">Architecture Decision Records, runbooks e docs de API entregues com o código.</p>
-    </div>
-    <div>
-      <p class="font-semibold mb-2">Propriedade operacional</p>
-      <p class="text-sm text-ink/70 leading-relaxed">Monitoramento, alertas e escalation paths prontos pro seu time operar.</p>
-    </div>
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-4">Quick diagnostics</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight">Start with a low-risk audit.</h2>
+  <div class="grid md:grid-cols-2 gap-6">
+    <a href="/cloud/finops/audit" class="card card-hover p-8">
+      <p class="eyebrow mb-3 text-accent">FinOps Audit Risk-Free</p>
+      <p class="h-serif text-2xl mb-3">AWS Cost Audit in 4 weeks</p>
+      <p class="text-sm text-ink/70 leading-relaxed mb-4">We find 25-40% savings in AWS bills. Guarantee: if we don't find 3× your investment in annualized savings, you don't pay.</p>
+      <p class="text-sm font-medium">{{ fmt_price('R$ 45-60k') }} · 4 weeks →</p>
+    </a>
+    <a href="/cloud/aws/well-architected" class="card card-hover p-8">
+      <p class="eyebrow mb-3 text-accent">AWS Well-Architected</p>
+      <p class="h-serif text-2xl mb-3">Review across the 6 pillars</p>
+      <p class="text-sm text-ink/70 leading-relaxed mb-4">We audit operational excellence, security, reliability, performance, cost and sustainability. Executive report + prioritized remediation.</p>
+      <p class="text-sm font-medium">{{ fmt_price('R$ 30-50k') }} · 3-5 weeks →</p>
+    </a>
+    <a href="/engineering/devops/maturity" class="card card-hover p-8">
+      <p class="eyebrow mb-3 text-accent">DevOps Maturity</p>
+      <p class="h-serif text-2xl mb-3">Assessment + roadmap</p>
+      <p class="text-sm text-ink/70 leading-relaxed mb-4">Diagnostic of deploy frequency, MTTR, change failure rate, lead time. Benchmark vs. high-performers + prioritized roadmap.</p>
+      <p class="text-sm font-medium">{{ fmt_price('R$ 35-50k') }} · 4 weeks →</p>
+    </a>
+    <a href="/ai/readiness" class="card card-hover p-8">
+      <p class="eyebrow mb-3 text-accent">AI Readiness</p>
+      <p class="h-serif text-2xl mb-3">Strategy Sprint</p>
+      <p class="text-sm text-ink/70 leading-relaxed mb-4">Use case inventory, estimated ROI, 12-month roadmap. For teams that know they need AI but not where to start.</p>
+      <p class="text-sm font-medium">{{ fmt_price('R$ 25-40k') }} · 2-3 weeks →</p>
+    </a>
   </div>
-</section>
-
-<div class="rule max-w-6xl mx-auto px-6"></div>
-
-<!-- ENTRY POINTS / DIAGNOSTICS -->
-<section class="max-w-6xl mx-auto px-6 py-20">
+  {% else %}
   <p class="eyebrow mb-4">Diagnósticos rápidos</p>
   <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight">Comece com um audit de baixo risco.</h2>
-
   <div class="grid md:grid-cols-2 gap-6">
     <a href="/cloud/finops/audit" class="card card-hover p-8">
       <p class="eyebrow mb-3 text-accent">FinOps Audit Risk-Free</p>
@@ -210,21 +310,18 @@
       <p class="text-sm text-ink/70 leading-relaxed mb-4">Identificamos 25-40% de economia em faturas AWS. Garantia: se não acharmos 3× o investimento em economia anualizada, você não paga.</p>
       <p class="text-sm font-medium">R$ 45-60k · 4 semanas →</p>
     </a>
-
     <a href="/cloud/aws/well-architected" class="card card-hover p-8">
       <p class="eyebrow mb-3 text-accent">AWS Well-Architected</p>
       <p class="h-serif text-2xl mb-3">Review nos 6 pilares</p>
       <p class="text-sm text-ink/70 leading-relaxed mb-4">Auditamos operational excellence, security, reliability, performance, cost e sustainability. Relatório executivo + remediação priorizada.</p>
       <p class="text-sm font-medium">R$ 30-50k · 3-5 semanas →</p>
     </a>
-
     <a href="/engineering/devops/maturity" class="card card-hover p-8">
       <p class="eyebrow mb-3 text-accent">DevOps Maturity</p>
       <p class="h-serif text-2xl mb-3">Assessment + roadmap</p>
       <p class="text-sm text-ink/70 leading-relaxed mb-4">Diagnóstico de deploy frequency, MTTR, change failure rate, lead time. Benchmark vs. high-performers + roadmap priorizado.</p>
       <p class="text-sm font-medium">R$ 35-50k · 4 semanas →</p>
     </a>
-
     <a href="/ai/readiness" class="card card-hover p-8">
       <p class="eyebrow mb-3 text-accent">AI Readiness</p>
       <p class="h-serif text-2xl mb-3">Strategy Sprint</p>
@@ -232,15 +329,22 @@
       <p class="text-sm font-medium">R$ 25-40k · 2-3 semanas →</p>
     </a>
   </div>
+  {% endif %}
 </section>
 
 <div class="rule max-w-6xl mx-auto px-6"></div>
 
 <!-- CTA FINAL -->
 <section class="max-w-4xl mx-auto px-6 py-24 text-center">
+  {% if lang == 'en' %}
+  <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Next step.</h2>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Thirty minutes with one of Anuvia's Solutions Architects. We'll understand your team's technical context, point you to the most relevant practice and propose a realistic path. No sales deck.</p>
+  <a href="/contact" class="btn-primary text-base inline-block">Pick a slot with a Solutions Architect</a>
+  {% else %}
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Próximo passo.</h2>
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Trinta minutos com um dos Solutions Architects da Anuvia. Vamos entender o contexto técnico do seu time, indicar a prática mais aderente ao problema e propor um caminho realista. Não há apresentação comercial.</p>
   <a href="/contact" class="btn-primary text-base inline-block">Escolha um horário com um Solutions Architect</a>
+  {% endif %}
 </section>
 
 {% endblock %}
