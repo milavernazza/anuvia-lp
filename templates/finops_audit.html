@@ -1,0 +1,289 @@
+{% extends "_base.html" %}
+
+{% block content %}
+
+<!-- HERO -->
+<section class="max-w-5xl mx-auto px-6 pt-20 pb-12">
+  <p class="eyebrow mb-6">Anuvia Cloud · FinOps · Anchor offering</p>
+  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
+    AWS Cost Audit<br><span class="italic">Risk-Free.</span>
+  </h1>
+  <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
+    Em 4 semanas identificamos 25-40% de economia anualizada na sua fatura AWS. Garantia: se não acharmos 3× o investimento, você não paga.
+  </p>
+  <p class="text-sm text-subtle mb-12">15+ certificações AWS · Ex-AWS Solutions Architect · Ex-Google</p>
+
+  <div class="card p-6 max-w-2xl bg-ink text-paper">
+    <p class="eyebrow text-paper/60 mb-3">A garantia, traduzida</p>
+    <p class="text-sm leading-relaxed">Investimento R$ 45-60k. Se a economia anualizada identificada não for ao menos 3× o que pagou (= R$ 135-180k+/ano), você recebe reembolso integral. Já aconteceu? Nunca. Estamos confiantes do número.</p>
+  </div>
+</section>
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<!-- THE FORM / DIAGNOSTIC SIGNUP -->
+<section class="max-w-3xl mx-auto px-6 py-16" id="signup">
+  <p class="eyebrow mb-3 text-center">Pré-qualificação rápida</p>
+  <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Em 90 segundos descobrimos se faz sentido pra você.</h2>
+  <p class="text-center text-ink/60 mb-12">Responde 5 perguntas. Você recebe estimativa preliminar de economia + agenda call de 30 min se fizer sentido. Zero spam.</p>
+
+  <form id="finops-form" class="space-y-6 card p-8 md:p-10">
+
+    <div>
+      <label class="eyebrow block mb-2">Nome completo</label>
+      <input type="text" name="name" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Como podemos te chamar?">
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-4">
+      <div>
+        <label class="eyebrow block mb-2">Email corporativo</label>
+        <input type="email" name="email" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="voce@empresa.com">
+      </div>
+      <div>
+        <label class="eyebrow block mb-2">WhatsApp</label>
+        <input type="tel" name="whatsapp" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="+55 11 99999-9999">
+      </div>
+    </div>
+
+    <div>
+      <label class="eyebrow block mb-2">Empresa</label>
+      <input type="text" name="company" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Razão social ou nome fantasia">
+    </div>
+
+    <div>
+      <label class="eyebrow block mb-2">Cargo / função</label>
+      <select name="role" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option>CTO / VP Engineering</option>
+        <option>Head of Platform / Infrastructure</option>
+        <option>Cloud Architect / DevOps Lead</option>
+        <option>CFO / Finance Leader</option>
+        <option>Founder / CEO</option>
+        <option>Outro</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="eyebrow block mb-2">Fatura AWS mensal aproximada (USD)</label>
+      <select name="aws_spend" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="under_10k">&lt; $10.000/mês (provavelmente não somos fit)</option>
+        <option value="10k_30k">$10.000 - $30.000/mês</option>
+        <option value="30k_100k">$30.000 - $100.000/mês</option>
+        <option value="100k_300k">$100.000 - $300.000/mês</option>
+        <option value="300k_plus">&gt; $300.000/mês</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="eyebrow block mb-2">Maior preocupação hoje</label>
+      <select name="main_pain" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="bill_growth">Fatura cresceu muito e não sabemos por quê</option>
+        <option value="no_visibility">Falta visibilidade por time/produto/feature</option>
+        <option value="ri_savings">Reserved Instances / Savings Plans mal otimizados</option>
+        <option value="architecture">Arquitetura herdada não escala economicamente</option>
+        <option value="finops_practice">Quero estabelecer prática FinOps interna</option>
+        <option value="cfo_pressure">Pressão da diretoria pra cortar cloud spend</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="eyebrow block mb-2">Há quanto tempo na AWS?</label>
+      <select name="aws_tenure" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="under_1y">Menos de 1 ano</option>
+        <option value="1_3y">1-3 anos</option>
+        <option value="3_5y">3-5 anos</option>
+        <option value="5_plus">Mais de 5 anos</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="eyebrow block mb-2">Contexto adicional (opcional)</label>
+      <textarea name="context" rows="3" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Tem algo específico que queira mencionar? Ex.: migration recente, regulação, multi-account complexity..."></textarea>
+    </div>
+
+    <button type="submit" class="btn-primary w-full text-base">Receber pré-análise (gratuita)</button>
+
+    <p class="text-xs text-subtle text-center">Seus dados ficam só com a Anuvia. Não compartilhamos com ninguém. LGPD compliance.</p>
+
+  </form>
+</section>
+
+<div id="result" class="hidden max-w-3xl mx-auto px-6 py-16"></div>
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<!-- METHODOLOGY -->
+<section class="max-w-5xl mx-auto px-6 py-20">
+  <p class="eyebrow mb-4">Metodologia</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight">4 semanas. 4 entregáveis.</h2>
+
+  <div class="space-y-10">
+
+    <div class="grid md:grid-cols-6 gap-6">
+      <div>
+        <p class="h-serif text-5xl text-accent">01</p>
+        <p class="eyebrow mt-2">Semana 1</p>
+      </div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Discovery & Data Collection</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Workshop de 2h com seu time de cloud. Extraímos Cost &amp; Usage Reports (CUR), AWS Cost Explorer data, Trusted Advisor findings, e configuração de billing. Mapeamos accounts, services, tags, e ownership.</p>
+        <p class="text-sm text-subtle"><strong>Entregável:</strong> data extraction completo + baseline de spend documentado</p>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-6 gap-6">
+      <div>
+        <p class="h-serif text-5xl text-accent">02</p>
+        <p class="eyebrow mt-2">Semana 2</p>
+      </div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Análise & Identificação</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Análise sistemática: compute (right-sizing, RI/SP coverage, Spot oportunidades), storage (lifecycle, intelligent tiering, snapshots órfãos), network (egress, NAT, transit gateway), data transfer, RDS/Aurora, S3, third-party SaaS, support tier.</p>
+        <p class="text-sm text-subtle"><strong>Entregável:</strong> findings list com economia estimada por categoria + effort/risk scoring</p>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-6 gap-6">
+      <div>
+        <p class="h-serif text-5xl text-accent">03</p>
+        <p class="eyebrow mt-2">Semana 3</p>
+      </div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Quick Wins Implementation</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Executamos as recomendações de baixo risco e alto impacto durante o audit (com sua aprovação). Tipicamente 10-15% de economia imediata: idle resources, snapshot cleanup, unused EBS, redundant data transfer, S3 lifecycle.</p>
+        <p class="text-sm text-subtle"><strong>Entregável:</strong> economia mensurável já em produção + change log documentado</p>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-6 gap-6">
+      <div>
+        <p class="h-serif text-5xl text-accent">04</p>
+        <p class="eyebrow mt-2">Semana 4</p>
+      </div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Report & Roadmap</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Relatório executivo final com economia total identificada, breakdown por categoria, ROI calculado, e roadmap priorizado das oportunidades remanescentes. Apresentação executiva pro board.</p>
+        <p class="text-sm text-subtle"><strong>Entregável:</strong> relatório executivo + roadmap 6 meses + apresentação + opção retainer</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<!-- FAQ -->
+<section class="max-w-3xl mx-auto px-6 py-20">
+  <p class="eyebrow mb-4">Perguntas frequentes</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight">FAQ.</h2>
+
+  <div class="space-y-6">
+
+    <details class="card p-6 group">
+      <summary class="cursor-pointer font-semibold flex justify-between items-center">
+        Como funciona a garantia 3× ROI?
+        <span class="text-accent group-open:rotate-45 transition-transform">+</span>
+      </summary>
+      <p class="text-sm text-ink/70 leading-relaxed mt-4">Investimento típico R$ 45-60k. Se a economia anualizada identificada não for ao menos 3× isso (ex.: R$ 135-180k+/ano), você recebe reembolso integral. Critério é objetivo: economia identificada vs. investido. Documentamos no contrato.</p>
+    </details>
+
+    <details class="card p-6 group">
+      <summary class="cursor-pointer font-semibold flex justify-between items-center">
+        Quanto acesso à conta AWS precisa?
+        <span class="text-accent group-open:rotate-45 transition-transform">+</span>
+      </summary>
+      <p class="text-sm text-ink/70 leading-relaxed mt-4">Read-only IAM role com policies específicas: Cost Explorer, Trusted Advisor, Compute Optimizer, Billing, e Resource Discovery. Sem write access pro nosso audit. Cliente pode revogar a qualquer momento. Documentamos exatamente quais permissions são necessárias antes de pedir.</p>
+    </details>
+
+    <details class="card p-6 group">
+      <summary class="cursor-pointer font-semibold flex justify-between items-center">
+        Por que vocês conseguem economizar 25-40%?
+        <span class="text-accent group-open:rotate-45 transition-transform">+</span>
+      </summary>
+      <p class="text-sm text-ink/70 leading-relaxed mt-4">Maioria das empresas AWS-native cresceram a fatura mais rápido que a maturidade FinOps. Padrões recorrentes: Reserved Instances / Savings Plans subutilizados ou mal-distribuídos, recursos em compute sobre-dimensionados, data transfer custos invisíveis, snapshots/EBS órfãos, S3 sem lifecycle, third-party SaaS pago em AWS Marketplace acima do mercado. Sabemos onde olhar.</p>
+    </details>
+
+    <details class="card p-6 group">
+      <summary class="cursor-pointer font-semibold flex justify-between items-center">
+        E se nossa empresa for muito grande / muito pequena?
+        <span class="text-accent group-open:rotate-45 transition-transform">+</span>
+      </summary>
+      <p class="text-sm text-ink/70 leading-relaxed mt-4">Sweet spot é $30k-$300k/mês de fatura AWS. Abaixo de $10k/mês a economia em valor absoluto provavelmente não cobre o audit (diga isso no form e vamos sugerir outro caminho). Acima de $300k/mês escopo é negociado caso a caso — costuma virar engagement maior (8-12 semanas).</p>
+    </details>
+
+    <details class="card p-6 group">
+      <summary class="cursor-pointer font-semibold flex justify-between items-center">
+        Vocês implementam as recomendações ou só apontam?
+        <span class="text-accent group-open:rotate-45 transition-transform">+</span>
+      </summary>
+      <p class="text-sm text-ink/70 leading-relaxed mt-4">Durante o audit, na semana 3, executamos quick wins de baixo risco com sua aprovação (tipicamente 10-15% economia imediata). O resto do roadmap (mais complexo) fica documentado pra você executar — ou contratar Managed FinOps Retainer pra Anuvia tocar continuamente. Sua escolha.</p>
+    </details>
+
+    <details class="card p-6 group">
+      <summary class="cursor-pointer font-semibold flex justify-between items-center">
+        Atendem só Brasil ou internacional?
+        <span class="text-accent group-open:rotate-45 transition-transform">+</span>
+      </summary>
+      <p class="text-sm text-ink/70 leading-relaxed mt-4">Atendemos clientes em qualquer região AWS, com time fluente em PT-BR e EN. Contratos podem ser BR (PJ) ou US (LLC) dependendo do cliente. Cliente decide.</p>
+    </details>
+
+    <details class="card p-6 group">
+      <summary class="cursor-pointer font-semibold flex justify-between items-center">
+        Qual a diferença pra um partner AWS grande?
+        <span class="text-accent group-open:rotate-45 transition-transform">+</span>
+      </summary>
+      <p class="text-sm text-ink/70 leading-relaxed mt-4">Partners grandes tendem a (a) viés pra serviços que dão margem maior pra eles, (b) cobertura genérica sem profundidade técnica do lead, (c) ciclos longos de venda. Anuvia traz Solutions Architect ex-AWS direto no engagement, sem camada de account executive intermediária. Você fala diretamente com quem analisa e decide.</p>
+    </details>
+
+  </div>
+</section>
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<!-- FINAL CTA -->
+<section class="max-w-4xl mx-auto px-6 py-24 text-center">
+  <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Pronto pra reduzir 25-40%?</h2>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Preenche o form acima. Em 24h respondemos com análise preliminar. Se fizer sentido, agendamos call de 30min sem compromisso.</p>
+  <a href="#signup" class="btn-primary text-base inline-block">Voltar ao formulário</a>
+</section>
+
+<script>
+  document.getElementById('finops-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const data = Object.fromEntries(fd.entries());
+    const btn = e.target.querySelector('button[type=submit]');
+    btn.disabled = true;
+    btn.textContent = 'Analisando...';
+
+    try {
+      const res = await fetch('/api/finops-audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await res.json();
+
+      if (res.ok) {
+        const html = result.deliverable_html || '<p class="h-serif text-2xl">Obrigada! Em breve entramos em contato.</p>';
+        document.getElementById('result').innerHTML = html;
+        document.getElementById('result').classList.remove('hidden');
+        document.getElementById('signup').classList.add('hidden');
+        window.scrollTo({ top: document.getElementById('result').offsetTop - 100, behavior: 'smooth' });
+      } else {
+        alert('Algo deu errado. Tenta de novo ou manda email pra mila@anuvia.com.br');
+        btn.disabled = false;
+        btn.textContent = 'Receber pré-análise (gratuita)';
+      }
+    } catch (err) {
+      alert('Erro de conexão. Tenta novamente.');
+      btn.disabled = false;
+      btn.textContent = 'Receber pré-análise (gratuita)';
+    }
+  });
+</script>
+
+{% endblock %}

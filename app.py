@@ -865,17 +865,520 @@ async def api_book(payload: BookingRequest, request: Request) -> JSONResponse:
     })
 
 
+def _is_brand_host(request: Request) -> bool:
+    """True if host is the main brand site (anuvia.com.br or www.anuvia.com.br)."""
+    host = (request.headers.get("host") or "").lower().split(":")[0]
+    return host in ("anuvia.com.br", "www.anuvia.com.br", "localhost", "127.0.0.1")
+
+
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     # blog.anuvia.com.br/ -> /blog (subdomain root = blog home)
     if _is_blog_host(request):
         return RedirectResponse(url="/blog", status_code=302)
+    # anuvia.com.br -> new multi-practice brand home
+    if _is_brand_host(request):
+        return templates.TemplateResponse("home.html", {"request": request})
+    # diagnostico.anuvia.com.br / roadmap.anuvia.com.br -> funnel LPs
     funnel = detect_funnel(request)
     cfg = FUNNEL_CONFIG[funnel]
     return templates.TemplateResponse(
         cfg["template"],
         {"request": request, "funnel": funnel},
     )
+
+
+# ----------------------------------------------------------------------------
+# Practice pages (anuvia.com.br/<practice>)
+# ----------------------------------------------------------------------------
+
+@app.get("/cloud", response_class=HTMLResponse)
+@app.get("/cloud/", response_class=HTMLResponse)
+async def practice_cloud(request: Request):
+    return templates.TemplateResponse("practice_cloud.html", {"request": request})
+
+
+@app.get("/engineering", response_class=HTMLResponse)
+@app.get("/engineering/", response_class=HTMLResponse)
+async def practice_engineering(request: Request):
+    return templates.TemplateResponse("practice_engineering.html", {"request": request})
+
+
+@app.get("/ai", response_class=HTMLResponse)
+@app.get("/ai/", response_class=HTMLResponse)
+async def practice_ai(request: Request):
+    return templates.TemplateResponse("practice_ai.html", {"request": request})
+
+
+@app.get("/growth", response_class=HTMLResponse)
+@app.get("/growth/", response_class=HTMLResponse)
+async def practice_growth(request: Request):
+    return templates.TemplateResponse("practice_growth.html", {"request": request})
+
+
+@app.get("/industry", response_class=HTMLResponse)
+@app.get("/industry/", response_class=HTMLResponse)
+async def practice_industry(request: Request):
+    return templates.TemplateResponse("practice_industry.html", {"request": request})
+
+
+# ----------------------------------------------------------------------------
+# Diagnostic LPs (anchor offerings per practice)
+# ----------------------------------------------------------------------------
+
+@app.get("/cloud/finops/audit", response_class=HTMLResponse)
+async def lp_finops_audit(request: Request):
+    return templates.TemplateResponse("finops_audit.html", {"request": request})
+
+
+@app.get("/cloud/aws/well-architected", response_class=HTMLResponse)
+async def lp_aws_well_architected(request: Request):
+    return templates.TemplateResponse("aws_well_architected.html", {"request": request})
+
+
+@app.get("/engineering/devops/maturity", response_class=HTMLResponse)
+async def lp_devops_maturity(request: Request):
+    return templates.TemplateResponse("devops_maturity.html", {"request": request})
+
+
+@app.get("/about", response_class=HTMLResponse)
+async def about(request: Request):
+    return templates.TemplateResponse("about.html", {"request": request})
+
+
+@app.get("/cases", response_class=HTMLResponse)
+async def cases(request: Request):
+    return templates.TemplateResponse(
+        "home.html",
+        {"request": request, "page_title": "Cases — em construção"},
+    )
+
+
+@app.get("/contact", response_class=HTMLResponse)
+async def contact(request: Request):
+    return templates.TemplateResponse("contact.html", {"request": request})
+
+
+class FinOpsAuditForm(BaseModel):
+    """Pré-qualificação FinOps Audit — captura lead + envia análise preliminar."""
+    model_config = ConfigDict(extra="allow")
+    name: str = Field(..., min_length=2, max_length=120)
+    email: EmailStr
+    whatsapp: str = Field(..., min_length=8, max_length=30)
+    company: str = Field(..., min_length=2, max_length=200)
+    role: str
+    aws_spend: str
+    main_pain: str
+    aws_tenure: str
+    context: Optional[str] = ""
+
+    @field_validator("whatsapp")
+    @classmethod
+    def validate_whatsapp(cls, v: str) -> str:
+        normalized = normalize_phone(v)
+        if not normalized:
+            raise ValueError("WhatsApp inválido.")
+        return normalized
+
+
+FINOPS_SPEND_TIERS = {
+    "under_10k": ("< $10k/mês", 8_000, 80_000),
+    "10k_30k": ("$10-30k/mês", 20_000, 240_000),
+    "30k_100k": ("$30-100k/mês", 65_000, 780_000),
+    "100k_300k": ("$100-300k/mês", 200_000, 2_400_000),
+    "300k_plus": ("> $300k/mês", 400_000, 4_800_000),
+}
+
+FINOPS_PAIN_INSIGHT = {
+    "bill_growth": "Quando fatura cresce sem visibilidade, tipicamente 30-45% é overprovisioning + Reserved Instances/Savings Plans subutilizados. Padrão recorrente.",
+    "no_visibility": "Sem tagging strategy e showback/chargeback, atribuir custo por produto/time é impossível. Audit começa exatamente por isso.",
+    "ri_savings": "RI/SP mal otimizados são a fonte mais comum de 15-25% economia imediata. Audit traz portfolio analysis em 1 semana.",
+    "architecture": "Arquitetura herdada que não escala economicamente costuma ter pelo menos 3-4 padrões corrigíveis sem refactor profundo. Quick wins primeiro, depois roadmap.",
+    "finops_practice": "FinOps practice interno requer 3 pilares: visibilidade, allocation, governance. Audit estabelece o baseline pra cada um.",
+    "cfo_pressure": "Quando CFO pressiona, foco em quick wins primeiros 30 dias (10-15% economia) pra mostrar resultado, depois roadmap completo.",
+}
+
+
+@app.post("/api/finops-audit")
+async def api_finops_audit(form: FinOpsAuditForm):
+    """Recebe form de pré-qualificação FinOps Audit, gera análise preliminar."""
+    # Determine fit
+    spend_label, spend_low, spend_annual_low = FINOPS_SPEND_TIERS.get(
+        form.aws_spend, (form.aws_spend, 0, 0)
+    )
+    is_fit = form.aws_spend not in ("under_10k",)
+
+    # Conservative estimates
+    savings_low = int(spend_annual_low * 0.20) if is_fit else 0  # 20% conservative
+    savings_high = int(spend_annual_low * 0.40) if is_fit else 0  # 40% optimistic
+    savings_mid = (savings_low + savings_high) // 2
+
+    pain_insight = FINOPS_PAIN_INSIGHT.get(form.main_pain, "")
+
+    # Build deliverable HTML
+    if is_fit:
+        deliverable_html = f"""
+<div class="card p-8 md:p-10">
+  <p class="eyebrow mb-4">Pré-análise · gerada agora</p>
+  <p class="h-serif text-4xl mb-6 leading-tight">Vocês são bom fit pro FinOps Audit, {form.name.split()[0]}.</p>
+
+  <div class="my-8 p-6 bg-paper border border-rule">
+    <p class="eyebrow mb-3">Estimativa preliminar de economia anualizada</p>
+    <p class="h-serif text-5xl mb-2">R$ {savings_low:,}</p>
+    <p class="text-sm text-subtle">a R$ {savings_high:,}/ano</p>
+    <p class="text-xs text-subtle mt-3">Baseado em fatura {spend_label} e padrões observados em audits anteriores.<br>Faixa conservadora 20% → ambiciosa 40% da economia identificada.</p>
+  </div>
+
+  <div class="my-8">
+    <p class="eyebrow mb-3">Insight sobre sua dor declarada</p>
+    <p class="text-ink/80 leading-relaxed">{pain_insight}</p>
+  </div>
+
+  <div class="my-8">
+    <p class="eyebrow mb-3">Próximo passo</p>
+    <p class="text-ink/80 leading-relaxed mb-5">Em até 24h, Mila vai te mandar email com (a) data sugerida de discovery call de 30 min, (b) detalhes do contrato + garantia 3× ROI, (c) lista exata de IAM permissions read-only que o audit precisa.</p>
+    <a href="https://cal.anuvia.com.br" class="btn-primary text-sm inline-block">Ou agende você mesmo aqui</a>
+  </div>
+
+  <div class="rule"></div>
+
+  <p class="text-xs text-subtle leading-relaxed">Esta pré-análise é orientativa baseada em padrões agregados. Audit completo individualiza pra sua realidade específica (workloads, configuração atual, tags, contratos AWS).</p>
+</div>
+""".strip()
+    else:
+        deliverable_html = f"""
+<div class="card p-8 md:p-10">
+  <p class="eyebrow mb-4">Pré-análise</p>
+  <p class="h-serif text-4xl mb-6 leading-tight">Obrigada, {form.name.split()[0]}.</p>
+  <p class="text-ink/80 leading-relaxed mb-5">Pelo perfil de fatura ({spend_label}), FinOps Audit completo de R$ 45-60k provavelmente não cobre o ROI necessário pra valer a pena pra você.</p>
+  <p class="text-ink/80 leading-relaxed mb-5">Sugestões mais adequadas:</p>
+  <ul class="space-y-2 text-sm text-ink/80 mb-5">
+    <li>• <strong>Office hours de 90 min com Mila</strong> — R$ 1.500. Diagnóstico ao vivo + quick wins acionáveis no mesmo dia.</li>
+    <li>• <strong>Workshop FinOps Express</strong> — R$ 8-12k, 1 semana. Audit mais leve com economia identificada documentada.</li>
+    <li>• <strong>Anuvia AI Ops</strong> — se a dor não é só AWS mas operação como um todo, considera nosso produto SaaS de automação de operações.</li>
+  </ul>
+  <p class="text-sm text-ink/70">Mila te manda essas opções por email em até 24h.</p>
+</div>
+""".strip()
+
+    # Insert lead in Supabase (funnel BR_FINOPS as new funnel id)
+    async with httpx.AsyncClient(timeout=15) as client:
+        try:
+            lead_payload = {
+                "funnel_id": "BR_FINOPS",
+                "name": form.name,
+                "email": form.email,
+                "phone_e164": form.whatsapp,
+                "company": form.company,
+                "source": "lp_finops_audit",
+                "meta": {
+                    "role": form.role,
+                    "aws_spend": form.aws_spend,
+                    "main_pain": form.main_pain,
+                    "aws_tenure": form.aws_tenure,
+                    "context": form.context,
+                    "is_fit": is_fit,
+                    "savings_estimate_low": savings_low,
+                    "savings_estimate_high": savings_high,
+                },
+                "tags": ["lp_finops_audit", "br_finops"],
+            }
+            r = await client.post(
+                f"{SUPA_URL}/leads",
+                headers=SUPA_HEADERS,
+                json=lead_payload,
+            )
+            if r.status_code not in (200, 201):
+                log.warning("supabase_lead_insert non-200: %s %s", r.status_code, r.text[:200])
+        except Exception:
+            log.exception("supabase_lead_insert_failed")
+
+        # Send email with deliverable
+        try:
+            subject = (
+                f"FinOps Audit — pré-análise pra {form.name.split()[0]}"
+                if is_fit else
+                f"Obrigada, {form.name.split()[0]} — alternativas pro seu caso"
+            )
+            email_html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head><body style="background:#fafaf9;font-family:-apple-system,Inter,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;">
+<div style="max-width:640px;margin:0 auto;">
+  <p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;margin:0 0 8px 0;">Anuvia · FinOps</p>
+  <p style="font-family:Playfair Display,Georgia,serif;font-size:32px;margin:0 0 24px 0;line-height:1.15;">Olá, {form.name.split()[0]}</p>
+  <p style="color:#475569;line-height:1.65;">Obrigada pelo interesse no FinOps Audit. Aqui está a pré-análise gerada a partir das suas respostas:</p>
+  <div style="background:#ffffff;border:1px solid #e7e5e4;padding:24px;margin:24px 0;">
+    {deliverable_html.replace('class="card p-8 md:p-10"', '')}
+  </div>
+  <p style="color:#475569;line-height:1.65;">Em até 24h te respondo com próximos passos concretos. Se quiser adiantar, agenda direto:</p>
+  <p style="margin:24px 0;"><a href="https://cal.anuvia.com.br" style="display:inline-block;background:#1a1a1a;color:#fafaf9;padding:12px 22px;text-decoration:none;font-weight:500;">Agendar Discovery Call</a></p>
+  <p style="color:#78716c;font-size:13px;margin-top:32px;">Mila Vernazza · Founder Anuvia<br>Ex-AWS Solutions Architect · Ex-Google · 15+ AWS Certifications</p>
+</div>
+</body></html>"""
+            if RESEND_API_KEY:
+                await client.post(
+                    "https://api.resend.com/emails",
+                    headers={
+                        "Authorization": f"Bearer {RESEND_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "from": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
+                        "to": [form.email],
+                        "reply_to": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
+                        "subject": subject,
+                        "html": email_html,
+                        "tags": [
+                            {"name": "category", "value": "finops_audit_signup"},
+                            {"name": "is_fit", "value": "yes" if is_fit else "no"},
+                        ],
+                    },
+                    timeout=20,
+                )
+        except Exception:
+            log.exception("finops_audit_email_failed")
+
+    return JSONResponse({
+        "ok": True,
+        "is_fit": is_fit,
+        "savings_estimate_low": savings_low,
+        "savings_estimate_high": savings_high,
+        "deliverable_html": deliverable_html,
+    })
+
+
+# ----------------------------------------------------------------------------
+# AWS Well-Architected Review - signup API
+# ----------------------------------------------------------------------------
+
+class WellArchitectedForm(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    name: str = Field(..., min_length=2, max_length=120)
+    email: EmailStr
+    whatsapp: str = Field(..., min_length=8, max_length=30)
+    company: str = Field(..., min_length=2, max_length=200)
+    role: str
+    focus: str
+    workload: str
+    context: Optional[str] = ""
+
+    @field_validator("whatsapp")
+    @classmethod
+    def validate_whatsapp(cls, v: str) -> str:
+        normalized = normalize_phone(v)
+        if not normalized:
+            raise ValueError("WhatsApp inválido.")
+        return normalized
+
+
+WA_FOCUS_INSIGHT = {
+    "security": "Security é onde mais vejo gaps em audit AWS — IAM permissions excessivas, network public exposure, encryption gaps em S3/RDS, missing CloudTrail/Config baseline. Audit prioriza essas categorias.",
+    "reliability": "Reliability começa com BCP/DR realista — RPO/RTO documentados, backups testados, multi-AZ vs multi-region trade-offs claros. Audit valida prontidão pra falhas.",
+    "performance": "Performance issues quase sempre são scaling policy mal-configurada, RDS sub-dimensionado, ou network bottlenecks. Audit identifica via real metrics, não suposição.",
+    "cost": "Cost focus se sobrepõe ao FinOps Audit dedicado — sugiro avaliar se faz mais sentido começar pelo FinOps Risk-Free, que é específico em economia.",
+    "operational": "Operational Excellence é IaC + automação + runbooks + post-mortems. Audit identifica onde está manual vs automatizado e prioriza investimento.",
+    "all": "Cobertura completa nos 6 pilares dá visão executiva pra board/founders. Útil pré-investment round ou pré-acquisition due diligence.",
+}
+
+
+@app.post("/api/aws-well-architected")
+async def api_aws_well_architected(form: WellArchitectedForm):
+    """Recebe form pré-qualificação AWS Well-Architected Review."""
+    focus_insight = WA_FOCUS_INSIGHT.get(form.focus, "")
+
+    deliverable_html = f"""
+<div class="card p-8 md:p-10">
+  <p class="eyebrow mb-4">Pré-análise · gerada agora</p>
+  <p class="h-serif text-4xl mb-6 leading-tight">Obrigada, {form.name.split()[0]}.</p>
+
+  <div class="my-8">
+    <p class="eyebrow mb-3">Sobre o foco que você indicou</p>
+    <p class="text-ink/80 leading-relaxed">{focus_insight}</p>
+  </div>
+
+  <div class="my-8">
+    <p class="eyebrow mb-3">Próximo passo</p>
+    <p class="text-ink/80 leading-relaxed mb-5">Em até 24h, Mila te manda email com (a) escopo detalhado do review pra seu workload, (b) sugestão de data pra discovery call, (c) lista de IAM permissions read-only necessárias pro audit.</p>
+    <a href="https://cal.anuvia.com.br" class="btn-primary text-sm inline-block">Ou agende você mesmo</a>
+  </div>
+
+  <div class="rule"></div>
+
+  <p class="text-xs text-subtle leading-relaxed">AWS Well-Architected Review da Anuvia é executado por ex-AWS Solutions Architect (15+ certs). Você recebe relatório executivo com gap analysis nos 6 pilares + remediation roadmap priorizado.</p>
+</div>
+""".strip()
+
+    async with httpx.AsyncClient(timeout=15) as client:
+        try:
+            lead_payload = {
+                "funnel_id": "BR_AWS_WA",
+                "name": form.name,
+                "email": form.email,
+                "phone_e164": form.whatsapp,
+                "company": form.company,
+                "source": "lp_aws_well_architected",
+                "meta": {
+                    "role": form.role,
+                    "focus": form.focus,
+                    "workload": form.workload,
+                    "context": form.context,
+                },
+                "tags": ["lp_aws_wa", "br_aws_wa"],
+            }
+            r = await client.post(f"{SUPA_URL}/leads", headers=SUPA_HEADERS, json=lead_payload)
+            if r.status_code not in (200, 201):
+                log.warning("supabase_lead_insert non-200: %s", r.status_code)
+        except Exception:
+            log.exception("supabase_lead_insert_failed")
+
+        try:
+            if RESEND_API_KEY:
+                subject = f"AWS Well-Architected Review — pré-análise pra {form.name.split()[0]}"
+                email_html = f"""<!DOCTYPE html><html><body style="background:#fafaf9;font-family:Inter,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;"><div style="max-width:640px;margin:0 auto;"><p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;">Anuvia · AWS</p><p style="font-family:Georgia,serif;font-size:32px;margin:0 0 16px 0;">Olá, {form.name.split()[0]}</p><p style="color:#475569;line-height:1.65;">Obrigada pelo interesse no AWS Well-Architected Review. Em até 24h te respondemos com escopo detalhado.</p><p style="color:#475569;line-height:1.65;">{focus_insight}</p><p style="margin:24px 0;"><a href="https://cal.anuvia.com.br" style="background:#1a1a1a;color:#fafaf9;padding:12px 22px;text-decoration:none;">Agendar Discovery Call</a></p><p style="color:#78716c;font-size:13px;margin-top:32px;">Mila Vernazza · Founder Anuvia<br>Ex-AWS Solutions Architect · Ex-Google · 15+ AWS Certifications</p></div></body></html>"""
+                await client.post(
+                    "https://api.resend.com/emails",
+                    headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
+                    json={
+                        "from": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
+                        "to": [form.email],
+                        "reply_to": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
+                        "subject": subject,
+                        "html": email_html,
+                        "tags": [{"name": "category", "value": "aws_wa_signup"}],
+                    },
+                    timeout=20,
+                )
+        except Exception:
+            log.exception("aws_wa_email_failed")
+
+    return JSONResponse({"ok": True, "deliverable_html": deliverable_html})
+
+
+# ----------------------------------------------------------------------------
+# DevOps Maturity Assessment - signup API
+# ----------------------------------------------------------------------------
+
+class DevOpsMaturityForm(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    name: str = Field(..., min_length=2, max_length=120)
+    email: EmailStr
+    whatsapp: str = Field(..., min_length=8, max_length=30)
+    company: str = Field(..., min_length=2, max_length=200)
+    role: str
+    team_size: str
+    deploy_freq: str
+    main_pain: str
+    stack: str
+    context: Optional[str] = ""
+
+    @field_validator("whatsapp")
+    @classmethod
+    def validate_whatsapp(cls, v: str) -> str:
+        normalized = normalize_phone(v)
+        if not normalized:
+            raise ValueError("WhatsApp inválido.")
+        return normalized
+
+
+DORA_LEVEL = {
+    "multiple_day": ("Elite", "Sua deploy frequency já está em nível Elite (top 11% global). Audit foca em refinar reliability, observability, e fortalecer práticas avançadas (chaos engineering, progressive delivery)."),
+    "daily": ("High", "Sua deploy frequency está em nível High (top 25%). Audit identifica caminhos pra chegar em Elite — tipicamente reduzir change failure rate ou acelerar lead time."),
+    "weekly": ("Medium", "Deploy semanal é Medium. Audit identifica os gargalos principais: test automation, deployment automation, ou approval bottlenecks."),
+    "biweekly": ("Medium", "Quinzenal está entre Medium-Low. Costuma haver mistura de manual processes + falta de IaC + test gaps. Audit prioriza intervenções de maior ROI."),
+    "monthly": ("Low", "Deploy mensal é Low performer. Maior alavanca tipicamente é eliminar gates manuais + introduzir automation incrementalmente."),
+    "quarterly": ("Low", "Deploy trimestral indica processo crítico de release. Audit foca em desconstruir os gates que tornam release evento."),
+}
+
+DEVOPS_PAIN_INSIGHT = {
+    "release_pain": "Releases como evento são quase sempre sintoma de: (a) testes manuais demais, (b) feature flags ausentes/mal usados, (c) rollback procedure não testado, (d) coordenação cross-team excessiva. Audit identifica qual destes domina.",
+    "incidents": "MTTR alto vem de combinação: falta de observability detalhada + runbooks fracos + on-call exhaustion. Atacar primeiro o pilar mais fraco dá maior return.",
+    "observability": "Debugging cego é caro. Stack moderno (DataDog, NewRelic, Grafana Cloud) com tracing + structured logging muda o jogo em semanas, não meses.",
+    "oncall": "On-call burnout precede churn. Audit identifica top 10 noisy alerts (geram 80% das interrupções) e cria plano pra silenciar/refinar.",
+    "quality": "Change failure rate alto tipicamente: test coverage baixo, integration tests ausentes, ou deploy pipeline pula gates. Audit mede e prioriza.",
+    "speed": "Lead time longo é normalmente: PR review demorado, CI lento, ou approvals manuais. Cada um tem fix específico.",
+}
+
+
+@app.post("/api/devops-maturity")
+async def api_devops_maturity(form: DevOpsMaturityForm):
+    """Recebe form pré-qualificação DevOps Maturity Assessment."""
+    level, level_insight = DORA_LEVEL.get(form.deploy_freq, ("?", ""))
+    pain_insight = DEVOPS_PAIN_INSIGHT.get(form.main_pain, "")
+
+    deliverable_html = f"""
+<div class="card p-8 md:p-10">
+  <p class="eyebrow mb-4">Pré-análise DORA · gerada agora</p>
+  <p class="h-serif text-4xl mb-6 leading-tight">Olá, {form.name.split()[0]}.</p>
+
+  <div class="my-8 p-6 bg-paper border border-rule">
+    <p class="eyebrow mb-3">Nível DORA preliminar</p>
+    <p class="h-serif text-5xl mb-2">{level}</p>
+    <p class="text-sm text-ink/70 leading-relaxed">{level_insight}</p>
+  </div>
+
+  <div class="my-8">
+    <p class="eyebrow mb-3">Sobre sua dor principal</p>
+    <p class="text-ink/80 leading-relaxed">{pain_insight}</p>
+  </div>
+
+  <div class="my-8">
+    <p class="eyebrow mb-3">Próximo passo</p>
+    <p class="text-ink/80 leading-relaxed mb-5">Em até 24h, Mila te manda email com escopo do audit customizado pro seu contexto + sugestão de data pra discovery call.</p>
+    <a href="https://cal.anuvia.com.br" class="btn-primary text-sm inline-block">Ou agende você mesmo</a>
+  </div>
+
+  <div class="rule"></div>
+
+  <p class="text-xs text-subtle leading-relaxed">DevOps Maturity Assessment usa DORA framework + práticas adicionais (observability, security, IaC). Audit completo: 4 semanas, R$ 35-50k.</p>
+</div>
+""".strip()
+
+    async with httpx.AsyncClient(timeout=15) as client:
+        try:
+            lead_payload = {
+                "funnel_id": "BR_DEVOPS",
+                "name": form.name,
+                "email": form.email,
+                "phone_e164": form.whatsapp,
+                "company": form.company,
+                "source": "lp_devops_maturity",
+                "meta": {
+                    "role": form.role,
+                    "team_size": form.team_size,
+                    "deploy_freq": form.deploy_freq,
+                    "dora_level": level,
+                    "main_pain": form.main_pain,
+                    "stack": form.stack,
+                    "context": form.context,
+                },
+                "tags": ["lp_devops_maturity", "br_devops"],
+            }
+            r = await client.post(f"{SUPA_URL}/leads", headers=SUPA_HEADERS, json=lead_payload)
+            if r.status_code not in (200, 201):
+                log.warning("supabase_lead_insert non-200: %s", r.status_code)
+        except Exception:
+            log.exception("supabase_lead_insert_failed")
+
+        try:
+            if RESEND_API_KEY:
+                subject = f"DevOps Maturity Assessment — pré-análise pra {form.name.split()[0]}"
+                email_html = f"""<!DOCTYPE html><html><body style="background:#fafaf9;font-family:Inter,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;"><div style="max-width:640px;margin:0 auto;"><p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;">Anuvia · DevOps</p><p style="font-family:Georgia,serif;font-size:32px;margin:0 0 16px 0;">Olá, {form.name.split()[0]}</p><p style="color:#475569;line-height:1.65;">Pré-análise DORA preliminar: nível <strong>{level}</strong>.</p><p style="color:#475569;line-height:1.65;">{level_insight}</p><p style="color:#475569;line-height:1.65;">{pain_insight}</p><p style="margin:24px 0;"><a href="https://cal.anuvia.com.br" style="background:#1a1a1a;color:#fafaf9;padding:12px 22px;text-decoration:none;">Agendar Discovery Call</a></p><p style="color:#78716c;font-size:13px;margin-top:32px;">Mila Vernazza · Founder Anuvia<br>Ex-AWS · Ex-Google · 15+ AWS Certifications</p></div></body></html>"""
+                await client.post(
+                    "https://api.resend.com/emails",
+                    headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
+                    json={
+                        "from": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
+                        "to": [form.email],
+                        "reply_to": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
+                        "subject": subject,
+                        "html": email_html,
+                        "tags": [{"name": "category", "value": "devops_maturity_signup"}],
+                    },
+                    timeout=20,
+                )
+        except Exception:
+            log.exception("devops_maturity_email_failed")
+
+    return JSONResponse({"ok": True, "dora_level": level, "deliverable_html": deliverable_html})
 
 
 async def send_diagnostic_email(

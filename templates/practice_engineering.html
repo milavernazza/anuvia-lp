@@ -1,0 +1,178 @@
+{% extends "_base.html" %}
+
+{% block content %}
+
+<section class="max-w-6xl mx-auto px-6 pt-20 pb-16">
+  <p class="eyebrow mb-6">Anuvia · Práticas · 02</p>
+  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">Anuvia Engineering</h1>
+  <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-12">
+    DevOps, SRE, observability, IoT/Edge. Plataformas que aguentam carga real, deploys que não acordam ninguém às 3am, observability desde dia 1.
+  </p>
+  <div class="flex flex-col sm:flex-row gap-4">
+    <a href="/engineering/devops/maturity" class="btn-primary text-base inline-block">DevOps Maturity Assessment</a>
+    <a href="#offerings" class="btn-ghost text-base inline-block">Ver todas as ofertas</a>
+  </div>
+</section>
+
+<div class="rule max-w-6xl mx-auto px-6"></div>
+
+<section class="max-w-6xl mx-auto px-6 py-20">
+  <div class="grid md:grid-cols-5 gap-10">
+    <div class="md:col-span-2">
+      <p class="eyebrow mb-4">Anchor offering</p>
+      <h2 class="h-serif text-4xl mb-6 leading-tight">DevOps Maturity<br>Assessment</h2>
+      <p class="text-ink/70 leading-relaxed mb-8">Audit de 4 semanas no estado atual de DevOps: deploy frequency, MTTR, change failure rate, lead time. Benchmark vs. high-performers (DORA metrics) e roadmap priorizado.</p>
+      <a href="/engineering/devops/maturity" class="btn-primary text-sm inline-block">Solicitar assessment</a>
+    </div>
+    <div class="md:col-span-3 card p-10">
+      <p class="eyebrow mb-4">Você sai com</p>
+      <ul class="space-y-4 text-sm">
+        <li class="flex gap-3"><span class="text-accent">▸</span><span><strong>DORA metrics baseline</strong> (deploy frequency, lead time, MTTR, change failure rate) medidos no seu contexto</span></li>
+        <li class="flex gap-3"><span class="text-accent">▸</span><span><strong>Gap analysis</strong> contra benchmarks high-performer (DORA report) + Elite teams</span></li>
+        <li class="flex gap-3"><span class="text-accent">▸</span><span><strong>Pipeline assessment</strong> — CI/CD maturity, test automation coverage, IaC adoption, GitOps readiness</span></li>
+        <li class="flex gap-3"><span class="text-accent">▸</span><span><strong>Incident response review</strong> — runbooks, on-call rotation, post-mortem culture, observability gaps</span></li>
+        <li class="flex gap-3"><span class="text-accent">▸</span><span><strong>Roadmap 6 meses</strong> priorizado por impacto/effort com timelines e dependencies</span></li>
+        <li class="flex gap-3"><span class="text-accent">▸</span><span><strong>Apresentação executiva</strong> com proposta de investimentos pra liderança</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<div class="rule max-w-6xl mx-auto px-6"></div>
+
+<section id="offerings" class="max-w-6xl mx-auto px-6 py-20">
+  <p class="eyebrow mb-4">Catálogo completo</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight max-w-3xl">Do assessment ao platform engineering completo.</h2>
+
+  <div class="grid md:grid-cols-2 gap-6">
+
+    <div class="card p-8">
+      <p class="eyebrow mb-3 text-accent">DevOps</p>
+      <h3 class="h-serif text-2xl mb-3">DevOps Maturity Assessment</h3>
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">DORA metrics + gap analysis + roadmap priorizado.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs">
+        <span class="text-subtle">4 semanas</span>
+        <span class="font-medium">R$ 35-50k</span>
+      </div>
+    </div>
+
+    <div class="card p-8">
+      <p class="eyebrow mb-3 text-accent">DevOps</p>
+      <h3 class="h-serif text-2xl mb-3">CI/CD Pipeline Implementation</h3>
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Build do pipeline novo (GitHub Actions, GitLab CI, ou Jenkins X) com IaC e testes automáticos integrados.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs">
+        <span class="text-subtle">6-12 semanas</span>
+        <span class="font-medium">R$ 50-150k</span>
+      </div>
+    </div>
+
+    <div class="card p-8">
+      <p class="eyebrow mb-3 text-accent">Platform</p>
+      <h3 class="h-serif text-2xl mb-3">Kubernetes / EKS Migration</h3>
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Migração de monolitos ou ECS pra EKS com Helm, GitOps (ArgoCD/Flux), and full observability stack.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs">
+        <span class="text-subtle">8-16 semanas</span>
+        <span class="font-medium">R$ 80-250k</span>
+      </div>
+    </div>
+
+    <div class="card p-8">
+      <p class="eyebrow mb-3 text-accent">Observability</p>
+      <h3 class="h-serif text-2xl mb-3">Observability Stack</h3>
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Datadog, New Relic, Grafana Cloud ou CloudWatch — escolha vendor-agnóstica baseada no stack atual + budget.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs">
+        <span class="text-subtle">4-8 semanas</span>
+        <span class="font-medium">R$ 40-100k</span>
+      </div>
+    </div>
+
+    <div class="card p-8">
+      <p class="eyebrow mb-3 text-accent">GitOps</p>
+      <h3 class="h-serif text-2xl mb-3">GitOps Implementation</h3>
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">ArgoCD ou Flux como source of truth pra deploys. Multi-cluster, RBAC, secrets management, rollback automático.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs">
+        <span class="text-subtle">6-10 semanas</span>
+        <span class="font-medium">R$ 50-120k</span>
+      </div>
+    </div>
+
+    <div class="card p-8">
+      <p class="eyebrow mb-3 text-accent">SRE</p>
+      <h3 class="h-serif text-2xl mb-3">SRE Practice Build</h3>
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Build da prática SRE interna: SLO/SLI definition, error budgets, incident response, chaos engineering, on-call.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs">
+        <span class="text-subtle">12-20 semanas</span>
+        <span class="font-medium">R$ 80-200k</span>
+      </div>
+    </div>
+
+    <div class="card p-8">
+      <p class="eyebrow mb-3 text-accent">Platform</p>
+      <h3 class="h-serif text-2xl mb-3">Platform Engineering Retainer</h3>
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Fractional Platform Engineer disponível pro time. Strategic guidance + occasional hands-on.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs">
+        <span class="text-subtle">Ongoing</span>
+        <span class="font-medium">R$ 15-25k/mês</span>
+      </div>
+    </div>
+
+    <div class="card p-8">
+      <p class="eyebrow mb-3 text-accent">IoT/Edge</p>
+      <h3 class="h-serif text-2xl mb-3">IoT / Edge Computing Sprint</h3>
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Edge devices offline-first, ingestão segura de telemetria, dashboards real-time, fleet management em escala.</p>
+      <div class="flex justify-between items-end pt-4 border-t border-rule text-xs">
+        <span class="text-subtle">6-12 semanas</span>
+        <span class="font-medium">R$ 50-150k</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<div class="rule max-w-6xl mx-auto px-6"></div>
+
+<section class="max-w-6xl mx-auto px-6 py-20">
+  <p class="eyebrow mb-4">Pra quem é</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-10 leading-tight">Cliente ideal Anuvia Engineering.</h2>
+
+  <div class="grid md:grid-cols-3 gap-8">
+    <div class="card p-7">
+      <p class="font-semibold mb-3">Perfil empresa</p>
+      <ul class="space-y-2 text-sm text-ink/70">
+        <li>• Tech team de 10-200 engenheiros</li>
+        <li>• Series A-C ou mid-market</li>
+        <li>• Produto digital crítico em produção</li>
+        <li>• Sinais de incident frequency ou release pain</li>
+      </ul>
+    </div>
+    <div class="card p-7">
+      <p class="font-semibold mb-3">Decisor</p>
+      <ul class="space-y-2 text-sm text-ink/70">
+        <li>• VP Engineering / CTO</li>
+        <li>• Head of Platform / DevOps</li>
+        <li>• Head of SRE</li>
+        <li>• Director of Engineering</li>
+      </ul>
+    </div>
+    <div class="card p-7">
+      <p class="font-semibold mb-3">Dor típica</p>
+      <ul class="space-y-2 text-sm text-ink/70">
+        <li>• Deploy é evento, não rotina</li>
+        <li>• Incidentes frequentes, MTTR alto</li>
+        <li>• Falta observability, debugging na escuridão</li>
+        <li>• Time sobrecarregado com on-call</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="max-w-4xl mx-auto px-6 py-24 text-center">
+  <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Próximo passo.</h2>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Se deploy ou incident frequency te preocupa, comece pelo DevOps Maturity Assessment. Não sabe? Agenda 30min sem pitch.</p>
+  <div class="flex flex-col sm:flex-row gap-4 justify-center">
+    <a href="/engineering/devops/maturity" class="btn-primary text-base inline-block">DevOps Maturity Assessment</a>
+    <a href="/contact" class="btn-ghost text-base inline-block">Conversa 30min</a>
+  </div>
+</section>
+
+{% endblock %}

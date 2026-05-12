@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="{{ lang|default('pt-BR') }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ page_title|default('Anuvia — Engenharia sênior em Cloud, IA, Plataforma e RevOps') }}</title>
+  <meta name="description" content="{{ page_description|default('Anuvia entrega engenharia sênior em AWS, FinOps, DevOps, IA e RevOps. Production-grade desde dia 1. Ex-AWS, ex-Google, 15+ certificações AWS.') }}">
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ page_title|default('Anuvia — Engenharia sênior em Cloud, IA, Plataforma e RevOps') }}">
+  <meta property="og:description" content="{{ page_description|default('Production-grade engineering. Ex-AWS, ex-Google, 15+ certificações AWS.') }}">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:site_name" content="Anuvia">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            'serif': ['Playfair Display', 'Georgia', 'serif'],
+            'sans': ['Inter', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            'paper': '#fafaf9',
+            'ink': '#1a1a1a',
+            'rule': '#e7e5e4',
+            'subtle': '#78716c',
+            'accent': '#0c4a6e',
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    body { background: #fafaf9; color: #1a1a1a; font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    .h-serif { font-family: 'Playfair Display', Georgia, serif; letter-spacing: -0.015em; }
+    .eyebrow { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 600; color: #78716c; }
+    .rule { height: 1px; background: #e7e5e4; margin: 3rem 0; }
+    .card { background: #ffffff; border: 1px solid #e7e5e4; }
+    .card-hover:hover { border-color: #1a1a1a; transition: border-color 0.2s ease; }
+    .btn-primary { background: #1a1a1a; color: #fafaf9; padding: 0.875rem 1.75rem; font-weight: 500; transition: all 0.15s ease; }
+    .btn-primary:hover { background: #404040; }
+    .btn-ghost { color: #1a1a1a; padding: 0.875rem 1.75rem; font-weight: 500; border: 1px solid #1a1a1a; transition: all 0.15s ease; }
+    .btn-ghost:hover { background: #1a1a1a; color: #fafaf9; }
+    .prose-anuvia p { line-height: 1.75; }
+    .prose-anuvia h2 { font-family: 'Playfair Display', serif; }
+  </style>
+  {% block head_extra %}{% endblock %}
+</head>
+<body class="min-h-screen">
+
+  <header class="border-b border-rule bg-paper">
+    <div class="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
+      <a href="/" class="h-serif text-xl tracking-tight">Anuvia</a>
+      <nav class="hidden md:flex items-center gap-7 text-sm text-ink/80">
+        <a href="/cloud" class="hover:text-ink transition">Cloud</a>
+        <a href="/engineering" class="hover:text-ink transition">Engineering</a>
+        <a href="/ai" class="hover:text-ink transition">AI</a>
+        <a href="/growth" class="hover:text-ink transition">Growth</a>
+        <a href="/industry" class="hover:text-ink transition">Industry</a>
+        <a href="/cases" class="hover:text-ink transition">Cases</a>
+        <a href="/about" class="hover:text-ink transition">Sobre</a>
+      </nav>
+      <a href="/contact" class="btn-primary text-sm hidden md:inline-block">Agendar conversa</a>
+    </div>
+  </header>
+
+  {% block content %}{% endblock %}
+
+  <footer class="border-t border-rule bg-paper mt-32">
+    <div class="max-w-6xl mx-auto px-6 py-12 grid md:grid-cols-4 gap-10 text-sm">
+      <div>
+        <p class="h-serif text-lg mb-3">Anuvia</p>
+        <p class="text-subtle leading-relaxed">Engenharia sênior em Cloud, IA, Plataforma e RevOps. Production-grade desde dia 1.</p>
+      </div>
+      <div>
+        <p class="eyebrow mb-4">Práticas</p>
+        <ul class="space-y-2 text-ink/80">
+          <li><a href="/cloud" class="hover:text-ink">Anuvia Cloud</a></li>
+          <li><a href="/engineering" class="hover:text-ink">Anuvia Engineering</a></li>
+          <li><a href="/ai" class="hover:text-ink">Anuvia AI</a></li>
+          <li><a href="/growth" class="hover:text-ink">Anuvia Growth</a></li>
+          <li><a href="/industry" class="hover:text-ink">Anuvia Industry</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="eyebrow mb-4">Diagnósticos</p>
+        <ul class="space-y-2 text-ink/80">
+          <li><a href="/cloud/finops/audit" class="hover:text-ink">FinOps Audit</a></li>
+          <li><a href="/cloud/aws/well-architected" class="hover:text-ink">AWS Well-Architected</a></li>
+          <li><a href="/engineering/devops/maturity" class="hover:text-ink">DevOps Maturity</a></li>
+          <li><a href="https://roadmap.anuvia.com.br" class="hover:text-ink">AI Readiness</a></li>
+          <li><a href="https://diagnostico.anuvia.com.br" class="hover:text-ink">Sales Ops Diagnostic</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="eyebrow mb-4">Anuvia</p>
+        <ul class="space-y-2 text-ink/80">
+          <li><a href="/about" class="hover:text-ink">Sobre</a></li>
+          <li><a href="/cases" class="hover:text-ink">Cases</a></li>
+          <li><a href="/blog" class="hover:text-ink">Blog</a></li>
+          <li><a href="/contact" class="hover:text-ink">Contato</a></li>
+          <li><a href="https://www.linkedin.com/company/anuvia-ltda" class="hover:text-ink">LinkedIn</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="border-t border-rule">
+      <div class="max-w-6xl mx-auto px-6 py-6 text-xs text-subtle flex flex-col md:flex-row justify-between gap-2">
+        <p>© 2026 Anuvia · CNPJ XX.XXX.XXX/0001-XX</p>
+        <p>São Paulo · Available globally</p>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
