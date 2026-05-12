@@ -16,29 +16,11 @@
 <div class="rule max-w-5xl mx-auto px-6"></div>
 
 <section class="max-w-3xl mx-auto px-6 py-16" id="signup">
-  <p class="eyebrow mb-3 text-center">Pré-qualificação</p>
-  <h2 class="h-serif text-4xl text-center mb-4 leading-tight">90 segundos pra entender seu fit.</h2>
-  <p class="text-center text-ink/60 mb-12">Te respondemos com análise preliminar + agendamento.</p>
+  <p class="eyebrow mb-3 text-center">Diagnóstico interativo</p>
+  <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Responda 4 perguntas. Descubra seu nível DORA preliminar.</h2>
+  <p class="text-center text-ink/60 mb-12">Sem cadastro. Você decide se quer receber o relatório por email depois.</p>
 
-  <form id="devops-form" class="space-y-6 card p-8 md:p-10">
-    <div>
-      <label class="eyebrow block mb-2">Nome completo</label>
-      <input type="text" name="name" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
-    </div>
-    <div class="grid md:grid-cols-2 gap-4">
-      <div>
-        <label class="eyebrow block mb-2">Email corporativo</label>
-        <input type="email" name="email" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
-      </div>
-      <div>
-        <label class="eyebrow block mb-2">WhatsApp</label>
-        <input type="tel" name="whatsapp" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
-      </div>
-    </div>
-    <div>
-      <label class="eyebrow block mb-2">Empresa</label>
-      <input type="text" name="company" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
-    </div>
+  <form id="diag-business-form" data-diag-base="/api/devops-maturity" class="space-y-6 card p-8 md:p-10">
     <div>
       <label class="eyebrow block mb-2">Cargo</label>
       <select name="role" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
@@ -52,7 +34,7 @@
       </select>
     </div>
     <div>
-      <label class="eyebrow block mb-2">Tamanho time de engenharia</label>
+      <label class="eyebrow block mb-2">Tamanho do time de engenharia</label>
       <select name="team_size" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
         <option value="">Selecione…</option>
         <option value="1_10">1-10 engenheiros</option>
@@ -87,8 +69,8 @@
     </div>
     <div>
       <label class="eyebrow block mb-2">Stack primário</label>
-      <select name="stack" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
-        <option value="">Selecione…</option>
+      <select name="stack" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione (opcional)…</option>
         <option value="k8s">Kubernetes (EKS, GKE, self-managed)</option>
         <option value="ecs">AWS ECS / Fargate</option>
         <option value="serverless">Serverless (Lambda, Cloud Functions)</option>
@@ -99,14 +81,14 @@
     </div>
     <div>
       <label class="eyebrow block mb-2">Contexto adicional (opcional)</label>
-      <textarea name="context" rows="3" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink"></textarea>
+      <textarea name="context" rows="3" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Algum incidente recente, mudança de stack, ou objetivo específico?"></textarea>
     </div>
-    <button type="submit" class="btn-primary w-full text-base">Receber pré-análise</button>
-    <p class="text-xs text-subtle text-center">LGPD compliant. Dados só com Anuvia.</p>
+    <button type="submit" class="btn-primary w-full text-base">Ver meu nível DORA</button>
+    <p class="text-xs text-subtle text-center">Sem cadastro nessa etapa.</p>
   </form>
 </section>
 
-<div id="result" class="hidden max-w-3xl mx-auto px-6 py-16"></div>
+{% include "_diag_flow_steps.html" %}
 
 <div class="rule max-w-5xl mx-auto px-6"></div>
 
@@ -136,39 +118,8 @@
 
 <section class="max-w-4xl mx-auto px-6 py-24 text-center">
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Solicite o assessment.</h2>
-  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Preenche o form. Em 24h respondemos com análise preliminar.</p>
-  <a href="#signup" class="btn-primary text-base inline-block">Voltar ao formulário</a>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Faz o diagnóstico interativo acima. Sem cadastro inicial.</p>
+  <a href="#signup" class="btn-primary text-base inline-block">Voltar ao diagnóstico</a>
 </section>
-
-<script>
-  document.getElementById('devops-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    const data = Object.fromEntries(fd.entries());
-    const btn = e.target.querySelector('button[type=submit]');
-    btn.disabled = true;
-    btn.textContent = 'Enviando...';
-    try {
-      const res = await fetch('/api/devops-maturity', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      const result = await res.json();
-      if (res.ok) {
-        document.getElementById('result').innerHTML = result.deliverable_html || '<p class="h-serif text-2xl">Obrigada!</p>';
-        document.getElementById('result').classList.remove('hidden');
-        document.getElementById('signup').classList.add('hidden');
-        window.scrollTo({ top: document.getElementById('result').offsetTop - 100, behavior: 'smooth' });
-      } else {
-        alert('Erro. Tenta de novo.');
-        btn.disabled = false; btn.textContent = 'Receber pré-análise';
-      }
-    } catch (err) {
-      alert('Erro de conexão.');
-      btn.disabled = false; btn.textContent = 'Receber pré-análise';
-    }
-  });
-</script>
 
 {% endblock %}

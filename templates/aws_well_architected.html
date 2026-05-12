@@ -16,29 +16,11 @@
 <div class="rule max-w-5xl mx-auto px-6"></div>
 
 <section class="max-w-3xl mx-auto px-6 py-16" id="signup">
-  <p class="eyebrow mb-3 text-center">Pré-qualificação</p>
-  <h2 class="h-serif text-4xl text-center mb-4 leading-tight">90 segundos pra avaliar fit.</h2>
-  <p class="text-center text-ink/60 mb-12">Responde abaixo. Te respondemos com análise preliminar + agendamento de discovery call.</p>
+  <p class="eyebrow mb-3 text-center">Diagnóstico interativo</p>
+  <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Responda 3 perguntas. Veja sua leitura preliminar em 30 segundos.</h2>
+  <p class="text-center text-ink/60 mb-12">Sem cadastro. Você decide se quer receber o relatório por email depois.</p>
 
-  <form id="wa-form" class="space-y-6 card p-8 md:p-10">
-    <div>
-      <label class="eyebrow block mb-2">Nome completo</label>
-      <input type="text" name="name" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
-    </div>
-    <div class="grid md:grid-cols-2 gap-4">
-      <div>
-        <label class="eyebrow block mb-2">Email corporativo</label>
-        <input type="email" name="email" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
-      </div>
-      <div>
-        <label class="eyebrow block mb-2">WhatsApp</label>
-        <input type="tel" name="whatsapp" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
-      </div>
-    </div>
-    <div>
-      <label class="eyebrow block mb-2">Empresa</label>
-      <input type="text" name="company" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
-    </div>
+  <form id="diag-business-form" data-diag-base="/api/aws-well-architected" class="space-y-6 card p-8 md:p-10">
     <div>
       <label class="eyebrow block mb-2">Cargo</label>
       <select name="role" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
@@ -55,7 +37,7 @@
       <label class="eyebrow block mb-2">Foco prioritário do review</label>
       <select name="focus" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
         <option value="">Selecione…</option>
-        <option value="security">Security — preocupações de compliance, IAM, network</option>
+        <option value="security">Security — compliance, IAM, network</option>
         <option value="reliability">Reliability — incidentes, SLOs, recovery</option>
         <option value="performance">Performance — latência, throughput, scaling</option>
         <option value="cost">Cost — otimização (overlap com FinOps Audit)</option>
@@ -78,14 +60,14 @@
     </div>
     <div>
       <label class="eyebrow block mb-2">Contexto adicional (opcional)</label>
-      <textarea name="context" rows="3" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Algum trigger específico? (incident recente, audit externo, migration planejada, regulatory pressure...)"></textarea>
+      <textarea name="context" rows="3" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Trigger específico? (incident recente, audit externo, migration, regulatory pressure...)"></textarea>
     </div>
-    <button type="submit" class="btn-primary w-full text-base">Receber pré-análise</button>
-    <p class="text-xs text-subtle text-center">LGPD compliant. Dados só com Anuvia.</p>
+    <button type="submit" class="btn-primary w-full text-base">Ver minha análise</button>
+    <p class="text-xs text-subtle text-center">Sem cadastro nessa etapa.</p>
   </form>
 </section>
 
-<div id="result" class="hidden max-w-3xl mx-auto px-6 py-16"></div>
+{% include "_diag_flow_steps.html" %}
 
 <div class="rule max-w-5xl mx-auto px-6"></div>
 
@@ -112,7 +94,7 @@
     </div>
     <div class="card p-7">
       <p class="h-serif text-2xl mb-3 text-accent">05 · Cost Optimization</p>
-      <p class="text-sm text-ink/70 leading-relaxed">Practice cloud financial management, expenditure awareness, cost-effective resources, demand and supply matching.</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Cloud financial management, expenditure awareness, cost-effective resources, demand and supply matching.</p>
     </div>
     <div class="card p-7">
       <p class="h-serif text-2xl mb-3 text-accent">06 · Sustainability</p>
@@ -123,39 +105,8 @@
 
 <section class="max-w-4xl mx-auto px-6 py-24 text-center">
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Comece o Well-Architected Review.</h2>
-  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Preenche o form acima. Em 24h te respondemos com análise preliminar e agendamento.</p>
-  <a href="#signup" class="btn-primary text-base inline-block">Voltar ao formulário</a>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Faz o diagnóstico interativo acima. Sem cadastro inicial — só decide se quer receber o relatório depois.</p>
+  <a href="#signup" class="btn-primary text-base inline-block">Voltar ao diagnóstico</a>
 </section>
-
-<script>
-  document.getElementById('wa-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    const data = Object.fromEntries(fd.entries());
-    const btn = e.target.querySelector('button[type=submit]');
-    btn.disabled = true;
-    btn.textContent = 'Enviando...';
-    try {
-      const res = await fetch('/api/aws-well-architected', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      const result = await res.json();
-      if (res.ok) {
-        document.getElementById('result').innerHTML = result.deliverable_html || '<p class="h-serif text-2xl">Obrigada! Em breve entramos em contato.</p>';
-        document.getElementById('result').classList.remove('hidden');
-        document.getElementById('signup').classList.add('hidden');
-        window.scrollTo({ top: document.getElementById('result').offsetTop - 100, behavior: 'smooth' });
-      } else {
-        alert('Erro. Tenta de novo ou manda email pra mila@anuvia.com.br');
-        btn.disabled = false; btn.textContent = 'Receber pré-análise';
-      }
-    } catch (err) {
-      alert('Erro de conexão. Tenta novamente.');
-      btn.disabled = false; btn.textContent = 'Receber pré-análise';
-    }
-  });
-</script>
 
 {% endblock %}

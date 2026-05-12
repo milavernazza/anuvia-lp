@@ -46,29 +46,11 @@
 <div class="rule max-w-5xl mx-auto px-6"></div>
 
 <section class="max-w-3xl mx-auto px-6 py-16" id="signup">
-  <p class="eyebrow mb-3 text-center">Pré-qualificação</p>
-  <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Cinco campos. Análise preliminar.</h2>
-  <p class="text-center text-ink/60 mb-12">Te respondemos em 24h com leitura inicial do funil e proposta de agendamento.</p>
+  <p class="eyebrow mb-3 text-center">Diagnóstico interativo</p>
+  <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Responda 4 perguntas. Veja leitura preliminar do seu funil.</h2>
+  <p class="text-center text-ink/60 mb-12">Sem cadastro. Você decide se quer receber o relatório por email depois.</p>
 
-  <form id="salesops-form" class="space-y-6 card p-8 md:p-10">
-    <div>
-      <label class="eyebrow block mb-2">Nome completo</label>
-      <input type="text" name="name" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
-    </div>
-    <div class="grid md:grid-cols-2 gap-4">
-      <div>
-        <label class="eyebrow block mb-2">Email corporativo</label>
-        <input type="email" name="email" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
-      </div>
-      <div>
-        <label class="eyebrow block mb-2">WhatsApp</label>
-        <input type="tel" name="whatsapp" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
-      </div>
-    </div>
-    <div>
-      <label class="eyebrow block mb-2">Empresa</label>
-      <input type="text" name="company" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
-    </div>
+  <form id="diag-business-form" data-diag-base="/api/growth-sales-ops" class="space-y-6 card p-8 md:p-10">
     <div>
       <label class="eyebrow block mb-2">Cargo</label>
       <select name="role" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
@@ -117,14 +99,12 @@
       <label class="eyebrow block mb-2">Contexto adicional (opcional)</label>
       <textarea name="context" rows="4" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Quanto cresceu o time no último ano? CRM atual? Algum ponto específico do funil que preocupa?"></textarea>
     </div>
-    <div class="flex flex-col sm:flex-row gap-3 items-center justify-between pt-2">
-      <p class="text-xs text-subtle">Resposta em até 24h com análise preliminar e proposta de agendamento.</p>
-      <button type="submit" class="btn-primary text-sm">Enviar pré-qualificação</button>
-    </div>
+    <button type="submit" class="btn-primary w-full text-base">Ver minha análise</button>
+    <p class="text-xs text-subtle text-center">Sem cadastro nessa etapa.</p>
   </form>
-
-  <div id="salesops-result" class="hidden mt-10"></div>
 </section>
+
+{% include "_diag_flow_steps.html" %}
 
 <div class="rule max-w-5xl mx-auto px-6"></div>
 
@@ -158,47 +138,8 @@
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Cliente típico escolhe entre implementar uma automação prioritária (AI Quick Win, R$ 8-15k), montar o stack RevOps inteiro, ou contratar o Anuvia AI Ops como squad de agentes terceirizada. Sem fidelidade obrigatória.</p>
   <div class="flex flex-col sm:flex-row gap-4 justify-center">
     <a href="/growth" class="btn-ghost text-base inline-block">Ver catálogo completo Anuvia Growth</a>
-    <a href="/contact" class="btn-primary text-base inline-block">Falar com um Solutions Architect</a>
+    <a href="#signup" class="btn-primary text-base inline-block">Fazer diagnóstico</a>
   </div>
 </section>
-
-<script>
-(function() {
-  const form = document.getElementById('salesops-form');
-  const resultEl = document.getElementById('salesops-result');
-  if (!form) return;
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(form);
-    const data = Object.fromEntries(fd.entries());
-    const btn = form.querySelector('button[type=submit]');
-    btn.disabled = true;
-    btn.textContent = 'Analisando…';
-    try {
-      const res = await fetch('/api/growth-sales-ops', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      const result = await res.json();
-      if (res.ok && result.ok) {
-        form.classList.add('hidden');
-        resultEl.innerHTML = result.html || '<p class="text-ink/70">Análise enviada. Mila responde em até 24h.</p>';
-        resultEl.classList.remove('hidden');
-        resultEl.scrollIntoView({ behavior: 'smooth' });
-      } else {
-        alert((result && result.detail) || 'Erro ao enviar. Tente novamente.');
-        btn.disabled = false;
-        btn.textContent = 'Enviar pré-qualificação';
-      }
-    } catch (err) {
-      alert('Erro de conexão. Tente novamente.');
-      btn.disabled = false;
-      btn.textContent = 'Enviar pré-qualificação';
-    }
-  });
-})();
-</script>
 
 {% endblock %}

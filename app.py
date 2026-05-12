@@ -1184,6 +1184,752 @@ async def contact(request: Request):
     return templates.TemplateResponse("contact.html", {"request": request})
 
 
+# ============================================================================
+# Diagnostic-first helpers — shared across all 5 diagnostic LPs
+# Flow:
+#   POST /api/<diag>/analyze   → anonymous lead in Supabase + return analysis HTML + lead_id
+#   POST /api/<diag>/contact   → PATCH lead with PII + optional booking + send email report
+# ============================================================================
+
+async def _create_anonymous_diag_lead(
+    client: httpx.AsyncClient,
+    funnel_id: str,
+    source: str,
+    diag_type: str,
+    business_meta: dict,
+    deliverable_html: str,
+    tags: Optional[list] = None,
+) -> Optional[str]:
+    """Insert anonymous lead (no PII) for tracking diagnostic completion.
+    Returns lead_id or None on failure."""
+    placeholder_name = f"(anônimo · {diag_type})"
+    meta = {
+        "diagnostic_type": diag_type,
+        "anonymous_diagnostic": True,
+        "deliverable_html": deliverable_html,
+        **business_meta,
+    }
+    payload = {
+        "funnel_id": funnel_id,
+        "name": placeholder_name,
+        "email": None,
+        "phone_e164": None,
+        "company": None,
+        "source": source,
+        "meta": meta,
+        "tags": list(tags or []) + ["anonymous_diagnostic", f"diag:{diag_type}"],
+        "current_stage": "anonymous_diagnostic",
+    }
+    try:
+        r = await client.post(f"{SUPA_URL}/leads", headers=SUPA_HEADERS, json=payload)
+        if r.status_code in (200, 201):
+            rows = r.json()
+            if rows and isinstance(rows, list):
+                return rows[0].get("id")
+        else:
+            log.warning("anonymous_diag_lead non-200: %s %s", r.status_code, r.text[:200])
+    except Exception:
+        log.exception("anonymous_diag_lead failed")
+    return None
+
+
+async def _upgrade_lead_with_contact(
+    client: httpx.AsyncClient,
+    lead_id: str,
+    name: str,
+    email: str,
+    whatsapp: str,
+    company: Optional[str],
+) -> bool:
+    """PATCH anonymous lead with real contact info. Moves stage to 'qualified'."""
+    try:
+        # Fetch existing meta first to preserve diagnostic data
+        gr = await client.get(
+            f"{SUPA_URL}/leads?id=eq.{lead_id}&select=meta,tags",
+            headers=SUPA_HEADERS,
+        )
+        existing_meta = {}
+        existing_tags = []
+        if gr.status_code == 200:
+            rows = gr.json()
+            if rows:
+                existing_meta = rows[0].get("meta", {}) or {}
+                existing_tags = rows[0].get("tags", []) or []
+
+        existing_meta["upgraded_at"] = datetime.now(timezone.utc).isoformat()
+        existing_meta["anonymous_diagnostic"] = False
+        new_tags = [t for t in existing_tags if t != "anonymous_diagnostic"]
+        new_tags.append("contact_provided")
+
+        patch_payload = {
+            "name": name,
+            "email": email,
+            "phone_e164": whatsapp,
+            "company": company or None,
+            "current_stage": "qualified",
+            "meta": existing_meta,
+            "tags": new_tags,
+        }
+        pr = await client.patch(
+            f"{SUPA_URL}/leads?id=eq.{lead_id}",
+            headers=SUPA_HEADERS,
+            json=patch_payload,
+        )
+        if pr.status_code not in (200, 204):
+            log.warning("upgrade_lead non-200: %s %s", pr.status_code, pr.text[:200])
+            return False
+        return True
+    except Exception:
+        log.exception("upgrade_lead_failed")
+        return False
+
+
+async def _send_diag_report_email(
+    client: httpx.AsyncClient,
+    name: str,
+    email: str,
+    practice_label: str,
+    subject: str,
+    deliverable_html: str,
+    cta_url: str = "https://anuvia.com.br/contact",
+) -> bool:
+    """Send the diagnostic report email after the user provides contact info."""
+    if not RESEND_API_KEY:
+        return False
+    first = name.split()[0] if name else "Olá"
+    inner = deliverable_html.replace('class="card p-8 md:p-10"', '')
+    email_html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="background:#fafaf9;font-family:-apple-system,Inter,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;">
+<div style="max-width:640px;margin:0 auto;">
+  <p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;margin:0 0 8px 0;">Anuvia · {practice_label}</p>
+  <p style="font-family:Playfair Display,Georgia,serif;font-size:32px;margin:0 0 24px 0;line-height:1.15;">Olá, {first}</p>
+  <p style="color:#475569;line-height:1.65;">Obrigada por completar o diagnóstico. Aqui está o resultado completo gerado a partir das suas respostas:</p>
+  <div style="background:#ffffff;border:1px solid #e7e5e4;padding:24px;margin:24px 0;">
+    {inner}
+  </div>
+  <p style="color:#475569;line-height:1.65;">Próximo passo natural é uma conversa de 30 minutos com um Solutions Architect pra revisar o diagnóstico junto e priorizar próximos passos.</p>
+  <p style="margin:24px 0;"><a href="{cta_url}" style="display:inline-block;background:#1a1a1a;color:#fafaf9;padding:12px 22px;text-decoration:none;font-weight:500;">Agendar Discovery Call</a></p>
+  <p style="color:#78716c;font-size:13px;margin-top:32px;">Mila Vernazza · Founder Anuvia<br>Ex-AWS Solutions Architect · Ex-Google · 15+ AWS Certifications</p>
+</div>
+</body></html>"""
+    try:
+        await client.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
+            json={
+                "from": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
+                "to": [email],
+                "reply_to": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
+                "subject": subject,
+                "html": email_html,
+                "tags": [{"name": "category", "value": "diagnostic_report"}],
+            },
+            timeout=20,
+        )
+        return True
+    except Exception:
+        log.exception("diag_report_email_failed")
+        return False
+
+
+async def _notify_slack_diag(
+    client: httpx.AsyncClient,
+    diag_label: str,
+    name: str,
+    email: str,
+    whatsapp: str,
+    company: Optional[str],
+    extra_lines: Optional[list] = None,
+) -> None:
+    """Best-effort Slack notification when a diagnostic captures contact."""
+    if not SLACK_WEBHOOK:
+        return
+    lines = [
+        f":mag: Diagnóstico {diag_label} — contato capturado",
+        f"*{name}* — {company or '(sem empresa)'}",
+        f"📞 {whatsapp}  ✉️ {email}",
+    ]
+    if extra_lines:
+        lines.extend(extra_lines)
+    try:
+        await client.post(SLACK_WEBHOOK, json={"text": "\n".join(lines)}, timeout=10)
+    except Exception:
+        log.exception("slack_diag_notify_failed")
+
+
+class DiagContactForm(BaseModel):
+    """Step 2 form — captures PII after user has seen the analysis."""
+    model_config = ConfigDict(extra="allow")
+    lead_id: str = Field(..., min_length=8, max_length=80)
+    name: str = Field(..., min_length=2, max_length=120)
+    email: EmailStr
+    whatsapp: str = Field(..., min_length=8, max_length=30)
+    company: Optional[str] = Field(default="", max_length=200)
+
+    @field_validator("whatsapp")
+    @classmethod
+    def validate_whatsapp(cls, v: str) -> str:
+        normalized = normalize_phone(v)
+        if not normalized:
+            raise ValueError("WhatsApp inválido.")
+        return normalized
+
+
+# ----------------------------------------------------------------------------
+# FinOps Audit — diagnostic-first flow
+# ----------------------------------------------------------------------------
+
+class FinOpsAnalyzeForm(BaseModel):
+    """Step 1 — anonymous business questions, no PII."""
+    model_config = ConfigDict(extra="allow")
+    role: str
+    aws_spend: str
+    main_pain: str
+    aws_tenure: str
+    context: Optional[str] = ""
+
+
+def _build_finops_deliverable(form_data: dict, with_name: Optional[str] = None) -> tuple[dict, str]:
+    """Build the FinOps analysis HTML and metadata. Returns (analysis_meta, html)."""
+    aws_spend = form_data.get("aws_spend", "")
+    main_pain = form_data.get("main_pain", "")
+    spend_label, spend_low, spend_annual_low = FINOPS_SPEND_TIERS.get(
+        aws_spend, (aws_spend, 0, 0)
+    )
+    is_fit = aws_spend not in ("under_10k",)
+    savings_low = int(spend_annual_low * 0.20) if is_fit else 0
+    savings_high = int(spend_annual_low * 0.40) if is_fit else 0
+    pain_insight = FINOPS_PAIN_INSIGHT.get(main_pain, "")
+    greeting = f"Análise pronta, {with_name.split()[0]}." if with_name else "Análise pronta."
+
+    if is_fit:
+        html = f"""
+<div class="card p-8 md:p-10">
+  <p class="eyebrow mb-4">Pré-análise · gerada agora</p>
+  <p class="h-serif text-4xl mb-6 leading-tight">{greeting}</p>
+
+  <div class="my-8 p-6 bg-paper border border-rule">
+    <p class="eyebrow mb-3">Estimativa preliminar de economia anualizada</p>
+    <p class="h-serif text-5xl mb-2">R$ {savings_low:,}</p>
+    <p class="text-sm text-subtle">a R$ {savings_high:,}/ano</p>
+    <p class="text-xs text-subtle mt-3">Baseado em fatura {spend_label} e padrões observados em audits anteriores.<br>Faixa conservadora 20% → ambiciosa 40% da economia identificada.</p>
+  </div>
+
+  <div class="my-8">
+    <p class="eyebrow mb-3">Insight sobre sua dor declarada</p>
+    <p class="text-ink/80 leading-relaxed">{pain_insight}</p>
+  </div>
+
+  <div class="rule"></div>
+
+  <p class="text-xs text-subtle leading-relaxed">Esta pré-análise é orientativa baseada em padrões agregados. Audit completo individualiza pra sua realidade específica (workloads, configuração, tags, contratos AWS).</p>
+</div>
+""".strip()
+    else:
+        html = f"""
+<div class="card p-8 md:p-10">
+  <p class="eyebrow mb-4">Pré-análise</p>
+  <p class="h-serif text-4xl mb-6 leading-tight">{greeting}</p>
+  <p class="text-ink/80 leading-relaxed mb-5">Pelo perfil de fatura ({spend_label}), FinOps Audit completo de R$ 45-60k provavelmente não cobre o ROI necessário pra valer a pena pra você agora.</p>
+  <p class="text-ink/80 leading-relaxed mb-5">Sugestões mais adequadas:</p>
+  <ul class="space-y-2 text-sm text-ink/80 mb-5">
+    <li>• <strong>Office hours de 90 min com Mila</strong> — R$ 1.500. Diagnóstico ao vivo + quick wins acionáveis no mesmo dia.</li>
+    <li>• <strong>Workshop FinOps Express</strong> — R$ 8-12k, 1 semana. Audit mais leve com economia identificada documentada.</li>
+    <li>• <strong>Anuvia AI Ops</strong> — se a dor não é só AWS mas operação como um todo, considera nosso produto SaaS de automação de operações.</li>
+  </ul>
+</div>
+""".strip()
+
+    meta = {
+        "is_fit": is_fit,
+        "savings_estimate_low": savings_low,
+        "savings_estimate_high": savings_high,
+        "spend_label": spend_label,
+    }
+    return meta, html
+
+
+@app.post("/api/finops-audit/analyze")
+async def api_finops_audit_analyze(form: FinOpsAnalyzeForm):
+    """Step 1 — receive business answers, return analysis HTML + lead_id (no PII)."""
+    form_data = form.model_dump()
+    analysis_meta, html = _build_finops_deliverable(form_data)
+    business_meta = {
+        "role": form.role,
+        "aws_spend": form.aws_spend,
+        "main_pain": form.main_pain,
+        "aws_tenure": form.aws_tenure,
+        "context": form.context or "",
+        **analysis_meta,
+    }
+    async with httpx.AsyncClient(timeout=15) as client:
+        lead_id = await _create_anonymous_diag_lead(
+            client,
+            funnel_id="BR_FINOPS",
+            source="lp_finops_audit",
+            diag_type="finops_audit",
+            business_meta=business_meta,
+            deliverable_html=html,
+            tags=["lp_finops_audit", "br_finops"],
+        )
+    return JSONResponse({"ok": True, "lead_id": lead_id, "html": html, "is_fit": analysis_meta["is_fit"]})
+
+
+@app.post("/api/finops-audit/contact")
+async def api_finops_audit_contact(form: DiagContactForm):
+    """Step 2 — capture PII, upgrade lead, email report."""
+    async with httpx.AsyncClient(timeout=20) as client:
+        # Re-fetch business meta to rebuild HTML with name
+        try:
+            r = await client.get(
+                f"{SUPA_URL}/leads?id=eq.{form.lead_id}&select=meta",
+                headers=SUPA_HEADERS,
+            )
+            rows = r.json() if r.status_code == 200 else []
+            meta = rows[0].get("meta", {}) if rows else {}
+        except Exception:
+            meta = {}
+        _, deliverable_html = _build_finops_deliverable(meta, with_name=form.name)
+
+        ok_upgrade = await _upgrade_lead_with_contact(
+            client, form.lead_id, form.name, form.email, form.whatsapp, form.company
+        )
+        first = form.name.split()[0]
+        is_fit = meta.get("is_fit", True)
+        subject = (
+            f"FinOps Audit — pré-análise pra {first}"
+            if is_fit else
+            f"Obrigada, {first} — alternativas pro seu caso"
+        )
+        email_sent = await _send_diag_report_email(
+            client, form.name, form.email, "FinOps", subject, deliverable_html
+        )
+        await _notify_slack_diag(
+            client, "FinOps Audit", form.name, form.email, form.whatsapp, form.company,
+            extra_lines=[
+                f"Fatura: {meta.get('spend_label', '?')}  ·  Dor: {meta.get('main_pain', '?')}",
+                f"Fit: {'yes' if is_fit else 'no'}",
+            ],
+        )
+    return JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+
+
+# ----------------------------------------------------------------------------
+# AWS Well-Architected — diagnostic-first flow
+# ----------------------------------------------------------------------------
+
+class WAAnalyzeForm(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    role: str
+    focus: str
+    workload: str
+    context: Optional[str] = ""
+
+
+def _build_wa_deliverable(form_data: dict, with_name: Optional[str] = None) -> tuple[dict, str]:
+    focus = form_data.get("focus", "")
+    workload = form_data.get("workload", "")
+    focus_insight = WA_FOCUS_INSIGHT.get(focus, "")
+    greeting = f"Análise pronta, {with_name.split()[0]}." if with_name else "Análise pronta."
+    html = f"""
+<div class="card p-8 md:p-10">
+  <p class="eyebrow mb-4">Pré-análise · gerada agora</p>
+  <p class="h-serif text-4xl mb-6 leading-tight">{greeting}</p>
+
+  <div class="my-8">
+    <p class="eyebrow mb-3">Sobre o foco que você indicou</p>
+    <p class="text-ink/80 leading-relaxed">{focus_insight}</p>
+  </div>
+
+  <div class="my-8 p-6 bg-paper border border-rule">
+    <p class="eyebrow mb-3">O que o WA Review entrega</p>
+    <p class="text-ink/80 leading-relaxed mb-3">Avaliação técnica nos 6 pilares AWS (Security, Reliability, Performance, Cost, Operational Excellence, Sustainability) com gap analysis específico para seu workload ({workload or 'não informado'}). Saída: relatório executivo + remediação priorizada por effort/impact.</p>
+  </div>
+
+  <div class="rule"></div>
+
+  <p class="text-xs text-subtle leading-relaxed">AWS Well-Architected Review da Anuvia é executado por ex-AWS Solutions Architect (15+ certs). 3-5 semanas, R$ 30-50k.</p>
+</div>
+""".strip()
+    return {"focus": focus, "workload": workload}, html
+
+
+@app.post("/api/aws-well-architected/analyze")
+async def api_aws_wa_analyze(form: WAAnalyzeForm):
+    form_data = form.model_dump()
+    analysis_meta, html = _build_wa_deliverable(form_data)
+    business_meta = {
+        "role": form.role,
+        "focus": form.focus,
+        "workload": form.workload,
+        "context": form.context or "",
+        **analysis_meta,
+    }
+    async with httpx.AsyncClient(timeout=15) as client:
+        lead_id = await _create_anonymous_diag_lead(
+            client,
+            funnel_id="BR_AWS_WA",
+            source="lp_aws_well_architected",
+            diag_type="aws_well_architected",
+            business_meta=business_meta,
+            deliverable_html=html,
+            tags=["lp_aws_wa", "br_aws_wa"],
+        )
+    return JSONResponse({"ok": True, "lead_id": lead_id, "html": html})
+
+
+@app.post("/api/aws-well-architected/contact")
+async def api_aws_wa_contact(form: DiagContactForm):
+    async with httpx.AsyncClient(timeout=20) as client:
+        try:
+            r = await client.get(
+                f"{SUPA_URL}/leads?id=eq.{form.lead_id}&select=meta",
+                headers=SUPA_HEADERS,
+            )
+            rows = r.json() if r.status_code == 200 else []
+            meta = rows[0].get("meta", {}) if rows else {}
+        except Exception:
+            meta = {}
+        _, deliverable_html = _build_wa_deliverable(meta, with_name=form.name)
+        ok_upgrade = await _upgrade_lead_with_contact(
+            client, form.lead_id, form.name, form.email, form.whatsapp, form.company
+        )
+        first = form.name.split()[0]
+        subject = f"AWS Well-Architected Review — pré-análise pra {first}"
+        email_sent = await _send_diag_report_email(
+            client, form.name, form.email, "AWS", subject, deliverable_html
+        )
+        await _notify_slack_diag(
+            client, "AWS Well-Architected", form.name, form.email, form.whatsapp, form.company,
+            extra_lines=[f"Foco: {meta.get('focus', '?')}  ·  Workload: {meta.get('workload', '?')}"],
+        )
+    return JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+
+
+# ----------------------------------------------------------------------------
+# DevOps Maturity — diagnostic-first flow
+# ----------------------------------------------------------------------------
+
+class DevOpsAnalyzeForm(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    role: str
+    team_size: str
+    deploy_freq: str
+    main_pain: str
+    stack: Optional[str] = ""
+    context: Optional[str] = ""
+
+
+def _build_devops_deliverable(form_data: dict, with_name: Optional[str] = None) -> tuple[dict, str]:
+    deploy_freq = form_data.get("deploy_freq", "")
+    main_pain = form_data.get("main_pain", "")
+    level, level_insight = DORA_LEVEL.get(deploy_freq, ("?", ""))
+    pain_insight = DEVOPS_PAIN_INSIGHT.get(main_pain, "")
+    greeting = f"Análise pronta, {with_name.split()[0]}." if with_name else "Análise pronta."
+    html = f"""
+<div class="card p-8 md:p-10">
+  <p class="eyebrow mb-4">Pré-análise DORA · gerada agora</p>
+  <p class="h-serif text-4xl mb-6 leading-tight">{greeting}</p>
+
+  <div class="my-8 p-6 bg-paper border border-rule">
+    <p class="eyebrow mb-3">Nível DORA preliminar</p>
+    <p class="h-serif text-5xl mb-2">{level}</p>
+    <p class="text-sm text-ink/70 leading-relaxed">{level_insight}</p>
+  </div>
+
+  <div class="my-8">
+    <p class="eyebrow mb-3">Sobre sua dor principal</p>
+    <p class="text-ink/80 leading-relaxed">{pain_insight}</p>
+  </div>
+
+  <div class="rule"></div>
+
+  <p class="text-xs text-subtle leading-relaxed">DevOps Maturity Assessment: 4 semanas, R$ 35-50k. Entrega DORA baseline + gap analysis + 6-month roadmap.</p>
+</div>
+""".strip()
+    return {"dora_level": level, "deploy_freq": deploy_freq, "main_pain": main_pain}, html
+
+
+@app.post("/api/devops-maturity/analyze")
+async def api_devops_analyze(form: DevOpsAnalyzeForm):
+    form_data = form.model_dump()
+    analysis_meta, html = _build_devops_deliverable(form_data)
+    business_meta = {
+        "role": form.role,
+        "team_size": form.team_size,
+        "deploy_freq": form.deploy_freq,
+        "main_pain": form.main_pain,
+        "stack": form.stack or "",
+        "context": form.context or "",
+        **analysis_meta,
+    }
+    async with httpx.AsyncClient(timeout=15) as client:
+        lead_id = await _create_anonymous_diag_lead(
+            client,
+            funnel_id="BR_DEVOPS",
+            source="lp_devops_maturity",
+            diag_type="devops_maturity",
+            business_meta=business_meta,
+            deliverable_html=html,
+            tags=["lp_devops_maturity", "br_devops"],
+        )
+    return JSONResponse({"ok": True, "lead_id": lead_id, "html": html, "dora_level": analysis_meta["dora_level"]})
+
+
+@app.post("/api/devops-maturity/contact")
+async def api_devops_contact(form: DiagContactForm):
+    async with httpx.AsyncClient(timeout=20) as client:
+        try:
+            r = await client.get(
+                f"{SUPA_URL}/leads?id=eq.{form.lead_id}&select=meta",
+                headers=SUPA_HEADERS,
+            )
+            rows = r.json() if r.status_code == 200 else []
+            meta = rows[0].get("meta", {}) if rows else {}
+        except Exception:
+            meta = {}
+        _, deliverable_html = _build_devops_deliverable(meta, with_name=form.name)
+        ok_upgrade = await _upgrade_lead_with_contact(
+            client, form.lead_id, form.name, form.email, form.whatsapp, form.company
+        )
+        first = form.name.split()[0]
+        subject = f"DevOps Maturity — pré-análise pra {first}"
+        email_sent = await _send_diag_report_email(
+            client, form.name, form.email, "DevOps", subject, deliverable_html
+        )
+        await _notify_slack_diag(
+            client, "DevOps Maturity", form.name, form.email, form.whatsapp, form.company,
+            extra_lines=[f"DORA: {meta.get('dora_level', '?')}  ·  Deploy: {meta.get('deploy_freq', '?')}"],
+        )
+    return JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+
+
+# ----------------------------------------------------------------------------
+# AI Readiness — diagnostic-first flow
+# ----------------------------------------------------------------------------
+
+class AIReadinessAnalyzeForm(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    role: str
+    ai_stage: str
+    main_pain: str
+    revenue_tier: str
+    context: Optional[str] = ""
+
+
+def _build_ai_readiness_deliverable(form_data: dict, with_name: Optional[str] = None) -> tuple[dict, str]:
+    ai_stage = form_data.get("ai_stage", "")
+    main_pain = form_data.get("main_pain", "")
+    revenue_tier = form_data.get("revenue_tier", "")
+    stage_insight = AI_STAGE_INSIGHT.get(ai_stage, "")
+    pain_insight = AI_PAIN_INSIGHT.get(main_pain, "")
+    is_fit = revenue_tier in ("5m_30m", "30m_100m", "100m_plus")
+    greeting = f"Análise pronta, {with_name.split()[0]}." if with_name else "Análise pronta."
+    if is_fit:
+        html = f"""
+<div class="card p-8 md:p-10">
+  <p class="eyebrow mb-4">Pré-análise · gerada agora</p>
+  <p class="h-serif text-4xl mb-6 leading-tight">{greeting}</p>
+
+  <div class="my-8 p-6 bg-paper border border-rule">
+    <p class="eyebrow mb-3">Sobre seu estágio atual</p>
+    <p class="text-ink/80 leading-relaxed">{stage_insight}</p>
+  </div>
+
+  <div class="my-8 p-6 bg-paper border border-rule">
+    <p class="eyebrow mb-3">Sobre sua dor principal</p>
+    <p class="text-ink/80 leading-relaxed">{pain_insight}</p>
+  </div>
+
+  <div class="rule"></div>
+
+  <p class="text-xs text-subtle leading-relaxed">AI Readiness Sprint: 2-3 semanas, R$ 25-40k. Entrega inventário de use cases + ROI estimado + roadmap 12 meses + decisão build vs buy.</p>
+</div>
+""".strip()
+    else:
+        html = f"""
+<div class="card p-8 md:p-10">
+  <p class="eyebrow mb-4">Pré-análise</p>
+  <p class="h-serif text-4xl mb-6 leading-tight">{greeting}</p>
+  <p class="text-ink/80 leading-relaxed mb-5">Pelo perfil de faturamento, Sprint completo de R$ 25-40k provavelmente não cobre ROI necessário agora.</p>
+  <p class="text-ink/80 leading-relaxed mb-5">Alternativas mais adequadas:</p>
+  <ul class="space-y-2 text-sm text-ink/80 mb-5">
+    <li>• <strong>Office hours de 90 min com Mila</strong> — R$ 1.500.</li>
+    <li>• <strong>AI Quick Win</strong> — R$ 8-15k, 2-3 semanas.</li>
+    <li>• <strong>Anuvia AI Ops</strong> — squad de agentes recorrente, R$ 3-8k/mês.</li>
+  </ul>
+</div>
+""".strip()
+    return {"ai_stage": ai_stage, "main_pain": main_pain, "revenue_tier": revenue_tier, "is_fit": is_fit}, html
+
+
+@app.post("/api/ai-readiness/analyze")
+async def api_ai_readiness_analyze(form: AIReadinessAnalyzeForm):
+    form_data = form.model_dump()
+    analysis_meta, html = _build_ai_readiness_deliverable(form_data)
+    business_meta = {
+        "role": form.role,
+        "ai_stage": form.ai_stage,
+        "main_pain": form.main_pain,
+        "revenue_tier": form.revenue_tier,
+        "context": form.context or "",
+        **analysis_meta,
+    }
+    async with httpx.AsyncClient(timeout=15) as client:
+        lead_id = await _create_anonymous_diag_lead(
+            client,
+            funnel_id="BR_AI",
+            source="lp_ai_readiness",
+            diag_type="ai_readiness",
+            business_meta=business_meta,
+            deliverable_html=html,
+            tags=["lp_ai_readiness", "br_ai"],
+        )
+    return JSONResponse({"ok": True, "lead_id": lead_id, "html": html, "is_fit": analysis_meta["is_fit"]})
+
+
+@app.post("/api/ai-readiness/contact")
+async def api_ai_readiness_contact(form: DiagContactForm):
+    async with httpx.AsyncClient(timeout=20) as client:
+        try:
+            r = await client.get(
+                f"{SUPA_URL}/leads?id=eq.{form.lead_id}&select=meta",
+                headers=SUPA_HEADERS,
+            )
+            rows = r.json() if r.status_code == 200 else []
+            meta = rows[0].get("meta", {}) if rows else {}
+        except Exception:
+            meta = {}
+        _, deliverable_html = _build_ai_readiness_deliverable(meta, with_name=form.name)
+        ok_upgrade = await _upgrade_lead_with_contact(
+            client, form.lead_id, form.name, form.email, form.whatsapp, form.company
+        )
+        first = form.name.split()[0]
+        is_fit = meta.get("is_fit", True)
+        subject = f"AI Readiness Sprint — pré-análise pra {first}" if is_fit else f"Obrigada, {first} — alternativas pro seu caso"
+        email_sent = await _send_diag_report_email(
+            client, form.name, form.email, "AI", subject, deliverable_html
+        )
+        await _notify_slack_diag(
+            client, "AI Readiness", form.name, form.email, form.whatsapp, form.company,
+            extra_lines=[
+                f"Estágio: {meta.get('ai_stage', '?')}  ·  Dor: {meta.get('main_pain', '?')}",
+                f"Fit: {'yes' if is_fit else 'no'}",
+            ],
+        )
+    return JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+
+
+# ----------------------------------------------------------------------------
+# Growth Sales Ops — diagnostic-first flow
+# ----------------------------------------------------------------------------
+
+class GrowthAnalyzeForm(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    role: str
+    team_size: str
+    ticket_size: str
+    main_pain: str
+    context: Optional[str] = ""
+
+
+def _build_growth_deliverable(form_data: dict, with_name: Optional[str] = None) -> tuple[dict, str]:
+    ticket_size = form_data.get("ticket_size", "")
+    main_pain = form_data.get("main_pain", "")
+    pain_insight = SALESOPS_PAIN_INSIGHT.get(main_pain, "")
+    is_fit = ticket_size in ("5k_25k", "25k_100k", "100k_plus")
+    greeting = f"Análise pronta, {with_name.split()[0]}." if with_name else "Análise pronta."
+    if is_fit:
+        html = f"""
+<div class="card p-8 md:p-10">
+  <p class="eyebrow mb-4">Pré-análise · gerada agora</p>
+  <p class="h-serif text-4xl mb-6 leading-tight">{greeting}</p>
+
+  <div class="my-8 p-6 bg-paper border border-rule">
+    <p class="eyebrow mb-3">Sobre sua dor declarada</p>
+    <p class="text-ink/80 leading-relaxed">{pain_insight}</p>
+  </div>
+
+  <div class="rule"></div>
+
+  <p class="text-xs text-subtle leading-relaxed">Sales Ops Diagnostic: 2 semanas, R$ 15-25k. Entrega funnel map + automation playbook + roadmap 90 dias.</p>
+</div>
+""".strip()
+    else:
+        html = f"""
+<div class="card p-8 md:p-10">
+  <p class="eyebrow mb-4">Pré-análise</p>
+  <p class="h-serif text-4xl mb-6 leading-tight">{greeting}</p>
+  <p class="text-ink/80 leading-relaxed mb-5">Com ticket abaixo de R$ 5k, diagnóstico completo de R$ 15-25k provavelmente não cobre o ROI necessário no curto prazo.</p>
+  <p class="text-ink/80 leading-relaxed mb-5">Alternativas mais adequadas:</p>
+  <ul class="space-y-2 text-sm text-ink/80 mb-5">
+    <li>• <strong>AI Quick Win</strong> — R$ 8-15k, 2-3 semanas.</li>
+    <li>• <strong>Anuvia AI Ops Subscription</strong> — R$ 3-8k/mês.</li>
+    <li>• <strong>Office hours de 90 min com Mila</strong> — R$ 1.500.</li>
+  </ul>
+</div>
+""".strip()
+    return {"ticket_size": ticket_size, "main_pain": main_pain, "is_fit": is_fit}, html
+
+
+@app.post("/api/growth-sales-ops/analyze")
+async def api_growth_analyze(form: GrowthAnalyzeForm):
+    form_data = form.model_dump()
+    analysis_meta, html = _build_growth_deliverable(form_data)
+    business_meta = {
+        "role": form.role,
+        "team_size": form.team_size,
+        "ticket_size": form.ticket_size,
+        "main_pain": form.main_pain,
+        "context": form.context or "",
+        **analysis_meta,
+    }
+    async with httpx.AsyncClient(timeout=15) as client:
+        lead_id = await _create_anonymous_diag_lead(
+            client,
+            funnel_id="BR_GROWTH",
+            source="lp_growth_sales_ops",
+            diag_type="growth_sales_ops",
+            business_meta=business_meta,
+            deliverable_html=html,
+            tags=["lp_growth_sales_ops", "br_growth"],
+        )
+    return JSONResponse({"ok": True, "lead_id": lead_id, "html": html, "is_fit": analysis_meta["is_fit"]})
+
+
+@app.post("/api/growth-sales-ops/contact")
+async def api_growth_contact(form: DiagContactForm):
+    async with httpx.AsyncClient(timeout=20) as client:
+        try:
+            r = await client.get(
+                f"{SUPA_URL}/leads?id=eq.{form.lead_id}&select=meta",
+                headers=SUPA_HEADERS,
+            )
+            rows = r.json() if r.status_code == 200 else []
+            meta = rows[0].get("meta", {}) if rows else {}
+        except Exception:
+            meta = {}
+        _, deliverable_html = _build_growth_deliverable(meta, with_name=form.name)
+        ok_upgrade = await _upgrade_lead_with_contact(
+            client, form.lead_id, form.name, form.email, form.whatsapp, form.company
+        )
+        first = form.name.split()[0]
+        is_fit = meta.get("is_fit", True)
+        subject = f"Sales Ops Diagnostic — pré-análise pra {first}" if is_fit else f"Obrigada, {first} — alternativas pro seu caso"
+        email_sent = await _send_diag_report_email(
+            client, form.name, form.email, "Growth", subject, deliverable_html
+        )
+        await _notify_slack_diag(
+            client, "Sales Ops Diagnostic", form.name, form.email, form.whatsapp, form.company,
+            extra_lines=[
+                f"Ticket: {meta.get('ticket_size', '?')}  ·  Dor: {meta.get('main_pain', '?')}",
+                f"Fit: {'yes' if is_fit else 'no'}",
+            ],
+        )
+    return JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+
+
 class FinOpsAuditForm(BaseModel):
     """Pré-qualificação FinOps Audit — captura lead + envia análise preliminar."""
     model_config = ConfigDict(extra="allow")
