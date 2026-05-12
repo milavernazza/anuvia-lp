@@ -20,6 +20,7 @@ import json
 import logging
 import os
 import re
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from zoneinfo import ZoneInfo
@@ -1201,24 +1202,29 @@ async def _create_anonymous_diag_lead(
     tags: Optional[list] = None,
 ) -> Optional[str]:
     """Insert anonymous lead (no PII) for tracking diagnostic completion.
-    Returns lead_id or None on failure."""
-    placeholder_name = f"(anônimo · {diag_type})"
+    Returns lead_id or None on failure. Uses placeholder email/phone to satisfy
+    NOT NULL constraints — gets overwritten when contact is upgraded."""
+    session_token = uuid.uuid4().hex[:12]
+    placeholder_email = f"anon-{session_token}@diagnostic.anuvia.local"
+    placeholder_phone = "+0000000000"
+    placeholder_name = f"(anônimo · {diag_type} · {session_token})"
     meta = {
         "diagnostic_type": diag_type,
         "anonymous_diagnostic": True,
+        "session_token": session_token,
         "deliverable_html": deliverable_html,
         **business_meta,
     }
     payload = {
         "funnel_id": funnel_id,
         "name": placeholder_name,
-        "email": None,
-        "phone_e164": None,
+        "email": placeholder_email,
+        "phone_e164": placeholder_phone,
         "company": None,
         "source": source,
         "meta": meta,
         "tags": list(tags or []) + ["anonymous_diagnostic", f"diag:{diag_type}"],
-        "current_stage": "anonymous_diagnostic",
+        "current_stage": "new",
     }
     try:
         r = await client.post(f"{SUPA_URL}/leads", headers=SUPA_HEADERS, json=payload)
