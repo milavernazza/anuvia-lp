@@ -10,9 +10,9 @@
     AWS Cost Audit<br><span class="italic">Risk-Free.</span>
   </h1>
   <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
-    In 4 weeks we identify 25-40% annualized savings on your AWS bill. Guarantee: if we don't find 3× your investment, you don't pay.
+    Four weeks against your AWS Cost &amp; Usage Reports, Trusted Advisor and Compute Optimizer. We typically surface 25-40% annualized recoverable spend across Reserved Instance coverage, idle EBS, orphan snapshots, NAT egress and untuned data transfer paths. 3× annualized-savings guarantee in the contract.
   </p>
-  <p class="text-sm text-subtle mb-12">15+ AWS certifications · Ex-AWS Solutions Architect · Ex-Google</p>
+  <p class="text-sm text-subtle mb-12">Led by Mila Vernazza · ex-AWS Solutions Architect (Brazil) · 15× AWS-certified</p>
 
   <div class="card p-6 max-w-2xl bg-ink text-paper">
     <p class="eyebrow text-paper/60 mb-3">The guarantee, translated</p>
@@ -24,9 +24,9 @@
     AWS Cost Audit<br><span class="italic">Risk-Free.</span>
   </h1>
   <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
-    Em 4 semanas identificamos 25-40% de economia anualizada na sua fatura AWS. Garantia: se não acharmos 3× o investimento, você não paga.
+    Quatro semanas contra seus AWS Cost &amp; Usage Reports, Trusted Advisor e Compute Optimizer. Tipicamente trazemos à tona 25-40% de gasto anualizado recuperável em cobertura RI, EBS ocioso, snapshots órfãos, NAT egress e paths de data transfer não tunados. Garantia 3× sobre economia anualizada em contrato.
   </p>
-  <p class="text-sm text-subtle mb-12">15+ certificações AWS · Ex-AWS Solutions Architect · Ex-Google</p>
+  <p class="text-sm text-subtle mb-12">Liderado por Mila Vernazza · ex-AWS Solutions Architect (Brasil) · 15× AWS-certified</p>
 
   <div class="card p-6 max-w-2xl bg-ink text-paper">
     <p class="eyebrow text-paper/60 mb-3">A garantia, traduzida</p>
@@ -97,6 +97,29 @@
     </div>
 
     <div>
+      <label class="eyebrow block mb-2">Reserved Instances / Savings Plans coverage today</label>
+      <select name="ri_coverage" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select (optional)…</option>
+        <option value="none">None — fully on-demand</option>
+        <option value="under_30">Below 30%</option>
+        <option value="30_60">30-60%</option>
+        <option value="above_60">Above 60%</option>
+        <option value="dont_know">Don't know</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="eyebrow block mb-2">Dominant cost category today</label>
+      <select name="cost_dominant" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select (optional)…</option>
+        <option value="compute_dominated">Compute-dominated (EC2/EKS/Fargate &gt; 50%)</option>
+        <option value="storage_dominated">Storage-dominated (S3/EBS/RDS &gt; 40%)</option>
+        <option value="data_transfer_dominated">Data-transfer-heavy (egress/NAT &gt; 25%)</option>
+        <option value="balanced">Balanced across categories</option>
+      </select>
+    </div>
+
+    <div>
       <label class="eyebrow block mb-2">Additional context (optional)</label>
       <textarea name="context" rows="3" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Anything specific? E.g.: recent migration, multi-account, regulation…"></textarea>
     </div>
@@ -156,6 +179,29 @@
         <option value="1_3y">1-3 anos</option>
         <option value="3_5y">3-5 anos</option>
         <option value="5_plus">Mais de 5 anos</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="eyebrow block mb-2">Cobertura atual de Reserved Instances / Savings Plans</label>
+      <select name="ri_coverage" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione (opcional)…</option>
+        <option value="none">Nenhuma — 100% on-demand</option>
+        <option value="under_30">Abaixo de 30%</option>
+        <option value="30_60">30-60%</option>
+        <option value="above_60">Acima de 60%</option>
+        <option value="dont_know">Não sei</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="eyebrow block mb-2">Categoria de custo dominante hoje</label>
+      <select name="cost_dominant" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione (opcional)…</option>
+        <option value="compute_dominated">Compute-dominated (EC2/EKS/Fargate &gt; 50%)</option>
+        <option value="storage_dominated">Storage-dominated (S3/EBS/RDS &gt; 40%)</option>
+        <option value="data_transfer_dominated">Data-transfer-heavy (egress/NAT &gt; 25%)</option>
+        <option value="balanced">Balanceado entre categorias</option>
       </select>
     </div>
 

@@ -9,18 +9,18 @@
     AWS Well-Architected<br><span class="italic">Review.</span>
   </h1>
   <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
-    Review across the 6 pillars (Operational, Security, Reliability, Performance, Cost, Sustainability). Performed by an ex-AWS Solutions Architect with 15+ certifications.
+    Structured review against the six pillars of the AWS Well-Architected Framework — Operational Excellence, Security, Reliability, Performance Efficiency, Cost Optimization, Sustainability. Findings classified HRI/MRI/LRI, remediation sequenced by blast radius. Conducted by Mila Vernazza, ex-AWS Solutions Architect.
   </p>
-  <p class="text-sm text-subtle mb-12">3-5 weeks · {{ fmt_price('R$ 30-50k') }} · Executive report + remediation roadmap</p>
+  <p class="text-sm text-subtle mb-12">3-5 weeks · {{ fmt_price('R$ 30-50k') }} · Executive report + HRI-prioritized remediation roadmap</p>
   {% else %}
   <p class="eyebrow mb-6">Anuvia Cloud · AWS · Anchor offering</p>
   <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
     AWS Well-Architected<br><span class="italic">Review.</span>
   </h1>
   <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
-    Review nos 6 pilares (Operational, Security, Reliability, Performance, Cost, Sustainability). Realizado por ex-AWS Solutions Architect com 15+ certificações.
+    Review estruturado contra os seis pilares do AWS Well-Architected Framework — Operational Excellence, Security, Reliability, Performance Efficiency, Cost Optimization, Sustainability. Findings classificados HRI/MRI/LRI, remediação sequenciada por blast radius. Conduzido por Mila Vernazza, ex-AWS Solutions Architect.
   </p>
-  <p class="text-sm text-subtle mb-12">3-5 semanas · R$ 30-50k · Relatório executivo + remediation roadmap</p>
+  <p class="text-sm text-subtle mb-12">3-5 semanas · R$ 30-50k · Relatório executivo + roadmap de remediação priorizado por HRI</p>
   {% endif %}
 </section>
 {% include "_authority_strip.html" %}
@@ -73,6 +73,26 @@
       </select>
     </div>
     <div>
+      <label class="eyebrow block mb-2">Production AWS accounts count</label>
+      <select name="accounts_count" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select (optional)…</option>
+        <option value="1">1 production account</option>
+        <option value="2_5">2-5 accounts</option>
+        <option value="6_15">6-15 accounts</option>
+        <option value="16_plus">16+ accounts (Control Tower / Organizations)</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Most recent external audit or compliance review</label>
+      <select name="last_audit" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select (optional)…</option>
+        <option value="never">Never</option>
+        <option value="over_2y">More than 2 years ago</option>
+        <option value="1_2y">1-2 years ago</option>
+        <option value="under_1y">Less than 1 year ago</option>
+      </select>
+    </div>
+    <div>
       <label class="eyebrow block mb-2">Additional context (optional)</label>
       <textarea name="context" rows="3" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Specific trigger? (recent incident, external audit, migration, regulatory pressure...)"></textarea>
     </div>
@@ -120,6 +140,26 @@
         <option value="iot">IoT / Edge</option>
         <option value="enterprise">Enterprise internal apps</option>
         <option value="mixed">Mixed / multi-product</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Quantidade de accounts AWS em produção</label>
+      <select name="accounts_count" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione (opcional)…</option>
+        <option value="1">1 account de produção</option>
+        <option value="2_5">2-5 accounts</option>
+        <option value="6_15">6-15 accounts</option>
+        <option value="16_plus">16+ accounts (Control Tower / Organizations)</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Audit externo ou revisão de compliance mais recente</label>
+      <select name="last_audit" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione (opcional)…</option>
+        <option value="never">Nunca</option>
+        <option value="over_2y">Há mais de 2 anos</option>
+        <option value="1_2y">Entre 1 e 2 anos atrás</option>
+        <option value="under_1y">Há menos de 1 ano</option>
       </select>
     </div>
     <div>

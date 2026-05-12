@@ -2214,6 +2214,8 @@ class FinOpsAnalyzeForm(BaseModel):
     aws_spend: str
     main_pain: str
     aws_tenure: str
+    ri_coverage: Optional[str] = ""
+    cost_dominant: Optional[str] = ""
     context: Optional[str] = ""
 
 
@@ -2221,6 +2223,8 @@ def _build_finops_deliverable(form_data: dict, with_name: Optional[str] = None) 
     """Build the FinOps analysis HTML and metadata. Returns (analysis_meta, html)."""
     aws_spend = form_data.get("aws_spend", "")
     main_pain = form_data.get("main_pain", "")
+    ri_coverage = form_data.get("ri_coverage", "") or ""
+    cost_dominant = form_data.get("cost_dominant", "") or ""
     spend_label, spend_low, spend_annual_low = FINOPS_SPEND_TIERS.get(
         aws_spend, (aws_spend, 0, 0)
     )
@@ -2228,6 +2232,30 @@ def _build_finops_deliverable(form_data: dict, with_name: Optional[str] = None) 
     savings_low = int(spend_annual_low * 0.20) if is_fit else 0
     savings_high = int(spend_annual_low * 0.40) if is_fit else 0
     pain_insight = FINOPS_PAIN_INSIGHT.get(main_pain, "")
+
+    extra_blocks = []
+    if ri_coverage == "none":
+        extra_blocks.append("Cobertura RI/SP zero — fatura está 100% on-demand. Padrão observado: 15-25% de economia imediata só rebalanceando para Compute Savings Plan de 1 ano (sem fechar workload, sem fechar AZ).")
+    elif ri_coverage == "under_30":
+        extra_blocks.append("Cobertura RI/SP abaixo de 30% — tipicamente 8-15% de economia disponível só rebalanceando o portfolio existente, antes de qualquer mudança de arquitetura.")
+    elif ri_coverage == "above_60":
+        extra_blocks.append("Cobertura RI/SP acima de 60% — o ganho fácil de Reserved Instances já foi capturado. Audit foca em right-sizing, lifecycle de S3/EBS e otimização de data transfer.")
+    if cost_dominant == "compute_dominated":
+        extra_blocks.append("Compute-dominated: foco do audit em right-sizing (Compute Optimizer), Spot mix para workloads tolerantes a interrupção e Graviton onde aplicável (~20% de saving em arm64).")
+    elif cost_dominant == "storage_dominated":
+        extra_blocks.append("Storage-dominated: prioridade em S3 lifecycle, Intelligent-Tiering, EBS gp3 vs gp2, snapshots órfãos e RDS storage autoscaling. Padrão: 10-20% recuperáveis sem refactor.")
+    elif cost_dominant == "data_transfer_dominated":
+        extra_blocks.append("Data-transfer-heavy: foco em VPC Endpoints (eliminam NAT egress), CloudFront para tráfego público, cross-AZ traffic mapping e Direct Connect se on-prem hybrid. Costuma ser a categoria com maior surpresa pro CFO.")
+
+    extras_html = ""
+    if extra_blocks:
+        items = "".join(f'<li class="text-ink/80 leading-relaxed">{b}</li>' for b in extra_blocks)
+        extras_html = f"""
+  <div class="my-8">
+    <p class="eyebrow mb-3">Sinais específicos das suas respostas</p>
+    <ul class="space-y-3 text-sm list-disc list-inside">{items}</ul>
+  </div>
+"""
     greeting = f"Análise pronta, {with_name.split()[0]}." if with_name else "Análise pronta."
 
     if is_fit:
@@ -2247,7 +2275,7 @@ def _build_finops_deliverable(form_data: dict, with_name: Optional[str] = None) 
     <p class="eyebrow mb-3">Insight sobre sua dor declarada</p>
     <p class="text-ink/80 leading-relaxed">{pain_insight}</p>
   </div>
-
+{extras_html}
   <div class="rule"></div>
 
   <p class="text-xs text-subtle leading-relaxed">Esta pré-análise é orientativa baseada em padrões agregados. Audit completo individualiza pra sua realidade específica (workloads, configuração, tags, contratos AWS).</p>
@@ -2273,6 +2301,8 @@ def _build_finops_deliverable(form_data: dict, with_name: Optional[str] = None) 
         "savings_estimate_low": savings_low,
         "savings_estimate_high": savings_high,
         "spend_label": spend_label,
+        "ri_coverage": ri_coverage,
+        "cost_dominant": cost_dominant,
     }
     return meta, html
 
@@ -2287,6 +2317,8 @@ async def api_finops_audit_analyze(form: FinOpsAnalyzeForm, request: Request):
         "aws_spend": form.aws_spend,
         "main_pain": form.main_pain,
         "aws_tenure": form.aws_tenure,
+        "ri_coverage": form.ri_coverage or "",
+        "cost_dominant": form.cost_dominant or "",
         "context": form.context or "",
         **analysis_meta,
     }
@@ -2353,13 +2385,37 @@ class WAAnalyzeForm(BaseModel):
     role: str
     focus: str
     workload: str
+    accounts_count: Optional[str] = ""
+    last_audit: Optional[str] = ""
     context: Optional[str] = ""
 
 
 def _build_wa_deliverable(form_data: dict, with_name: Optional[str] = None) -> tuple[dict, str]:
     focus = form_data.get("focus", "")
     workload = form_data.get("workload", "")
+    accounts_count = form_data.get("accounts_count", "") or ""
+    last_audit = form_data.get("last_audit", "") or ""
     focus_insight = WA_FOCUS_INSIGHT.get(focus, "")
+
+    extra_blocks = []
+    if accounts_count == "1":
+        extra_blocks.append("Single production account — Security pillar gap likely significant: no blast-radius isolation entre dev/prod, IAM permissions com escopo amplo. WA Review tipicamente recomenda Control Tower / Organizations como remediação HRI.")
+    elif accounts_count in ("6_15", "16_plus"):
+        extra_blocks.append(f"{accounts_count.replace('_', '-')} accounts — escopo do review inclui Control Tower posture, SCPs IAM, cross-account roles e log aggregation no audit account. Reliability gains via account separation já estão capturados; foco maior em standardization.")
+    if last_audit == "never":
+        extra_blocks.append("Nenhum audit externo registrado — o relatório vai funcionar também como baseline auditável para discussões posteriores com SOC 2, ISO 27001 ou regulador setorial.")
+    elif last_audit == "over_2y":
+        extra_blocks.append("Último audit há mais de 2 anos — drift de configuração é significativo. WA Review típico encontra 8-15 findings HRI nesse cenário, sendo 60% em Security e 25% em Reliability.")
+
+    extras_html = ""
+    if extra_blocks:
+        items = "".join(f'<li class="text-ink/80 leading-relaxed">{b}</li>' for b in extra_blocks)
+        extras_html = f"""
+  <div class="my-8">
+    <p class="eyebrow mb-3">Sinais específicos das suas respostas</p>
+    <ul class="space-y-3 text-sm list-disc list-inside">{items}</ul>
+  </div>
+"""
     greeting = f"Análise pronta, {with_name.split()[0]}." if with_name else "Análise pronta."
     html = f"""
 <div class="card p-8 md:p-10">
@@ -2373,15 +2429,15 @@ def _build_wa_deliverable(form_data: dict, with_name: Optional[str] = None) -> t
 
   <div class="my-8 p-6 bg-paper border border-rule">
     <p class="eyebrow mb-3">O que o WA Review entrega</p>
-    <p class="text-ink/80 leading-relaxed mb-3">Avaliação técnica nos 6 pilares AWS (Security, Reliability, Performance, Cost, Operational Excellence, Sustainability) com gap analysis específico para seu workload ({workload or 'não informado'}). Saída: relatório executivo + remediação priorizada por effort/impact.</p>
+    <p class="text-ink/80 leading-relaxed mb-3">Avaliação técnica nos 6 pilares AWS (Security, Reliability, Performance, Cost, Operational Excellence, Sustainability) com gap analysis específico para seu workload ({workload or 'não informado'}). Saída: relatório executivo com findings HRI/MRI/LRI e roadmap de remediação sequenciado por blast radius.</p>
   </div>
-
+{extras_html}
   <div class="rule"></div>
 
-  <p class="text-xs text-subtle leading-relaxed">AWS Well-Architected Review da Anuvia é executado por ex-AWS Solutions Architect (15+ certs). 3-5 semanas, R$ 30-50k.</p>
+  <p class="text-xs text-subtle leading-relaxed">AWS Well-Architected Review da Anuvia é conduzido por Mila Vernazza, ex-AWS Solutions Architect com 15× certificações ativas. 3-5 semanas, R$ 30-50k.</p>
 </div>
 """.strip()
-    return {"focus": focus, "workload": workload}, html
+    return {"focus": focus, "workload": workload, "accounts_count": accounts_count, "last_audit": last_audit}, html
 
 
 @app.post("/api/aws-well-architected/analyze")
@@ -2392,6 +2448,8 @@ async def api_aws_wa_analyze(form: WAAnalyzeForm, request: Request):
         "role": form.role,
         "focus": form.focus,
         "workload": form.workload,
+        "accounts_count": form.accounts_count or "",
+        "last_audit": form.last_audit or "",
         "context": form.context or "",
         **analysis_meta,
     }
@@ -2449,14 +2507,36 @@ class DevOpsAnalyzeForm(BaseModel):
     deploy_freq: str
     main_pain: str
     stack: Optional[str] = ""
+    mttr: Optional[str] = ""
     context: Optional[str] = ""
 
 
 def _build_devops_deliverable(form_data: dict, with_name: Optional[str] = None) -> tuple[dict, str]:
     deploy_freq = form_data.get("deploy_freq", "")
     main_pain = form_data.get("main_pain", "")
+    mttr = form_data.get("mttr", "") or ""
     level, level_insight = DORA_LEVEL.get(deploy_freq, ("?", ""))
     pain_insight = DEVOPS_PAIN_INSIGHT.get(main_pain, "")
+
+    extra_blocks = []
+    if mttr == "above_8h":
+        extra_blocks.append("MTTR acima de 8h coloca o time abaixo do Medium DORA. Causa raiz típica: ausência de runbook documentado, observability limitada a CloudWatch dashboards (sem traces), ownership difuso. Assessment vai detalhar essas três frentes.")
+    elif mttr == "2h_8h":
+        extra_blocks.append("MTTR entre 2-8h é compatível com DORA Medium. Geralmente há observability mas sem distributed tracing — o tempo de descoberta domina o tempo de mitigação. Ganho típico de 40-60% em MTTR ao introduzir OpenTelemetry com sampling adequado.")
+    elif mttr == "dont_track":
+        extra_blocks.append("MTTR não medido é o gap mais comum (DORA 2023 reporta ~35% dos times nessa situação). O assessment vai instrumentar a coleta a partir do paging system + incident tracker — em 2-3 semanas você tem baseline real.")
+    elif mttr == "under_30min":
+        extra_blocks.append("MTTR sub-30min indica investimento em observability e runbooks já consolidado. Assessment vai focar nos outros 3 vetores DORA (lead time, change failure rate, deploy frequency) e na sustentabilidade do on-call.")
+
+    extras_html = ""
+    if extra_blocks:
+        items = "".join(f'<li class="text-ink/80 leading-relaxed">{b}</li>' for b in extra_blocks)
+        extras_html = f"""
+  <div class="my-8">
+    <p class="eyebrow mb-3">Sinal específico do MTTR informado</p>
+    <ul class="space-y-3 text-sm list-disc list-inside">{items}</ul>
+  </div>
+"""
     greeting = f"Análise pronta, {with_name.split()[0]}." if with_name else "Análise pronta."
     html = f"""
 <div class="card p-8 md:p-10">
@@ -2473,13 +2553,13 @@ def _build_devops_deliverable(form_data: dict, with_name: Optional[str] = None) 
     <p class="eyebrow mb-3">Sobre sua dor principal</p>
     <p class="text-ink/80 leading-relaxed">{pain_insight}</p>
   </div>
-
+{extras_html}
   <div class="rule"></div>
 
-  <p class="text-xs text-subtle leading-relaxed">DevOps Maturity Assessment: 4 semanas, R$ 35-50k. Entrega DORA baseline + gap analysis + 6-month roadmap.</p>
+  <p class="text-xs text-subtle leading-relaxed">DevOps Maturity Assessment: 4 semanas, R$ 35-50k. Entrega DORA baseline medido a partir dos seus próprios artefatos (CI logs, git, paging, incident tracker) + gap analysis + 6-month roadmap.</p>
 </div>
 """.strip()
-    return {"dora_level": level, "deploy_freq": deploy_freq, "main_pain": main_pain}, html
+    return {"dora_level": level, "deploy_freq": deploy_freq, "main_pain": main_pain, "mttr": mttr}, html
 
 
 @app.post("/api/devops-maturity/analyze")
@@ -2492,6 +2572,7 @@ async def api_devops_analyze(form: DevOpsAnalyzeForm, request: Request):
         "deploy_freq": form.deploy_freq,
         "main_pain": form.main_pain,
         "stack": form.stack or "",
+        "mttr": form.mttr or "",
         "context": form.context or "",
         **analysis_meta,
     }
@@ -2548,6 +2629,8 @@ class AIReadinessAnalyzeForm(BaseModel):
     ai_stage: str
     main_pain: str
     revenue_tier: str
+    data_readiness: Optional[str] = ""
+    build_vs_buy: Optional[str] = ""
     context: Optional[str] = ""
 
 
@@ -2555,9 +2638,33 @@ def _build_ai_readiness_deliverable(form_data: dict, with_name: Optional[str] = 
     ai_stage = form_data.get("ai_stage", "")
     main_pain = form_data.get("main_pain", "")
     revenue_tier = form_data.get("revenue_tier", "")
+    data_readiness = form_data.get("data_readiness", "") or ""
+    build_vs_buy = form_data.get("build_vs_buy", "") or ""
     stage_insight = AI_STAGE_INSIGHT.get(ai_stage, "")
     pain_insight = AI_PAIN_INSIGHT.get(main_pain, "")
     is_fit = revenue_tier in ("5m_30m", "30m_100m", "100m_plus")
+
+    extra_blocks = []
+    if data_readiness == "no_data_yet":
+        extra_blocks.append("Sem dado de produção ainda — o primeiro caso de IA precisa ser, na prática, um caso de captura/instrumentação. Sprint vai marcar isso como pré-condição e priorizar use cases que toleram cold-start (RAG sobre documentos já existentes, classificação por few-shot).")
+    elif data_readiness == "data_distributed_partial_quality":
+        extra_blocks.append("Dado distribuído com qualidade parcial é o gap mais comum — 60-70% do esforço de um caso típico vira preparação de dado, não modelagem. Sprint vai escopar isso explicitamente no ROI por caso.")
+    elif data_readiness == "data_clean_centralized":
+        extra_blocks.append("Dado limpo e centralizado: pré-condição satisfeita. Sprint foca em selecionar use cases que aproveitam essa vantagem (RAG, classificação supervisionada, agentes com tool-use).")
+    if build_vs_buy == "prefer_build":
+        extra_blocks.append("Preferência por build interno: Sprint vai pesar TCO em 12 meses contra opções SaaS-equivalentes. Em ~40% dos casos, build acaba justificado por dado proprietário ou compliance; nos demais 60%, buy de SaaS especializado bate em ROI.")
+    elif build_vs_buy == "prefer_buy":
+        extra_blocks.append("Preferência por buy: Sprint vai listar SaaS aplicáveis por caso, com pesos para vendor lock-in, exportabilidade de dado e compliance. Buy ainda é a chamada certa em ~60% dos casos genéricos, mas use cases vertical-específicos costumam exigir build.")
+
+    extras_html = ""
+    if extra_blocks:
+        items = "".join(f'<li class="text-ink/80 leading-relaxed">{b}</li>' for b in extra_blocks)
+        extras_html = f"""
+  <div class="my-8">
+    <p class="eyebrow mb-3">Sinais das suas respostas</p>
+    <ul class="space-y-3 text-sm list-disc list-inside">{items}</ul>
+  </div>
+"""
     greeting = f"Análise pronta, {with_name.split()[0]}." if with_name else "Análise pronta."
     if is_fit:
         html = f"""
@@ -2574,10 +2681,10 @@ def _build_ai_readiness_deliverable(form_data: dict, with_name: Optional[str] = 
     <p class="eyebrow mb-3">Sobre sua dor principal</p>
     <p class="text-ink/80 leading-relaxed">{pain_insight}</p>
   </div>
-
+{extras_html}
   <div class="rule"></div>
 
-  <p class="text-xs text-subtle leading-relaxed">AI Readiness Sprint: 2-3 semanas, R$ 25-40k. Entrega inventário de use cases + ROI estimado + roadmap 12 meses + decisão build vs buy.</p>
+  <p class="text-xs text-subtle leading-relaxed">AI Readiness Sprint: 2-3 semanas, R$ 25-40k. Entrega inventário de 8-15 use cases pontuados (data readiness, custo de inferência, latência, compliance) + ROI estimado + roadmap 12 meses + decisão build vs buy por caso.</p>
 </div>
 """.strip()
     else:
@@ -2594,7 +2701,14 @@ def _build_ai_readiness_deliverable(form_data: dict, with_name: Optional[str] = 
   </ul>
 </div>
 """.strip()
-    return {"ai_stage": ai_stage, "main_pain": main_pain, "revenue_tier": revenue_tier, "is_fit": is_fit}, html
+    return {
+        "ai_stage": ai_stage,
+        "main_pain": main_pain,
+        "revenue_tier": revenue_tier,
+        "is_fit": is_fit,
+        "data_readiness": data_readiness,
+        "build_vs_buy": build_vs_buy,
+    }, html
 
 
 @app.post("/api/ai-readiness/analyze")
@@ -2606,6 +2720,8 @@ async def api_ai_readiness_analyze(form: AIReadinessAnalyzeForm, request: Reques
         "ai_stage": form.ai_stage,
         "main_pain": form.main_pain,
         "revenue_tier": form.revenue_tier,
+        "data_readiness": form.data_readiness or "",
+        "build_vs_buy": form.build_vs_buy or "",
         "context": form.context or "",
         **analysis_meta,
     }
@@ -2666,14 +2782,38 @@ class GrowthAnalyzeForm(BaseModel):
     team_size: str
     ticket_size: str
     main_pain: str
+    crm: Optional[str] = ""
+    sales_cycle: Optional[str] = ""
     context: Optional[str] = ""
 
 
 def _build_growth_deliverable(form_data: dict, with_name: Optional[str] = None) -> tuple[dict, str]:
     ticket_size = form_data.get("ticket_size", "")
     main_pain = form_data.get("main_pain", "")
+    crm = form_data.get("crm", "") or ""
+    sales_cycle = form_data.get("sales_cycle", "") or ""
     pain_insight = SALESOPS_PAIN_INSIGHT.get(main_pain, "")
     is_fit = ticket_size in ("5k_25k", "25k_100k", "100k_plus")
+
+    extra_blocks = []
+    if crm == "spreadsheet" or crm == "none":
+        extra_blocks.append("Operação sem CRM real: o primeiro entregável do Diagnostic vai incluir uma recomendação de CRM compatível com seu ticket e ciclo. Saltar essa etapa torna a maioria das automações posteriores frágil.")
+    elif crm in ("hubspot", "salesforce", "pipedrive", "rd_station"):
+        extra_blocks.append(f"CRM {crm.replace('_', ' ').title()} em uso: Diagnostic auditará pipeline stages, automação nativa não-aproveitada e qualidade dos dados de qualified-stage. Padrão típico: ~40% dos campos de qualificação não preenchidos consistentemente.")
+    if sales_cycle == "under_30d":
+        extra_blocks.append("Ciclo curto (sub-30 dias): tempo de resposta domina conversão. SLA mensurado por canal (form, WhatsApp, indicação) é a métrica mais alavancável — automação de qualificação inicial tem ROI mais alto que automação de follow-up tardio.")
+    elif sales_cycle == "above_180d":
+        extra_blocks.append("Ciclo longo (acima de 180 dias): nurture e attribution dominam. Lead leakage entre touchpoints é a principal causa de drop. Diagnostic vai mapear gaps de handoff e SLA por estágio, não só por canal de entrada.")
+
+    extras_html = ""
+    if extra_blocks:
+        items = "".join(f'<li class="text-ink/80 leading-relaxed">{b}</li>' for b in extra_blocks)
+        extras_html = f"""
+  <div class="my-8">
+    <p class="eyebrow mb-3">Sinais das suas respostas</p>
+    <ul class="space-y-3 text-sm list-disc list-inside">{items}</ul>
+  </div>
+"""
     greeting = f"Análise pronta, {with_name.split()[0]}." if with_name else "Análise pronta."
     if is_fit:
         html = f"""
@@ -2685,7 +2825,7 @@ def _build_growth_deliverable(form_data: dict, with_name: Optional[str] = None) 
     <p class="eyebrow mb-3">Sobre sua dor declarada</p>
     <p class="text-ink/80 leading-relaxed">{pain_insight}</p>
   </div>
-
+{extras_html}
   <div class="rule"></div>
 
   <p class="text-xs text-subtle leading-relaxed">Sales Ops Diagnostic: 2 semanas, R$ 15-25k. Entrega funnel map + automation playbook + roadmap 90 dias.</p>
@@ -2705,7 +2845,13 @@ def _build_growth_deliverable(form_data: dict, with_name: Optional[str] = None) 
   </ul>
 </div>
 """.strip()
-    return {"ticket_size": ticket_size, "main_pain": main_pain, "is_fit": is_fit}, html
+    return {
+        "ticket_size": ticket_size,
+        "main_pain": main_pain,
+        "is_fit": is_fit,
+        "crm": crm,
+        "sales_cycle": sales_cycle,
+    }, html
 
 
 @app.post("/api/growth-sales-ops/analyze")
@@ -2717,6 +2863,8 @@ async def api_growth_analyze(form: GrowthAnalyzeForm, request: Request):
         "team_size": form.team_size,
         "ticket_size": form.ticket_size,
         "main_pain": form.main_pain,
+        "crm": form.crm or "",
+        "sales_cycle": form.sales_cycle or "",
         "context": form.context or "",
         **analysis_meta,
     }
@@ -2762,6 +2910,254 @@ async def api_growth_contact(form: DiagContactForm):
             extra_lines=[
                 f"Ticket: {meta.get('ticket_size', '?')}  ·  Dor: {meta.get('main_pain', '?')}",
                 f"Fit: {'yes' if is_fit else 'no'}",
+            ],
+        )
+    return JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+
+
+# ----------------------------------------------------------------------------
+# Industry Assessment — vertical playbook fit diagnostic
+# ----------------------------------------------------------------------------
+
+INDUSTRY_VERTICAL_INSIGHT = {
+    "manufacturing": {
+        "label": "Manufacturing",
+        "playbook": "Manufatura tem playbook consolidado: predictive maintenance a partir de streams existentes de PLC/sensor, integração MES/ERP, dashboards de OEE, inspeção de qualidade por visão computacional.",
+        "preconditions": "ROI alto exige (a) histórico de falha por ativo de pelo menos 12 meses, (b) CMMS já operando e (c) capacidade de gerar OT/work-order automaticamente. Sem essas três pré-condições, ROI cai rapidamente.",
+        "compliance": "Compliance setorial baixo — quando aplicável, costuma ser ISO 9001/14001 e LGPD para dado de operador. Não bloqueia engagement.",
+        "depth": "Profundo. Anuvia tem reference architecture, code skeletons para integração OPC-UA / Modbus, e dashboards OEE pré-montados.",
+    },
+    "logistics": {
+        "label": "Logistics &amp; supply chain",
+        "playbook": "Logística tem playbook em telemetria offline-first com fallback satelital, ML para otimização de rota/ETA, e last-mile tracking. Stack típica: edge devices com SQLite local + sync incremental, ML hosted em SageMaker.",
+        "preconditions": "ROI alto exige diversidade real de rota (mix rural/urbano), volume de >50 veículos OU >5k pacotes/dia, e dado histórico de entregas com timestamp e geolocalização confiável.",
+        "compliance": "LGPD para dado de motorista e cliente. Baixo bloqueio regulatório operacional.",
+        "depth": "Médio-alto. Telemetria edge é o componente mais reutilizável; otimização de rota costuma exigir adaptação significativa ao contexto.",
+    },
+    "healthcare": {
+        "label": "Healthcare provider",
+        "playbook": "Healthcare provider tem playbook em assistentes de documentação clínica (reduzem tempo de documentação por consulta), RAG sobre protocolos institucionais, e triagem em intake. Tudo com auditabilidade por consulta.",
+        "preconditions": "ROI alto exige acesso a EHR/prontuário eletrônico, fluxo de intake bem definido, e patrocínio médico forte (não só TI). Sem médico campeão, projeto perde tração rápido.",
+        "compliance": "LGPD-saúde, CFM 2.314/2022, regulamentação ANS aplicável. Anuvia entrega controles desde a arquitetura — não retrofitados sob pressão de auditoria.",
+        "depth": "Médio-alto. Documentação clínica é altamente reutilizável; integração com EHR varia muito por fornecedor (TASY, MV, Philips).",
+    },
+    "life_sciences": {
+        "label": "Life Sciences (pharma / biotech)",
+        "playbook": "Life Sciences tem playbook em automação de SOPs, drafting de documentação regulatória (CTD modules, IND/IMPD sections), e recuperação estruturada sobre literatura técnica. GxP é tratado como pré-requisito, não opcional.",
+        "preconditions": "ROI alto exige governança documental já estruturada, departamento regulatório com bandwidth para revisar drafts, e patrocínio executivo. Sem isso, ferramenta vira shelfware.",
+        "compliance": "GxP (GMP, GLP, GCP), ANVISA RDC aplicáveis, FDA 21 CFR Part 11 quando exportador. Anuvia entrega validation package — artefatos IQ/OQ/PQ — bundled com a solução.",
+        "depth": "Profundo. Reuso significativo de SOPs e templates regulatórios entre clientes; vertical mais codificada da Anuvia.",
+    },
+    "finserv": {
+        "label": "Financial services",
+        "playbook": "FinServ tem playbook em detecção de fraude em tempo real, monitoramento AML, onboarding KYC, e RAG sobre normativos (BACEN, CVM, ANBIMA). Latência sub-segundo é tratada como requisito de arquitetura.",
+        "preconditions": "ROI alto exige stream de transações com campos de identidade confiáveis, histórico de fraude para treino, e área de compliance disposta a co-validar modelos. Sem dado rotulado de fraude, fica-se em rule-based.",
+        "compliance": "BACEN Res. 4.658 (cibersegurança), LGPD, SOC 2 quando aplicável, regulamentações específicas para fintechs. Controles alinhados desde a arquitetura.",
+        "depth": "Médio-alto. Fraude/AML reutiliza muito; KYC depende fortemente de integração com bureaus específicos do mercado.",
+    },
+    "other": {
+        "label": "Other vertical",
+        "playbook": "Vertical fora dos cinco playbooks consolidados (manufatura, logística, healthcare, Life Sciences, FinServ). Engagement seria construído como projeto bespoke de Anuvia AI Engineering — sem reuso de kit pré-pronto.",
+        "preconditions": "Pré-condições gerais: dado proprietário relevante, caso de uso medível, patrocínio executivo e budget para production-grade.",
+        "compliance": "Avaliado caso a caso.",
+        "depth": "Sem profundidade vertical pré-acumulada. Ticket tende a ser maior pelo trabalho extra de discovery e desenho.",
+    },
+}
+
+
+INDUSTRY_PAIN_INSIGHT = {
+    "unplanned_downtime": "Downtime não planejado é o caso mais maduro de predictive maintenance — ganhos típicos de 10-25% em availability quando pré-condições estão no lugar. Quando não estão, projeto fica em 0% e vira shelfware.",
+    "quality_inspection": "Inspeção por visão computacional tem ROI rápido em linhas de produção com defeito visível e cadência alta. Para defeitos sub-visuais (térmicos, ultrassom), o ROI exige sensoreamento adicional antes do modelo.",
+    "supply_visibility": "Visibilidade de supply chain costuma ter retorno alto em controle de ruptura e SLA com cliente. Pré-requisito: integração de dado dos parceiros logísticos — geralmente o gargalo, não o modelo.",
+    "route_optimization": "Otimização de rota com ML costuma trazer 8-15% de redução em distância/tempo sobre baseline manual. ROI fica abaixo disso em frota pequena (<30 veículos) ou rotas muito uniformes.",
+    "document_processing": "Processamento documental é o caso de uso mais transversal e com tempo-de-valor mais curto. RAG + extração estruturada típica reduz tempo de processamento em 60-80%.",
+    "clinical_documentation": "Documentação clínica é o caso de IA mais alavancável em healthcare provider — reduz tempo médico por consulta em 30-50% quando integrado nativamente ao EHR. Sem integração, vira ferramenta paralela e adoção colapsa.",
+    "regulatory_reporting": "Reporte regulatório (GxP, BACEN, ANVISA) tem ROI muito alto onde há volume e linguagem padronizada. Pré-requisito é governança documental já estruturada, senão entrega documento que ninguém audita.",
+    "fraud_aml": "Detecção de fraude/AML é o caso mais maduro de ML em FinServ. ROI exige dado de fraude rotulado historicamente (volume e qualidade) — sem isso, fica em rule-based augmentado, não em ML supervisionado real.",
+    "kyc_onboarding": "KYC automation reduz tempo de onboarding em 60-80% quando integrado a bureaus já contratados. Sem essa integração, ganho colapsa para 20-30%.",
+    "other": "Pain descrita como 'outra' — Sprint vai escopar o caso individualmente antes de qualquer estimativa de ROI. Próximo passo é a conversa de 30 minutos.",
+}
+
+
+INDUSTRY_SIZE_TICKET = {
+    "under_100m": ("Below R$100M / Below $20M", "R$ 60-120k pilot, R$ 5-12k/month ongoing", "$12-24k pilot, $1-2.4k/month"),
+    "100m_500m": ("R$100M-500M / $20M-100M", "R$ 100-250k pilot, R$ 8-15k/month ongoing", "$20-50k pilot, $1.5-3k/month"),
+    "500m_2b": ("R$500M-2B / $100M-400M", "R$ 200-400k pilot, R$ 12-25k/month ongoing", "$40-80k pilot, $2.5-5k/month"),
+    "above_2b": ("Above R$2B / Above $400M", "R$ 300-600k pilot, R$ 20-40k/month ongoing", "$60-120k pilot, $4-8k/month"),
+}
+
+
+class IndustryAnalyzeForm(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    role: str
+    vertical: str
+    company_size: str
+    ai_maturity: str
+    main_pain: str
+    compliance: Optional[str] = ""
+    context: Optional[str] = ""
+
+
+def _build_industry_deliverable(form_data: dict, with_name: Optional[str] = None) -> tuple[dict, str]:
+    vertical = form_data.get("vertical", "")
+    company_size = form_data.get("company_size", "")
+    ai_maturity = form_data.get("ai_maturity", "")
+    main_pain = form_data.get("main_pain", "")
+    compliance = (form_data.get("compliance", "") or "").strip()
+
+    vinfo = INDUSTRY_VERTICAL_INSIGHT.get(vertical, INDUSTRY_VERTICAL_INSIGHT["other"])
+    pain_insight = INDUSTRY_PAIN_INSIGHT.get(main_pain, "")
+    size_label, ticket_brl, ticket_usd = INDUSTRY_SIZE_TICKET.get(
+        company_size, (company_size, "Custom-quoted", "Custom-quoted")
+    )
+
+    maturity_note = ""
+    if ai_maturity == "none":
+        maturity_note = "Maturidade IA inicial — recomendação típica é AI Readiness Sprint (R$ 25-40k, 2-3 semanas) antes do pilot vertical, para escolher o caso de melhor ROI baseado em dados do seu ambiente."
+    elif ai_maturity == "exploring":
+        maturity_note = "PoCs rodando mas nada em produção — gap típico está em eval harness, rollback procedure e cost cap. O pilot vertical da Anuvia já entra com esses três elementos na arquitetura."
+    elif ai_maturity == "early_prod":
+        maturity_note = "1-2 casos em produção — pronto para escalar com novo vertical, desde que governança e monitoring existentes possam absorver. Diagnostic vai validar antes de propor pilot."
+    elif ai_maturity == "scaling":
+        maturity_note = "Múltiplos casos em produção — engagement com Anuvia faz mais sentido em modo retainer ou platform-engineering, não em pilot isolado. Conversa de 30 min vai calibrar isso."
+    elif ai_maturity == "mature":
+        maturity_note = "Operação madura com time ML/IA interno — Anuvia entra como advisory ou em casos específicos que demandem profundidade vertical que time interno não cobre."
+
+    is_fit_vertical = vertical != "other"
+    fit_signal = "Vertical com playbook acumulado" if is_fit_vertical else "Vertical fora dos cinco playbooks consolidados — engagement seria bespoke"
+
+    compliance_html = ""
+    if compliance:
+        compliance_html = f"""
+  <div class="my-8">
+    <p class="eyebrow mb-3">Ambiente de compliance que você indicou</p>
+    <p class="text-ink/80 leading-relaxed">{compliance[:200]}</p>
+    <p class="text-sm text-ink/70 leading-relaxed mt-3">{vinfo['compliance']}</p>
+  </div>
+"""
+    else:
+        compliance_html = f"""
+  <div class="my-8">
+    <p class="eyebrow mb-3">Compliance típica desta vertical</p>
+    <p class="text-ink/80 leading-relaxed">{vinfo['compliance']}</p>
+  </div>
+"""
+
+    greeting = f"Análise pronta, {with_name.split()[0]}." if with_name else "Análise pronta."
+
+    html = f"""
+<div class="card p-8 md:p-10">
+  <p class="eyebrow mb-4">Pré-análise vertical · gerada agora</p>
+  <p class="h-serif text-4xl mb-6 leading-tight">{greeting}</p>
+
+  <div class="my-8 p-6 bg-paper border border-rule">
+    <p class="eyebrow mb-3">Fit com playbook vertical</p>
+    <p class="h-serif text-2xl mb-3">{vinfo['label']}</p>
+    <p class="text-sm text-ink/70 leading-relaxed mb-3">{fit_signal}. Profundidade: {vinfo['depth']}</p>
+    <p class="text-ink/80 leading-relaxed">{vinfo['playbook']}</p>
+  </div>
+
+  <div class="my-8">
+    <p class="eyebrow mb-3">Pré-condições de ROI para sua vertical</p>
+    <p class="text-ink/80 leading-relaxed">{vinfo['preconditions']}</p>
+  </div>
+
+  <div class="my-8">
+    <p class="eyebrow mb-3">Sobre sua dor primária</p>
+    <p class="text-ink/80 leading-relaxed">{pain_insight}</p>
+  </div>
+{compliance_html}
+  <div class="my-8 p-6 bg-paper border border-rule">
+    <p class="eyebrow mb-3">Ticket estimado para sua faixa ({size_label})</p>
+    <p class="text-ink/80 leading-relaxed">{ticket_brl}</p>
+    <p class="text-xs text-subtle mt-3">Faixa observada em engagements anteriores; cotação real depende de escopo definido no Sprint.</p>
+  </div>
+
+  <div class="my-8">
+    <p class="eyebrow mb-3">Sobre sua maturidade atual</p>
+    <p class="text-ink/80 leading-relaxed">{maturity_note}</p>
+  </div>
+
+  <div class="rule"></div>
+
+  <p class="text-xs text-subtle leading-relaxed">Industry Assessment é gratuito e orientativo. Próximo passo típico é AI Readiness Sprint (R$ 25-40k) ou pilot vertical direto (4-6 semanas), conforme o sinal acima.</p>
+</div>
+""".strip()
+
+    meta = {
+        "vertical": vertical,
+        "vertical_label": vinfo["label"],
+        "company_size": company_size,
+        "ai_maturity": ai_maturity,
+        "main_pain": main_pain,
+        "compliance": compliance,
+        "is_fit": is_fit_vertical,
+        "ticket_estimate_brl": ticket_brl,
+        "ticket_estimate_usd": ticket_usd,
+    }
+    return meta, html
+
+
+@app.get("/industry/diagnostic", response_class=HTMLResponse)
+async def lp_industry_assessment(request: Request):
+    return templates.TemplateResponse("industry_assessment.html", tpl_ctx(request))
+
+
+@app.post("/api/industry-assessment/analyze")
+async def api_industry_analyze(form: IndustryAnalyzeForm, request: Request):
+    form_data = form.model_dump()
+    analysis_meta, html = _build_industry_deliverable(form_data)
+    business_meta = {
+        "role": form.role,
+        "vertical": form.vertical,
+        "company_size": form.company_size,
+        "ai_maturity": form.ai_maturity,
+        "main_pain": form.main_pain,
+        "compliance": form.compliance or "",
+        "context": form.context or "",
+        **analysis_meta,
+    }
+    async with httpx.AsyncClient(timeout=15) as client:
+        lead_id = await _create_anonymous_diag_lead(
+            client,
+            funnel_id=f"{get_locale(request)['market']}_INDUSTRY",
+            source="lp_industry_assessment",
+            diag_type="industry_assessment",
+            market=get_locale(request)["market"],
+            language=get_locale(request)["lang_full"],
+            business_meta=business_meta,
+            deliverable_html=html,
+            tags=["lp_industry_assessment", "br_industry"],
+        )
+    return JSONResponse({"ok": True, "lead_id": lead_id, "html": html, "is_fit": analysis_meta["is_fit"]})
+
+
+@app.post("/api/industry-assessment/contact")
+async def api_industry_contact(form: DiagContactForm):
+    async with httpx.AsyncClient(timeout=20) as client:
+        try:
+            r = await client.get(
+                f"{SUPA_URL}/leads?id=eq.{form.lead_id}&select=qualification_data",
+                headers=SUPA_HEADERS,
+            )
+            rows = r.json() if r.status_code == 200 else []
+            meta = rows[0].get("qualification_data", {}) if rows else {}
+        except Exception:
+            meta = {}
+        _, deliverable_html = _build_industry_deliverable(meta, with_name=form.name)
+        ok_upgrade = await _upgrade_lead_with_contact(
+            client, form.lead_id, form.name, form.email, form.whatsapp, form.company
+        )
+        first = form.name.split()[0]
+        subject = f"Industry Assessment — pré-análise pra {first}"
+        email_sent = await _send_diag_report_email(
+            client, form.name, form.email, "Industry", subject, deliverable_html
+        )
+        await _notify_slack_diag(
+            client, "Industry Assessment", form.name, form.email, form.whatsapp, form.company,
+            extra_lines=[
+                f"Vertical: {meta.get('vertical_label', meta.get('vertical', '?'))}  ·  Size: {meta.get('company_size', '?')}",
+                f"AI maturity: {meta.get('ai_maturity', '?')}  ·  Main pain: {meta.get('main_pain', '?')}",
             ],
         )
     return JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})

@@ -7,7 +7,7 @@
   <p class="eyebrow mb-6">Anuvia · Practices · 02</p>
   <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">Anuvia Engineering</h1>
   <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-12">
-    DevOps, SRE, observability, IoT/Edge. Platforms that hold under real load, deploys that don't wake anyone at 3am, observability from day one.
+    DevOps, SRE and platform engineering for teams of 10-200 engineers running production workloads on AWS. DORA-based maturity assessments, EKS / ECS migrations with ArgoCD or Flux GitOps, OpenTelemetry observability, SLO/error-budget practice build.
   </p>
   <div class="flex flex-col sm:flex-row gap-4">
     <a href="/engineering/devops/maturity" class="btn-primary text-base inline-block">DevOps Maturity Assessment</a>
@@ -17,7 +17,7 @@
   <p class="eyebrow mb-6">Anuvia · Práticas · 02</p>
   <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">Anuvia Engineering</h1>
   <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-12">
-    DevOps, SRE, observability, IoT/Edge. Plataformas que aguentam carga real, deploys que não acordam ninguém às 3am, observability desde dia 1.
+    DevOps, SRE e platform engineering para times de 10-200 engenheiros operando workloads em produção na AWS. Assessments DORA, migrations EKS / ECS com GitOps ArgoCD ou Flux, observability OpenTelemetry, build da prática SLO/error-budget.
   </p>
   <div class="flex flex-col sm:flex-row gap-4">
     <a href="/engineering/devops/maturity" class="btn-primary text-base inline-block">DevOps Maturity Assessment</a>
@@ -36,13 +36,13 @@
       {% if lang == 'en' %}
       <p class="eyebrow mb-4">Anchor offering</p>
       <h2 class="h-serif text-4xl mb-6 leading-tight">DevOps Maturity<br>Assessment</h2>
-      <p class="text-ink/70 leading-relaxed mb-8">A 4-week audit of the current DevOps state: deploy frequency, MTTR, change failure rate, lead time. Benchmark vs. high-performers (DORA metrics) and prioritized roadmap.</p>
-      <a href="/engineering/devops/maturity" class="btn-primary text-sm inline-block">Request the assessment</a>
+      <p class="text-ink/70 leading-relaxed mb-8">Four weeks measuring the four DORA metrics from real artifacts: deploy frequency from your CI logs, lead time from git history, change failure rate from your incident tracker, MTTR from your on-call paging system. Output: benchmarked report against DORA 2023 Elite/High thresholds, gap analysis, and a 6-month roadmap sequenced by team capacity.</p>
+      <a href="/engineering/devops/maturity" class="btn-primary text-sm inline-block">Take the assessment</a>
       {% else %}
       <p class="eyebrow mb-4">Anchor offering</p>
       <h2 class="h-serif text-4xl mb-6 leading-tight">DevOps Maturity<br>Assessment</h2>
-      <p class="text-ink/70 leading-relaxed mb-8">Audit de 4 semanas no estado atual de DevOps: deploy frequency, MTTR, change failure rate, lead time. Benchmark vs. high-performers (DORA metrics) e roadmap priorizado.</p>
-      <a href="/engineering/devops/maturity" class="btn-primary text-sm inline-block">Solicitar assessment</a>
+      <p class="text-ink/70 leading-relaxed mb-8">Quatro semanas medindo as quatro métricas DORA a partir de artefatos reais: deploy frequency dos logs do CI, lead time do histórico do git, change failure rate do incident tracker, MTTR do sistema de paging do on-call. Saída: relatório com benchmark contra thresholds DORA 2023 Elite/High, gap analysis e roadmap 6 meses sequenciado por capacidade do time.</p>
+      <a href="/engineering/devops/maturity" class="btn-primary text-sm inline-block">Fazer assessment</a>
       {% endif %}
     </div>
     <div class="md:col-span-3 card p-10">
@@ -258,10 +258,10 @@
     <div class="card p-7">
       <p class="font-semibold mb-3">Company profile</p>
       <ul class="space-y-2 text-sm text-ink/70">
-        <li>• Tech team of 10-200 engineers</li>
-        <li>• Series A-C or mid-market</li>
-        <li>• Critical digital product in production</li>
-        <li>• Signs of incident frequency or release pain</li>
+        <li>• Engineering team 10-200, multi-squad</li>
+        <li>• Series A through C or mid-market scale-up</li>
+        <li>• At least one production-critical service</li>
+        <li>• Deploy cadence weekly or worse</li>
       </ul>
     </div>
     <div class="card p-7">
@@ -276,10 +276,10 @@
     <div class="card p-7">
       <p class="font-semibold mb-3">Typical pain</p>
       <ul class="space-y-2 text-sm text-ink/70">
-        <li>• Deploy is an event, not a routine</li>
-        <li>• Frequent incidents, high MTTR</li>
-        <li>• Lack of observability, debugging in the dark</li>
-        <li>• Team overloaded with on-call</li>
+        <li>• MTTR above 8h, no documented incident runbooks</li>
+        <li>• Change failure rate above 30%, no canary or feature flags</li>
+        <li>• Observability is CloudWatch dashboards only — no traces</li>
+        <li>• On-call burned out, one or two engineers absorb everything</li>
       </ul>
     </div>
   </div>
@@ -291,10 +291,10 @@
     <div class="card p-7">
       <p class="font-semibold mb-3">Perfil empresa</p>
       <ul class="space-y-2 text-sm text-ink/70">
-        <li>• Tech team de 10-200 engenheiros</li>
-        <li>• Series A-C ou mid-market</li>
-        <li>• Produto digital crítico em produção</li>
-        <li>• Sinais de incident frequency ou release pain</li>
+        <li>• Time de engenharia 10-200, multi-squad</li>
+        <li>• Series A até C ou scale-up mid-market</li>
+        <li>• Ao menos um serviço crítico em produção</li>
+        <li>• Deploy cadence semanal ou pior</li>
       </ul>
     </div>
     <div class="card p-7">
@@ -309,10 +309,10 @@
     <div class="card p-7">
       <p class="font-semibold mb-3">Dor típica</p>
       <ul class="space-y-2 text-sm text-ink/70">
-        <li>• Deploy é evento, não rotina</li>
-        <li>• Incidentes frequentes, MTTR alto</li>
-        <li>• Falta observability, debugging na escuridão</li>
-        <li>• Time sobrecarregado com on-call</li>
+        <li>• MTTR acima de 8h, sem runbooks de incidente documentados</li>
+        <li>• Change failure rate acima de 30%, sem canary ou feature flags</li>
+        <li>• Observability é só dashboard CloudWatch — sem traces</li>
+        <li>• On-call queimado, um ou dois engenheiros absorvem tudo</li>
       </ul>
     </div>
   </div>

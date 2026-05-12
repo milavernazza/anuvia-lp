@@ -7,10 +7,10 @@
   <p class="eyebrow mb-6">Anuvia · Practices · 03</p>
   <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">Anuvia AI</h1>
   <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-4">
-    AI is saturated by theater. Anuvia AI is <span class="italic">engineering</span>, not theater.
+    Applied AI built as <span class="italic">engineering</span>, not as a demo.
   </p>
   <p class="text-lg text-ink/60 leading-relaxed max-w-3xl mb-12">
-    Strategy, engineering, MLOps and vertical products. With eval harness, rollback, cost measured per inference. Cloud-native, FinOps-aware, dogfooded internally.
+    Strategy sprints, RAG and agent builds on AWS Bedrock / LangGraph / pgvector, SageMaker-based MLOps, and verticalized products. Every system ships with an eval harness against a held-out set, OpenTelemetry-based observability across the agent graph, documented rollback procedure and a cost ceiling per tenant. PoVs that fail eval gates do not graduate.
   </p>
   <div class="flex flex-col sm:flex-row gap-4">
     <a href="/ai/readiness" class="btn-primary text-base inline-block">AI Readiness Sprint</a>
@@ -20,10 +20,10 @@
   <p class="eyebrow mb-6">Anuvia · Práticas · 03</p>
   <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">Anuvia AI</h1>
   <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-4">
-    IA está prostituída no mercado. Anuvia AI é <span class="italic">engineering</span>, não theater.
+    IA aplicada como <span class="italic">engenharia</span>, não como demo.
   </p>
   <p class="text-lg text-ink/60 leading-relaxed max-w-3xl mb-12">
-    Strategy, engineering, MLOps e produtos verticais. Com eval harness, rollback, custo medido por inferência. Cloud-native, FinOps-aware, dogfooded internamente.
+    Sprints de estratégia, builds RAG e de agentes em AWS Bedrock / LangGraph / pgvector, MLOps em SageMaker e produtos verticalizados. Todo sistema sai com eval harness contra held-out set, observability via OpenTelemetry no grafo de agentes, procedimento de rollback documentado e teto de custo por tenant. PoVs que falham nos eval gates não graduam.
   </p>
   <div class="flex flex-col sm:flex-row gap-4">
     <a href="/ai/readiness" class="btn-primary text-base inline-block">AI Readiness Sprint</a>
@@ -44,18 +44,18 @@
   <div class="grid md:grid-cols-3 gap-10">
     <div>
       <p class="h-serif text-5xl mb-4">01</p>
-      <p class="eyebrow mb-3">Production-grade from day 1</p>
-      <p class="text-ink/70 leading-relaxed">Discovery → PoV → Build → Scale with clear gates. Eval harness, documented rollback, integrated monitoring. PoVs validate viability — they don't become production without hardening.</p>
+      <p class="eyebrow mb-3">Production gates, not vibes</p>
+      <p class="text-ink/70 leading-relaxed">Discovery → PoV → Build → Operate. Each gate has a written checklist: eval harness vs. held-out set with thresholds, rollback procedure tested, OpenTelemetry spans verified across the agent graph, cost cap enforced at the gateway. A PoV that misses eval thresholds returns a no-go report — not a softer threshold.</p>
     </div>
     <div>
       <p class="h-serif text-5xl mb-4">02</p>
-      <p class="eyebrow mb-3">Cloud-native + FinOps-aware</p>
-      <p class="text-ink/70 leading-relaxed">Cost measured per inference. Multi-account deploys. Bedrock, SageMaker, Vertex, native cloud observability. Others talk about OpenAI; we talk about a scalable and economical stack.</p>
+      <p class="eyebrow mb-3">Cost logged per inference, justified in the ADR</p>
+      <p class="text-ink/70 leading-relaxed">Inference cost is logged at request level and aggregated per tenant, feature and model. AWS Bedrock, SageMaker JumpStart, Vertex AI, or self-hosted vLLM — each choice is justified in the Architecture Decision Record with TCO over 12 months and a fallback plan if the model is deprecated.</p>
     </div>
     <div>
       <p class="h-serif text-5xl mb-4">03</p>
-      <p class="eyebrow mb-3">Dogfooded internally</p>
-      <p class="text-ink/70 leading-relaxed">Anuvia itself runs on its own agents — sales, delivery, admin, content. Every client gets a verifiable demo of how WE use AI to run the firm. Others promise; we show.</p>
+      <p class="eyebrow mb-3">Dogfooded on the stack we sell</p>
+      <p class="text-ink/70 leading-relaxed">Anuvia's outbound, qualification, scheduling, follow-up and admin run on the agent stack we ship as Anuvia AI Ops. When we describe how LangGraph behaves under retry storms or how a guardrail handles edge cases, that comes from operating it on our own pipeline — not from a vendor slide.</p>
     </div>
   </div>
   {% else %}
@@ -65,18 +65,18 @@
   <div class="grid md:grid-cols-3 gap-10">
     <div>
       <p class="h-serif text-5xl mb-4">01</p>
-      <p class="eyebrow mb-3">Production-grade desde dia 1</p>
-      <p class="text-ink/70 leading-relaxed">Discovery → PoV → Build → Scale com gates claros. Eval harness, rollback documentado, monitoring integrado. PoVs validam viabilidade — não viram produção sem hardening.</p>
+      <p class="eyebrow mb-3">Production gates, não vibes</p>
+      <p class="text-ink/70 leading-relaxed">Discovery → PoV → Build → Operate. Cada gate tem checklist escrito: eval harness vs. held-out set com thresholds, rollback procedure testada, spans OpenTelemetry verificados no grafo de agentes, cost cap aplicado no gateway. PoV que não bate thresholds devolve no-go report — não threshold mais frouxo.</p>
     </div>
     <div>
       <p class="h-serif text-5xl mb-4">02</p>
-      <p class="eyebrow mb-3">Cloud-native + FinOps-aware</p>
-      <p class="text-ink/70 leading-relaxed">Custo medido por inferência. Deploy multi-account. Bedrock, SageMaker, Vertex, observabilidade cloud nativa. Outros falam de OpenAI; a gente fala de stack escalável e econômico.</p>
+      <p class="eyebrow mb-3">Custo logado por inferência, justificado no ADR</p>
+      <p class="text-ink/70 leading-relaxed">Custo de inferência é logado por request e agregado por tenant, feature e modelo. AWS Bedrock, SageMaker JumpStart, Vertex AI, ou vLLM self-hosted — cada escolha é justificada no Architecture Decision Record com TCO em 12 meses e plano de fallback se o modelo for deprecado.</p>
     </div>
     <div>
       <p class="h-serif text-5xl mb-4">03</p>
-      <p class="eyebrow mb-3">Dogfooded internamente</p>
-      <p class="text-ink/70 leading-relaxed">Anuvia inteira roda em agentes próprios — sales, delivery, admin, content. Cada cliente recebe demo verificável de como NÓS usamos IA pra operar a empresa. Outros prometem; a gente mostra.</p>
+      <p class="eyebrow mb-3">Dogfooded na stack que vendemos</p>
+      <p class="text-ink/70 leading-relaxed">O outbound, qualificação, scheduling, follow-up e admin da Anuvia rodam na stack de agentes que entregamos como Anuvia AI Ops. Quando descrevemos como LangGraph se comporta sob retry storms ou como um guardrail trata edge cases, isso vem de operar no nosso próprio pipeline — não de slide de vendor.</p>
     </div>
   </div>
   {% endif %}
@@ -289,10 +289,10 @@
     <div class="card p-7">
       <p class="font-semibold mb-3">Company profile</p>
       <ul class="space-y-2 text-sm text-ink/70">
-        <li>• Tech-forward with proprietary data</li>
-        <li>• Scalable digital operation</li>
-        <li>• Use case identified (or trying to identify one)</li>
-        <li>• Open to investing in production-grade, not POCs</li>
+        <li>• Revenue $5M+ ARR or established mid-market</li>
+        <li>• Proprietary data the AI use case actually depends on</li>
+        <li>• Compliance constraints already named (LGPD, GxP, BACEN, SOC 2)</li>
+        <li>• Budget appetite for production-grade, not just PoCs</li>
       </ul>
     </div>
     <div class="card p-7">
@@ -307,10 +307,10 @@
     <div class="card p-7">
       <p class="font-semibold mb-3">Typical pain</p>
       <ul class="space-y-2 text-sm text-ink/70">
-        <li>• AI PoCs that don't reach production</li>
-        <li>• AI cost out of control</li>
-        <li>• Lack of eval/monitoring/rollback</li>
-        <li>• Hype vs. reality on the roadmap</li>
+        <li>• PoCs from 2024 that never crossed an eval gate</li>
+        <li>• Inference bill grew faster than usage — no cap at the gateway</li>
+        <li>• No held-out eval set, no rollback, no trace per request</li>
+        <li>• Vendor lock-in concerns: OpenAI, Anthropic, AWS, GCP</li>
       </ul>
     </div>
   </div>
@@ -322,10 +322,10 @@
     <div class="card p-7">
       <p class="font-semibold mb-3">Perfil empresa</p>
       <ul class="space-y-2 text-sm text-ink/70">
-        <li>• Tech-forward com dados próprios</li>
-        <li>• Operação digital escalável</li>
-        <li>• Use case identificado (ou querendo identificar)</li>
-        <li>• Open a investir em production-grade, não POC</li>
+        <li>• Faturamento $5M+ ARR ou mid-market estabelecido</li>
+        <li>• Dados próprios dos quais o use case de IA realmente depende</li>
+        <li>• Restrições de compliance já nomeadas (LGPD, GxP, BACEN, SOC 2)</li>
+        <li>• Apetite de budget para production-grade, não só PoCs</li>
       </ul>
     </div>
     <div class="card p-7">
@@ -340,10 +340,10 @@
     <div class="card p-7">
       <p class="font-semibold mb-3">Dor típica</p>
       <ul class="space-y-2 text-sm text-ink/70">
-        <li>• PoCs IA que não viram produção</li>
-        <li>• Custo IA fora de controle</li>
-        <li>• Falta de eval/monitoring/rollback</li>
-        <li>• Hype vs realidade no roadmap</li>
+        <li>• PoCs de 2024 que nunca passaram em eval gate</li>
+        <li>• Fatura de inferência cresce mais rápido que uso — sem cap no gateway</li>
+        <li>• Sem held-out eval set, sem rollback, sem trace por request</li>
+        <li>• Receio de vendor lock-in: OpenAI, Anthropic, AWS, GCP</li>
       </ul>
     </div>
   </div>

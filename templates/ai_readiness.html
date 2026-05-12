@@ -9,18 +9,18 @@
     AI Readiness<br><span class="italic">Sprint.</span>
   </h1>
   <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
-    Two to three weeks mapping where Artificial Intelligence effectively moves ROI in your operation. No hype, no isolated PoC, no generic deck — an honest technical analysis of viability and impact.
+    Two to three weeks producing a scored inventory of 8-15 candidate AI use cases for your operation. Each case rated on data readiness, estimated inference cost, latency budget, applicable compliance (LGPD, GxP, SOC 2, BACEN), and build-vs-buy posture. Cases that fail viability checks get an explicit no-go with reasons.
   </p>
-  <p class="text-sm text-subtle mb-12">2-3 weeks · {{ fmt_price('R$ 25-40k') }} · use case inventory + estimated ROI + 12-month roadmap</p>
+  <p class="text-sm text-subtle mb-12">2-3 weeks · {{ fmt_price('R$ 25-40k') }} · scored use case inventory + ROI model with explicit assumptions + 12-month roadmap</p>
   {% else %}
   <p class="eyebrow mb-6">Anuvia AI · Strategy · Anchor offering</p>
   <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
     AI Readiness<br><span class="italic">Sprint.</span>
   </h1>
   <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
-    Duas a três semanas mapeando onde Inteligência Artificial efetivamente move ROI na sua operação. Sem hype, sem PoC isolado, sem deck genérico — análise técnica honesta de viabilidade e impacto.
+    Duas a três semanas produzindo um inventário pontuado de 8-15 use cases candidatos de IA para sua operação. Cada caso é avaliado em prontidão de dados, custo de inferência estimado, budget de latência, compliance aplicável (LGPD, GxP, SOC 2, BACEN) e postura build-vs-buy. Casos que falham na checagem de viabilidade recebem no-go explícito com motivo.
   </p>
-  <p class="text-sm text-subtle mb-12">2-3 semanas · R$ 25-40k · use case inventory + ROI estimado + roadmap 12 meses</p>
+  <p class="text-sm text-subtle mb-12">2-3 semanas · R$ 25-40k · inventário pontuado de use cases + modelo de ROI com hipóteses explícitas + roadmap 12 meses</p>
   {% endif %}
 </section>
 {% include "_authority_strip.html" %}
@@ -136,6 +136,26 @@
       </select>
     </div>
     <div>
+      <label class="eyebrow block mb-2">Data readiness for the use case</label>
+      <select name="data_readiness" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select (optional)…</option>
+        <option value="data_clean_centralized">Data clean and centralized (warehouse / lake in production)</option>
+        <option value="data_centralized_messy">Centralized but messy (schema drift, low coverage)</option>
+        <option value="data_distributed_partial_quality">Distributed across systems, partial quality</option>
+        <option value="no_data_yet">No production data yet — need to capture first</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Build vs. buy posture</label>
+      <select name="build_vs_buy" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select (optional)…</option>
+        <option value="prefer_build">Prefer to build internally (IP / control / cost)</option>
+        <option value="prefer_buy">Prefer to buy SaaS / partner (speed / focus)</option>
+        <option value="undecided">Undecided — looking for honest input</option>
+        <option value="depends_on_case">Depends on the case</option>
+      </select>
+    </div>
+    <div>
       <label class="eyebrow block mb-2">Additional context (optional)</label>
       <textarea name="context" rows="4" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Any specific system, team or decision that triggered this inquiry?"></textarea>
     </div>
@@ -191,6 +211,26 @@
         <option value="5m_30m">R$ 5-30M/ano</option>
         <option value="30m_100m">R$ 30-100M/ano</option>
         <option value="100m_plus">Acima de R$ 100M/ano</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Prontidão de dados para o use case</label>
+      <select name="data_readiness" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione (opcional)…</option>
+        <option value="data_clean_centralized">Dados limpos e centralizados (warehouse / lake em produção)</option>
+        <option value="data_centralized_messy">Centralizados mas bagunçados (schema drift, cobertura baixa)</option>
+        <option value="data_distributed_partial_quality">Distribuídos entre sistemas, qualidade parcial</option>
+        <option value="no_data_yet">Sem dados de produção ainda — precisa capturar primeiro</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Postura build vs. buy</label>
+      <select name="build_vs_buy" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione (opcional)…</option>
+        <option value="prefer_build">Prefere construir internamente (IP / controle / custo)</option>
+        <option value="prefer_buy">Prefere comprar SaaS / parceiro (velocidade / foco)</option>
+        <option value="undecided">Indeciso — quer input honesto</option>
+        <option value="depends_on_case">Depende do caso</option>
       </select>
     </div>
     <div>

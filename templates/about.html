@@ -6,12 +6,12 @@
   {% if lang == 'en' %}
   <p class="eyebrow mb-6">Anuvia · About</p>
   <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8">
-    An engineering firm for those who take what they build all the way to production.
+    A consultancy that ships systems to production — and stays accountable after they're live.
   </h1>
   {% else %}
   <p class="eyebrow mb-6">Anuvia · Sobre</p>
   <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8">
-    Uma firma de engenharia para quem leva o que constrói até produção.
+    Uma consultoria que entrega sistemas em produção — e segue responsável depois que estão no ar.
   </h1>
   {% endif %}
 </section>
@@ -26,18 +26,18 @@
   <h2 class="h-serif text-3xl md:text-4xl mb-8 leading-tight">Why Anuvia exists</h2>
 
   <div class="prose-anuvia text-ink/80 space-y-6 leading-relaxed text-lg">
-    <p>Anuvia was born out of a frustration common among senior technical teams: the growing distance between what gets promised in a sales presentation and what actually reaches production. Brilliant proofs of concept in closed rooms, beautiful dashboards in demos, slides with impeccable architectures — and the day after the contract, real delivery falls short of what was sold.</p>
-    <p>We made the opposite choice: think of delivery as the most important part of the work. Discovery exists to separate promise from feasibility. Proof of value exists to validate real numbers. Build exists to integrate with legacy systems without disruption. Operations exist so the system keeps working after the consultant leaves the room.</p>
-    <p>In each phase, clear deliverables. In each decision, architecture recorded. In each deploy, a documented rollback plan. It's not the fastest path to revenue, but it's the one that sustains a recurring client.</p>
+    <p>Anuvia was founded by Mila Vernazza, ex-AWS Solutions Architect (Brazil) and ex-Google, after years of seeing a recurring pattern in consultancy work: the gap between what sales decks promise and what production environments actually accept. Brilliant PoCs in closed rooms. Demos with no rollback. Slides with impeccable architectures — and, the day after contract signature, a delivery short on the operational details that make systems survive.</p>
+    <p>The choice was to invert the priority. Discovery exists to separate promise from feasibility; PoV exists to validate measured numbers against a held-out set; Build exists to integrate with the client's legacy stack without disrupting it; Operate exists so the system keeps running after the consultant leaves the room. Each phase has explicit gates, and a PoV that misses its eval thresholds returns a no-go report rather than a softened threshold.</p>
+    <p>Every architecture ships with an Architecture Decision Record. Every deploy ships with a documented rollback procedure. Every workload ships with a measured cost ceiling. It's not the fastest path to revenue, but it's the one that produces clients who renew.</p>
   </div>
   {% else %}
   <p class="eyebrow mb-4">Origem</p>
   <h2 class="h-serif text-3xl md:text-4xl mb-8 leading-tight">Por que a Anuvia existe</h2>
 
   <div class="prose-anuvia text-ink/80 space-y-6 leading-relaxed text-lg">
-    <p>A Anuvia nasceu de uma frustração comum entre times técnicos sêniores: a distância crescente entre o que se promete em uma apresentação comercial e o que de fato chega à produção. Provas de conceito brilhantes em sala fechada, dashboards bonitos em demonstração, slides com arquiteturas impecáveis — e, no dia seguinte ao contrato, a entrega real fica aquém daquilo que foi vendido.</p>
-    <p>A escolha que fizemos foi a oposta: pensar a entrega como a peça mais importante do trabalho. Discovery existe para separar promessa de viabilidade. A prova de valor existe para validar números reais. A construção existe para integrar com sistemas legados sem interrupção. A operação existe para que o sistema continue funcionando quando o consultor sai da sala.</p>
-    <p>Em cada fase, entregáveis claros. Em cada decisão, arquitetura registrada. Em cada deploy, plano de rollback documentado. Não é o caminho mais rápido para faturar, mas é o que sustenta um cliente recorrente.</p>
+    <p>A Anuvia foi fundada por Mila Vernazza, ex-AWS Solutions Architect (Brasil) e ex-Google, depois de anos vendo um padrão recorrente em consultoria: a distância entre o que decks comerciais prometem e o que ambientes de produção de fato aceitam. PoCs brilhantes em sala fechada. Demos sem rollback. Slides com arquiteturas impecáveis — e, no dia seguinte à assinatura do contrato, uma entrega curta nos detalhes operacionais que fazem sistemas sobreviverem.</p>
+    <p>A escolha foi inverter a prioridade. Discovery existe para separar promessa de viabilidade; PoV existe para validar números medidos contra held-out set; Build existe para integrar com a stack legada do cliente sem interrompê-la; Operate existe para que o sistema continue rodando depois que o consultor sai da sala. Cada fase tem gates explícitos, e PoV que não bate os thresholds do eval devolve no-go report — não threshold mais frouxo.</p>
+    <p>Toda arquitetura entra com Architecture Decision Record. Todo deploy entra com procedimento de rollback documentado. Todo workload entra com teto de custo medido. Não é o caminho mais rápido pra faturar, mas é o que gera clientes que renovam.</p>
   </div>
   {% endif %}
 </section>
@@ -51,40 +51,40 @@
 
   <div class="grid md:grid-cols-3 gap-8 mb-10">
     <div>
-      <p class="h-serif text-3xl mb-2">AWS</p>
-      <p class="text-sm text-subtle leading-relaxed">Prior experience as a Solutions Architect inside AWS itself. Architecture decisions come from direct observation of how workloads behave — and fail — in production at scale.</p>
+      <p class="h-serif text-3xl mb-2">AWS (Brazil)</p>
+      <p class="text-sm text-subtle leading-relaxed">Mila Vernazza spent years inside AWS Brazil as a Solutions Architect before founding Anuvia. Architecture decisions on each engagement come from operating workloads at hyperscaler scale — including the workloads that failed and why.</p>
     </div>
     <div>
       <p class="h-serif text-3xl mb-2">Google</p>
-      <p class="text-sm text-subtle leading-relaxed">Time at Google adds the cross-cloud perspective necessary for honest choices. When AWS makes sense, when GCP makes sense, when staying on-premises makes sense — without vendor bias.</p>
+      <p class="text-sm text-subtle leading-relaxed">Prior tenure at Google supplies the cross-cloud reading needed for honest calls: when AWS is the right answer, when GCP (especially BigQuery / Vertex AI) is, when staying on-prem still wins on TCO. No vendor bias.</p>
     </div>
     <div>
-      <p class="h-serif text-3xl mb-2">15+ AWS certifications</p>
-      <p class="text-sm text-subtle leading-relaxed">Formal and continuous coverage of the main specialties: Architecture, Security, Machine Learning, Data Analytics, DevOps, Database, Networking. A narrow band of professionals carries this verified depth.</p>
+      <p class="h-serif text-3xl mb-2">15× AWS certifications</p>
+      <p class="text-sm text-subtle leading-relaxed">Solutions Architect Pro, Security Specialty, ML Specialty, Data Analytics, DevOps Pro, Database, Advanced Networking, and the foundational tier. Public Credly profile. AWS counts roughly 200 SAs globally at this certification depth.</p>
     </div>
   </div>
 
-  <p class="text-ink/70 leading-relaxed">Technical leadership defines architecture, makes design decisions and joins calls where human depth is needed. In delivery, it operates alongside a squad of specialized agents that handle execution, documentation, status reports and operational support. The model combines speed with clear technical responsibility.</p>
+  <p class="text-ink/70 leading-relaxed">Mila Vernazza owns architecture decisions, ADRs and every gate review personally. An internal agent squad — the same stack offered as Anuvia AI Ops — handles documentation, status reports and routine delivery operations under that supervision. Engagements above $80k always include human review on every architectural decision; nothing ships to production without a named owner in the runbook.</p>
   {% else %}
   <p class="eyebrow mb-4">Liderança</p>
   <h2 class="h-serif text-3xl md:text-4xl mb-8 leading-tight">Quem está por trás das decisões técnicas</h2>
 
   <div class="grid md:grid-cols-3 gap-8 mb-10">
     <div>
-      <p class="h-serif text-3xl mb-2">AWS</p>
-      <p class="text-sm text-subtle leading-relaxed">Experiência prévia como Solutions Architect dentro da própria AWS. As decisões de arquitetura nascem da observação direta de como workloads em escala se comportam — e falham — em produção.</p>
+      <p class="h-serif text-3xl mb-2">AWS (Brasil)</p>
+      <p class="text-sm text-subtle leading-relaxed">Mila Vernazza passou anos dentro da AWS Brasil como Solutions Architect antes de fundar a Anuvia. As decisões de arquitetura em cada engagement vêm de operar workloads em escala de hyperscaler — incluindo os workloads que falharam e por quê.</p>
     </div>
     <div>
       <p class="h-serif text-3xl mb-2">Google</p>
-      <p class="text-sm text-subtle leading-relaxed">Passagem pela Google adiciona perspectiva cross-cloud necessária para escolhas honestas. Quando faz sentido AWS, quando faz sentido GCP, quando faz sentido manter on-premises — sem viés de fornecedor.</p>
+      <p class="text-sm text-subtle leading-relaxed">Passagem prévia pela Google fornece a leitura cross-cloud necessária para chamadas honestas: quando AWS é a resposta certa, quando GCP (especialmente BigQuery / Vertex AI) é, quando ficar on-prem ainda ganha em TCO. Sem viés de vendor.</p>
     </div>
     <div>
-      <p class="h-serif text-3xl mb-2">15+ certificações AWS</p>
-      <p class="text-sm text-subtle leading-relaxed">Cobertura formal e contínua das principais especialidades: Architecture, Security, Machine Learning, Data Analytics, DevOps, Database, Networking. Faixa rara de profissionais com essa profundidade verificada.</p>
+      <p class="h-serif text-3xl mb-2">15× certificações AWS</p>
+      <p class="text-sm text-subtle leading-relaxed">Solutions Architect Pro, Security Specialty, ML Specialty, Data Analytics, DevOps Pro, Database, Advanced Networking e o tier foundational. Perfil Credly público. AWS contabiliza cerca de 200 SAs no mundo com essa profundidade certificada.</p>
     </div>
   </div>
 
-  <p class="text-ink/70 leading-relaxed">A liderança técnica define arquitetura, faz a decisão de design e participa de calls onde a profundidade humana é necessária. Em delivery, opera junto com uma squad de agentes especializados que cuidam de execução, documentação, status reports e suporte operacional. O modelo combina velocidade com responsabilidade técnica clara.</p>
+  <p class="text-ink/70 leading-relaxed">Mila Vernazza é dona pessoalmente das decisões de arquitetura, dos ADRs e de toda revisão de gate. Uma squad interna de agentes — a mesma stack oferecida como Anuvia AI Ops — cuida de documentação, status reports e operações rotineiras sob essa supervisão. Engagements acima de R$ 80k sempre incluem revisão humana em toda decisão de arquitetura; nada vai pra produção sem owner nomeado no runbook.</p>
   {% endif %}
 </section>
 

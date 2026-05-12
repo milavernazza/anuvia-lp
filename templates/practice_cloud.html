@@ -10,10 +10,10 @@
     Anuvia Cloud
   </h1>
   <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-12">
-    FinOps, AWS, GCP and multi-cloud. Where technical depth pays back fastest: we reduce AWS bills by 25-40% and redesign architectures to scale economically.
+    FinOps and AWS architecture for engineering orgs with monthly AWS spend above $30k. Audits, Well-Architected reviews, multi-account landing zones, migration planning. Led by Mila Vernazza, ex-AWS Solutions Architect with 15+ active AWS certifications.
   </p>
   <div class="flex flex-col sm:flex-row gap-4">
-    <a href="/cloud/finops/audit" class="btn-primary text-base inline-block">FinOps Audit Risk-Free</a>
+    <a href="/cloud/finops/audit" class="btn-primary text-base inline-block">Start with the FinOps Audit</a>
     <a href="#offerings" class="btn-ghost text-base inline-block">See all offerings</a>
   </div>
   {% else %}
@@ -22,10 +22,10 @@
     Anuvia Cloud
   </h1>
   <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-12">
-    FinOps, AWS, GCP e multi-cloud. Onde a autoridade técnica esmaga: reduzimos faturas AWS em 25-40% e redesenhamos arquiteturas pra escalar.
+    FinOps e arquitetura AWS para orgs de engenharia com gasto AWS mensal acima de $30k. Audits, Well-Architected reviews, landing zones multi-account, migration planning. Liderada por Mila Vernazza, ex-AWS Solutions Architect com 15+ certificações AWS ativas.
   </p>
   <div class="flex flex-col sm:flex-row gap-4">
-    <a href="/cloud/finops/audit" class="btn-primary text-base inline-block">FinOps Audit Risk-Free</a>
+    <a href="/cloud/finops/audit" class="btn-primary text-base inline-block">Começar pelo FinOps Audit</a>
     <a href="#offerings" class="btn-ghost text-base inline-block">Ver todas as ofertas</a>
   </div>
   {% endif %}
@@ -42,13 +42,13 @@
       {% if lang == 'en' %}
       <p class="eyebrow mb-4">Anchor offering</p>
       <h2 class="h-serif text-4xl mb-6 leading-tight">AWS Cost Audit<br>Risk-Free</h2>
-      <p class="text-ink/70 leading-relaxed mb-8">A 4-week audit of your AWS bill. We identify 25-40% annualized savings, prioritized by effort/impact. Guarantee: if we don't find 3× your investment, you don't pay.</p>
-      <a href="/cloud/finops/audit" class="btn-primary text-sm inline-block">Request the audit</a>
+      <p class="text-ink/70 leading-relaxed mb-8">Four weeks against the Cost &amp; Usage Reports, Trusted Advisor and Compute Optimizer of your AWS organization. We typically surface 25-40% annualized recoverable spend across Reserved Instance coverage, idle EBS, orphan snapshots, NAT egress and data transfer. Contract clause: if identified annualized savings are below 3× the engagement fee, full refund. Never triggered to date.</p>
+      <a href="/cloud/finops/audit" class="btn-primary text-sm inline-block">Take the diagnostic</a>
       {% else %}
       <p class="eyebrow mb-4">Anchor offering</p>
       <h2 class="h-serif text-4xl mb-6 leading-tight">AWS Cost Audit<br>Risk-Free</h2>
-      <p class="text-ink/70 leading-relaxed mb-8">Audit de 4 semanas em fatura AWS. Identificamos 25-40% de economia anualizada com priorização por effort/impact. Garantia: se não acharmos 3× o investimento, você não paga.</p>
-      <a href="/cloud/finops/audit" class="btn-primary text-sm inline-block">Solicitar audit</a>
+      <p class="text-ink/70 leading-relaxed mb-8">Quatro semanas contra os Cost &amp; Usage Reports, Trusted Advisor e Compute Optimizer da sua AWS organization. Tipicamente trazemos à tona 25-40% de gasto anualizado recuperável em cobertura RI, EBS ocioso, snapshots órfãos, NAT egress e data transfer. Cláusula contratual: se a economia anualizada identificada ficar abaixo de 3× o fee do engagement, reembolso integral. Nunca acionada.</p>
+      <a href="/cloud/finops/audit" class="btn-primary text-sm inline-block">Fazer diagnóstico</a>
       {% endif %}
     </div>
     <div class="md:col-span-3 card p-10">
@@ -351,10 +351,10 @@
     <div class="card p-7">
       <p class="font-semibold mb-3">Company profile</p>
       <ul class="space-y-2 text-sm text-ink/70">
-        <li>• Monthly cloud spend &gt; $30k</li>
-        <li>• Tech company or scaleup</li>
+        <li>• AWS spend $30k-$300k/month (sweet spot)</li>
+        <li>• At least one internal SA or DevOps lead</li>
         <li>• Series B+ or established mid-market</li>
-        <li>• AWS or GCP as primary cloud</li>
+        <li>• AWS Organization with 2+ accounts</li>
       </ul>
     </div>
     <div class="card p-7">
@@ -362,17 +362,17 @@
       <ul class="space-y-2 text-sm text-ink/70">
         <li>• VP Engineering / CTO</li>
         <li>• Head of Platform / Infrastructure</li>
-        <li>• CFO (in companies where FinOps is a priority)</li>
+        <li>• CFO when board-mandated FinOps program is active</li>
         <li>• Director of Cloud Operations</li>
       </ul>
     </div>
     <div class="card p-7">
       <p class="font-semibold mb-3">Typical pain</p>
       <ul class="space-y-2 text-sm text-ink/70">
-        <li>• AWS bill grew significantly with no visibility</li>
-        <li>• Migration stalled or poorly planned</li>
-        <li>• Legacy architecture doesn't scale</li>
-        <li>• Compliance/security gaps in multi-account</li>
+        <li>• Bill grew 40%+ YoY while revenue did not</li>
+        <li>• Reserved Instance coverage below 50%, no Savings Plans</li>
+        <li>• No allocation per product/team (no tagging strategy)</li>
+        <li>• Migration paused at wave 2, ROI unclear</li>
       </ul>
     </div>
   </div>
@@ -384,10 +384,10 @@
     <div class="card p-7">
       <p class="font-semibold mb-3">Perfil empresa</p>
       <ul class="space-y-2 text-sm text-ink/70">
-        <li>• Cloud spend mensal &gt; $30k</li>
-        <li>• Tech company ou scaleup</li>
+        <li>• AWS spend $30k-$300k/mês (sweet spot)</li>
+        <li>• Ao menos um SA ou DevOps lead interno</li>
         <li>• Series B+ ou mid-market estabelecido</li>
-        <li>• AWS ou GCP como cloud primária</li>
+        <li>• AWS Organization com 2+ accounts</li>
       </ul>
     </div>
     <div class="card p-7">
@@ -395,17 +395,17 @@
       <ul class="space-y-2 text-sm text-ink/70">
         <li>• VP Engineering / CTO</li>
         <li>• Head of Platform / Infrastructure</li>
-        <li>• CFO (em empresas onde FinOps é prioridade)</li>
+        <li>• CFO quando há mandato de board para programa FinOps</li>
         <li>• Director of Cloud Operations</li>
       </ul>
     </div>
     <div class="card p-7">
       <p class="font-semibold mb-3">Dor típica</p>
       <ul class="space-y-2 text-sm text-ink/70">
-        <li>• Fatura AWS cresceu muito sem visibilidade</li>
-        <li>• Migração travada ou mal planejada</li>
-        <li>• Arquitetura legada não escala</li>
-        <li>• Compliance/security gaps em multi-account</li>
+        <li>• Fatura cresceu 40%+ YoY enquanto receita não</li>
+        <li>• Cobertura RI abaixo de 50%, sem Savings Plans</li>
+        <li>• Sem alocação por produto/time (sem tagging strategy)</li>
+        <li>• Migração pausou na onda 2, ROI pouco claro</li>
       </ul>
     </div>
   </div>

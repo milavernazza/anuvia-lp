@@ -7,14 +7,22 @@
   <p class="eyebrow mb-6">Anuvia · Practices · 05</p>
   <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">Anuvia Industry</h1>
   <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-12">
-    Verticalized solutions with accumulated playbooks across manufacturing, logistics, healthcare, life sciences and financial services. Each engagement builds on prior delivery patterns rather than starting from scratch.
+    Vertical playbooks for manufacturing (OEE, predictive maintenance, MES/ERP integration), logistics (offline-first telemetry, route ML), healthcare (LGPD-saúde, clinical documentation, intake triage), Life Sciences (GxP validation packages, regulatory drafting) and financial services (BACEN 4.658, AML, KYC). New engagements inherit the vertical's reference architecture, code skeletons and compliance kit instead of rebuilding from scratch.
   </p>
+  <div class="flex flex-col sm:flex-row gap-4">
+    <a href="/industry/diagnostic" class="btn-primary text-base inline-block">Take the Industry Assessment</a>
+    <a href="/contact" class="btn-ghost text-base inline-block">Talk to a Solutions Architect</a>
+  </div>
   {% else %}
   <p class="eyebrow mb-6">Anuvia · Práticas · 05</p>
   <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">Anuvia Industry</h1>
   <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-12">
-    Soluções verticalizadas com playbooks acumulados em manufatura, logística, healthcare, life sciences e serviços financeiros. Cada engagement parte de padrões de entrega anteriores em vez de começar do zero.
+    Playbooks verticais para manufatura (OEE, manutenção preditiva, integração MES/ERP), logística (telemetria offline-first, ML de rota), healthcare (LGPD-saúde, documentação clínica, triagem de intake), Life Sciences (validation packages GxP, drafting regulatório) e serviços financeiros (BACEN 4.658, AML, KYC). Engagements novos herdam a arquitetura referência, code skeletons e kit de compliance da vertical em vez de reconstruir do zero.
   </p>
+  <div class="flex flex-col sm:flex-row gap-4">
+    <a href="/industry/diagnostic" class="btn-primary text-base inline-block">Fazer o Industry Assessment</a>
+    <a href="/contact" class="btn-ghost text-base inline-block">Falar com Solutions Architect</a>
+  </div>
   {% endif %}
 </section>
 {% include "_authority_strip.html" %}
@@ -110,15 +118,15 @@
 
     <div class="card p-8 bg-ink text-paper">
       {% if lang == 'en' %}
-      <p class="eyebrow mb-3 text-paper/60">Your vertical isn't here?</p>
-      <h3 class="h-serif text-2xl mb-4">Exploratory call</h3>
-      <p class="text-sm text-paper/80 leading-relaxed mb-5">Thirty minutes to assess whether a playbook is worth developing for your industry. Anuvia operates with strong horizontal technical capability; verticals are formalized when a pattern repeats across engagements.</p>
-      <a href="/contact" class="text-sm font-medium underline">Book →</a>
+      <p class="eyebrow mb-3 text-paper/60">Not sure your vertical is a fit?</p>
+      <h3 class="h-serif text-2xl mb-4">Industry Assessment</h3>
+      <p class="text-sm text-paper/80 leading-relaxed mb-5">A 90-second diagnostic that returns: which Anuvia vertical playbook applies (if any), expected playbook depth, realistic ticket estimate for your revenue tier, and an honest call when AI/automation ROI is weak without specific pre-conditions.</p>
+      <a href="/industry/diagnostic" class="text-sm font-medium underline">Take the assessment →</a>
       {% else %}
-      <p class="eyebrow mb-3 text-paper/60">Sua vertical não está aqui?</p>
-      <h3 class="h-serif text-2xl mb-4">Conversa exploratória</h3>
-      <p class="text-sm text-paper/80 leading-relaxed mb-5">Trinta minutos para avaliar se vale formalizar playbook para sua indústria. A Anuvia opera com forte capacidade técnica horizontal; verticais são consolidadas quando o padrão se repete entre engagements.</p>
-      <a href="/contact" class="text-sm font-medium underline">Agendar →</a>
+      <p class="eyebrow mb-3 text-paper/60">Não sabe se sua vertical é fit?</p>
+      <h3 class="h-serif text-2xl mb-4">Industry Assessment</h3>
+      <p class="text-sm text-paper/80 leading-relaxed mb-5">Diagnóstico de 90 segundos que devolve: qual playbook vertical da Anuvia se aplica (se algum), profundidade esperada do playbook, ticket realista para sua faixa de faturamento e chamada honesta quando ROI de IA/automação é fraco sem pré-condições específicas.</p>
+      <a href="/industry/diagnostic" class="text-sm font-medium underline">Fazer o assessment →</a>
       {% endif %}
     </div>
 
@@ -170,12 +178,18 @@
 <section class="max-w-4xl mx-auto px-6 py-24 text-center">
   {% if lang == 'en' %}
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Next step.</h2>
-  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Thirty-minute exploratory call to assess fit with Anuvia Industry, or whether a bespoke Anuvia AI Engineering engagement is the better path.</p>
-  <a href="/contact" class="btn-primary text-base inline-block">Book a 30-minute call</a>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Take the 90-second Industry Assessment to find out which vertical playbook applies, what depth it has accumulated, and whether your context is a credible ROI fit. If you'd rather skip the form, a 30-minute exploratory call works too.</p>
+  <div class="flex flex-col sm:flex-row gap-4 justify-center">
+    <a href="/industry/diagnostic" class="btn-primary text-base inline-block">Industry Assessment</a>
+    <a href="/contact" class="btn-ghost text-base inline-block">Talk to a Solutions Architect</a>
+  </div>
   {% else %}
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Próximo passo.</h2>
-  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Conversa exploratória de trinta minutos para avaliar fit com Anuvia Industry, ou se um engagement bespoke da Anuvia AI Engineering é o melhor caminho.</p>
-  <a href="/contact" class="btn-primary text-base inline-block">Agendar conversa</a>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Faça o Industry Assessment de 90 segundos pra descobrir qual playbook vertical se aplica, qual profundidade ele acumulou e se seu contexto é fit de ROI crível. Se preferir pular o formulário, conversa exploratória de 30 minutos também funciona.</p>
+  <div class="flex flex-col sm:flex-row gap-4 justify-center">
+    <a href="/industry/diagnostic" class="btn-primary text-base inline-block">Industry Assessment</a>
+    <a href="/contact" class="btn-ghost text-base inline-block">Falar com Solutions Architect</a>
+  </div>
   {% endif %}
 </section>
 

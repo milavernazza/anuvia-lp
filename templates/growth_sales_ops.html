@@ -9,18 +9,18 @@
     Sales Ops<br><span class="italic">Diagnostic.</span>
   </h1>
   <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
-    Two weeks mapping the current commercial funnel: process gaps, automation opportunities, lead leakage, response time. Roadmap prioritized by ROI.
+    Two weeks producing an end-to-end funnel map with measured stage conversion, real response-time SLA per channel (form, messaging, referral), and an automation map scored by impact vs. effort. Stack audit across HubSpot, Salesforce, Pipedrive, RD Station. For B2B operations with average ticket above $5k.
   </p>
-  <p class="text-sm text-subtle mb-12">2 weeks · {{ fmt_price('R$ 15-25k') }} · funnel audit + automation map + 90-day plan</p>
+  <p class="text-sm text-subtle mb-12">2 weeks · {{ fmt_price('R$ 15-25k') }} · funnel map + automation playbook + 90-day plan</p>
   {% else %}
   <p class="eyebrow mb-6">Anuvia Growth · RevOps · Anchor offering</p>
   <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
     Sales Ops<br><span class="italic">Diagnostic.</span>
   </h1>
   <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
-    Duas semanas mapeando o funil comercial atual: gaps de processo, oportunidades de automação, vazamentos de lead, tempo de resposta. Roadmap priorizado por ROI.
+    Duas semanas produzindo mapa de funil ponta-a-ponta com conversão medida por estágio, SLA de resposta real por canal (formulário, WhatsApp, indicação) e mapa de automação pontuado por impacto vs. effort. Auditoria de stack em HubSpot, Salesforce, Pipedrive, RD Station. Para operações B2B com ticket médio acima de R$ 5k.
   </p>
-  <p class="text-sm text-subtle mb-12">2 semanas · R$ 15-25k · funnel audit + automation map + 90-day plan</p>
+  <p class="text-sm text-subtle mb-12">2 semanas · R$ 15-25k · mapa de funil + automation playbook + plano 90 dias</p>
   {% endif %}
 </section>
 {% include "_authority_strip.html" %}
@@ -135,8 +135,31 @@
       </select>
     </div>
     <div>
+      <label class="eyebrow block mb-2">Current CRM</label>
+      <select name="crm" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select (optional)…</option>
+        <option value="hubspot">HubSpot</option>
+        <option value="salesforce">Salesforce</option>
+        <option value="pipedrive">Pipedrive</option>
+        <option value="rd_station">RD Station</option>
+        <option value="notion_airtable">Notion / Airtable</option>
+        <option value="spreadsheet">Spreadsheet only</option>
+        <option value="none">No CRM</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Average sales cycle length</label>
+      <select name="sales_cycle" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select (optional)…</option>
+        <option value="under_30d">Under 30 days</option>
+        <option value="30_90d">30-90 days</option>
+        <option value="90_180d">90-180 days</option>
+        <option value="above_180d">Above 180 days</option>
+      </select>
+    </div>
+    <div>
       <label class="eyebrow block mb-2">Additional context (optional)</label>
-      <textarea name="context" rows="4" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="How much did the team grow last year? Current CRM? Any specific funnel point that concerns you?"></textarea>
+      <textarea name="context" rows="4" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="How much did the team grow last year? Any specific funnel point that concerns you?"></textarea>
     </div>
     <button type="submit" class="btn-primary w-full text-base">See my analysis</button>
     <p class="text-xs text-subtle text-center">No signup at this step.</p>
@@ -192,8 +215,31 @@
       </select>
     </div>
     <div>
+      <label class="eyebrow block mb-2">CRM atual</label>
+      <select name="crm" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione (opcional)…</option>
+        <option value="hubspot">HubSpot</option>
+        <option value="salesforce">Salesforce</option>
+        <option value="pipedrive">Pipedrive</option>
+        <option value="rd_station">RD Station</option>
+        <option value="notion_airtable">Notion / Airtable</option>
+        <option value="spreadsheet">Só planilha</option>
+        <option value="none">Sem CRM</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Tempo médio de ciclo de venda</label>
+      <select name="sales_cycle" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione (opcional)…</option>
+        <option value="under_30d">Abaixo de 30 dias</option>
+        <option value="30_90d">30-90 dias</option>
+        <option value="90_180d">90-180 dias</option>
+        <option value="above_180d">Acima de 180 dias</option>
+      </select>
+    </div>
+    <div>
       <label class="eyebrow block mb-2">Contexto adicional (opcional)</label>
-      <textarea name="context" rows="4" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Quanto cresceu o time no último ano? CRM atual? Algum ponto específico do funil que preocupa?"></textarea>
+      <textarea name="context" rows="4" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Quanto cresceu o time no último ano? Algum ponto específico do funil que preocupa?"></textarea>
     </div>
     <button type="submit" class="btn-primary w-full text-base">Ver minha análise</button>
     <p class="text-xs text-subtle text-center">Sem cadastro nessa etapa.</p>

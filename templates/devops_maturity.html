@@ -9,18 +9,18 @@
     DevOps Maturity<br><span class="italic">Assessment.</span>
   </h1>
   <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
-    4 weeks measuring DORA metrics (deploy frequency, lead time, MTTR, change failure rate). Benchmark against high-performers and prioritized roadmap.
+    Four weeks measuring the four DORA metrics from real artifacts in your environment — deploy frequency from CI logs, lead time from git history, MTTR from the on-call paging system, change failure rate from the incident tracker. DORA 2023 puts Elite teams at multi-daily deploys, lead time under one day, MTTR under one hour. The median client we audit deploys weekly.
   </p>
-  <p class="text-sm text-subtle mb-12">4 weeks · {{ fmt_price('R$ 35-50k') }} · DORA baseline + gap analysis + 6-month roadmap</p>
+  <p class="text-sm text-subtle mb-12">4 weeks · {{ fmt_price('R$ 35-50k') }} · DORA baseline + gap analysis + 6-month roadmap sequenced by team capacity</p>
   {% else %}
   <p class="eyebrow mb-6">Anuvia Engineering · DevOps · Anchor offering</p>
   <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
     DevOps Maturity<br><span class="italic">Assessment.</span>
   </h1>
   <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
-    4 semanas medindo DORA metrics (deploy frequency, lead time, MTTR, change failure rate). Benchmark contra high-performers e roadmap priorizado.
+    Quatro semanas medindo as quatro métricas DORA a partir de artefatos reais do seu ambiente — deploy frequency dos logs do CI, lead time do histórico do git, MTTR do sistema de paging do on-call, change failure rate do incident tracker. O relatório DORA 2023 coloca times Elite em deploys múltiplos por dia, lead time abaixo de um dia, MTTR abaixo de uma hora. O cliente médio que auditamos deploya semanalmente.
   </p>
-  <p class="text-sm text-subtle mb-12">4 semanas · R$ 35-50k · DORA baseline + gap analysis + 6-month roadmap</p>
+  <p class="text-sm text-subtle mb-12">4 semanas · R$ 35-50k · DORA baseline + gap analysis + roadmap 6 meses sequenciado por capacidade do time</p>
   {% endif %}
 </section>
 {% include "_authority_strip.html" %}
@@ -94,6 +94,17 @@
       </select>
     </div>
     <div>
+      <label class="eyebrow block mb-2">MTTR for production incidents (rough estimate)</label>
+      <select name="mttr" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select (optional)…</option>
+        <option value="under_30min">Under 30 minutes (Elite)</option>
+        <option value="30min_2h">30 minutes - 2 hours (High)</option>
+        <option value="2h_8h">2-8 hours (Medium)</option>
+        <option value="above_8h">Above 8 hours (Low)</option>
+        <option value="dont_track">We don't track it</option>
+      </select>
+    </div>
+    <div>
       <label class="eyebrow block mb-2">Additional context (optional)</label>
       <textarea name="context" rows="3" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Any recent incident, stack change, or specific goal?"></textarea>
     </div>
@@ -162,6 +173,17 @@
         <option value="vms">VMs (EC2, Compute Engine)</option>
         <option value="paas">PaaS (Heroku, Render, Railway)</option>
         <option value="mixed">Misto</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">MTTR para incidentes em produção (estimativa)</label>
+      <select name="mttr" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione (opcional)…</option>
+        <option value="under_30min">Abaixo de 30 minutos (Elite)</option>
+        <option value="30min_2h">30 minutos - 2 horas (High)</option>
+        <option value="2h_8h">2-8 horas (Medium)</option>
+        <option value="above_8h">Acima de 8 horas (Low)</option>
+        <option value="dont_track">A gente não mede</option>
       </select>
     </div>
     <div>

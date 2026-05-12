@@ -1,0 +1,332 @@
+{% extends "_base.html" %}
+
+{% block content %}
+
+<section class="max-w-5xl mx-auto px-6 pt-20 pb-12">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-6">Anuvia Industry · Vertical · Anchor offering</p>
+  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
+    Industry<br><span class="italic">Assessment.</span>
+  </h1>
+  <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
+    A 90-second diagnostic that returns: which Anuvia vertical playbook applies to your operation, the depth that playbook has accumulated, the compliance posture it bakes in, and a realistic ticket estimate for your revenue tier. Honest no-go signal when AI/automation ROI is weak without specific pre-conditions.
+  </p>
+  <p class="text-sm text-subtle mb-12">5 questions · free preliminary read · email report on request</p>
+  {% else %}
+  <p class="eyebrow mb-6">Anuvia Industry · Vertical · Anchor offering</p>
+  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
+    Industry<br><span class="italic">Assessment.</span>
+  </h1>
+  <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
+    Diagnóstico de 90 segundos que devolve: qual playbook vertical da Anuvia se aplica à sua operação, a profundidade que esse playbook acumulou, a postura de compliance que ele já carrega e um ticket realista para sua faixa de faturamento. Sinal honesto de no-go quando o ROI de IA/automação é fraco sem pré-condições específicas.
+  </p>
+  <p class="text-sm text-subtle mb-12">5 perguntas · leitura preliminar gratuita · relatório por email mediante solicitação</p>
+  {% endif %}
+</section>
+{% include "_authority_strip.html" %}
+
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<section class="max-w-5xl mx-auto px-6 py-16">
+  <div class="grid md:grid-cols-2 gap-12">
+    <div>
+      {% if lang == 'en' %}
+      <p class="eyebrow mb-4">What the assessment returns</p>
+      <ul class="space-y-4 text-sm text-ink/80 leading-relaxed">
+        <li><strong>Vertical playbook fit.</strong> Manufacturing (OEE, predictive maintenance), logistics (offline-first telemetry, route ML), healthcare (LGPD-saúde, clinical documentation), Life Sciences (GxP validation packages), FinServ (BACEN 4.658, AML, KYC). We tell you which playbook applies and how deep it goes.</li>
+        <li><strong>Compliance baked in.</strong> Each vertical kit carries the regulatory artifacts the engagement starts from — not retrofitted under audit pressure.</li>
+        <li><strong>ROI honesty.</strong> Some verticals are high-ROI only when specific data and process pre-conditions are in place. We surface that before you spend.</li>
+        <li><strong>Realistic ticket estimate.</strong> Based on your revenue tier and AI maturity. Not a price quote — a credible range to take to finance.</li>
+      </ul>
+      {% else %}
+      <p class="eyebrow mb-4">O que o assessment devolve</p>
+      <ul class="space-y-4 text-sm text-ink/80 leading-relaxed">
+        <li><strong>Fit com playbook vertical.</strong> Manufatura (OEE, manutenção preditiva), logística (telemetria offline-first, ML de rota), healthcare (LGPD-saúde, documentação clínica), Life Sciences (validation packages GxP), FinServ (BACEN 4.658, AML, KYC). Indicamos qual playbook se aplica e qual a profundidade.</li>
+        <li><strong>Compliance embarcado.</strong> Cada kit vertical já carrega os artefatos regulatórios pelos quais o engagement parte — não retrofitados sob pressão de auditoria.</li>
+        <li><strong>Honestidade de ROI.</strong> Algumas verticais só têm ROI alto quando pré-condições específicas de dado e processo existem. Falamos isso antes de você gastar.</li>
+        <li><strong>Ticket estimado realista.</strong> Baseado na sua faixa de faturamento e maturidade de IA. Não é cotação — é range crível para levar pro financeiro.</li>
+      </ul>
+      {% endif %}
+    </div>
+    <div>
+      {% if lang == 'en' %}
+      <p class="eyebrow mb-4">Why this format</p>
+      <p class="text-sm text-ink/80 leading-relaxed mb-5">
+        Most vertical "AI for [industry]" pitches assume the buyer's environment already supports the case. Predictive maintenance assumes sensor data exists and is centralized. Clinical documentation assumes EHR access and a defined intake flow. Fraud detection assumes a transaction event stream with reliable identity fields.
+      </p>
+      <p class="text-sm text-ink/80 leading-relaxed mb-5">
+        Often those pre-conditions are not in place — and the ROI a vendor projects collapses against that reality. The Industry Assessment exists to flag those gaps before they become sunk cost.
+      </p>
+      <p class="text-sm text-ink/80 leading-relaxed">
+        A typical result: 3 of 5 vertical cases get a clear go, 1-2 get a "build the data layer first" no-go. That's the call we'd make if we were on your team.
+      </p>
+      {% else %}
+      <p class="eyebrow mb-4">Por que esse formato</p>
+      <p class="text-sm text-ink/80 leading-relaxed mb-5">
+        Quase todo pitch de "IA para [indústria]" assume que o ambiente do comprador já suporta o caso. Manutenção preditiva assume que dado de sensor existe e está centralizado. Documentação clínica assume acesso a EHR e fluxo de intake definido. Detecção de fraude assume stream de transações com campos de identidade confiáveis.
+      </p>
+      <p class="text-sm text-ink/80 leading-relaxed mb-5">
+        Muitas vezes essas pré-condições não estão no lugar — e o ROI projetado pelo vendor desaba contra essa realidade. O Industry Assessment existe para sinalizar esses gaps antes que virem custo afundado.
+      </p>
+      <p class="text-sm text-ink/80 leading-relaxed">
+        Resultado típico: 3 de 5 casos verticais recebem go claro, 1-2 recebem no-go com "construa a camada de dado primeiro". É a chamada que faríamos se estivéssemos no seu time.
+      </p>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<section class="max-w-3xl mx-auto px-6 py-16" id="signup">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-3 text-center">Interactive diagnostic</p>
+  <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Answer 5 questions. See your vertical fit in 30 seconds.</h2>
+  <p class="text-center text-ink/60 mb-12">No signup. You decide whether you want the report by email afterward.</p>
+
+  <form id="diag-business-form" data-diag-base="/api/industry-assessment" class="space-y-6 card p-8 md:p-10">
+    <div>
+      <label class="eyebrow block mb-2">Role</label>
+      <select name="role" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option>CEO / Founder</option>
+        <option>COO / Operations</option>
+        <option>CTO / VP Engineering</option>
+        <option>Head of Innovation / Digital Transformation</option>
+        <option>Head of Compliance / Regulatory Affairs</option>
+        <option>Plant / Operations Director</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Vertical</label>
+      <select name="vertical" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="manufacturing">Manufacturing</option>
+        <option value="logistics">Logistics &amp; supply chain</option>
+        <option value="healthcare">Healthcare provider</option>
+        <option value="life_sciences">Life Sciences (pharma / biotech)</option>
+        <option value="finserv">Financial services</option>
+        <option value="other">Other (specify in context)</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Approximate company size (annual revenue)</label>
+      <select name="company_size" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="under_100m">Under $20M</option>
+        <option value="100m_500m">$20M-$100M</option>
+        <option value="500m_2b">$100M-$400M</option>
+        <option value="above_2b">Above $400M</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Current AI maturity in your vertical operations</label>
+      <select name="ai_maturity" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="none">None — exploring conceptually</option>
+        <option value="exploring">1-2 PoCs running, none in production</option>
+        <option value="early_prod">1-2 cases in production, considering scaling</option>
+        <option value="scaling">Multiple cases in production, optimizing</option>
+        <option value="mature">Mature operation with internal ML/AI team</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Primary pain you'd want to address with AI/automation first</label>
+      <select name="main_pain" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="unplanned_downtime">Unplanned downtime / asset reliability</option>
+        <option value="quality_inspection">Quality inspection / defect detection</option>
+        <option value="supply_visibility">Supply chain visibility / ETA accuracy</option>
+        <option value="route_optimization">Route optimization / last-mile cost</option>
+        <option value="document_processing">Document processing burden (clinical, regulatory, contractual)</option>
+        <option value="clinical_documentation">Clinical documentation overhead</option>
+        <option value="regulatory_reporting">Regulatory reporting (GxP, BACEN, ANVISA)</option>
+        <option value="fraud_aml">Fraud detection / AML monitoring</option>
+        <option value="kyc_onboarding">KYC / customer onboarding</option>
+        <option value="other">Other (describe in context)</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Compliance environment (short text)</label>
+      <input name="compliance" type="text" maxlength="200" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="GxP, LGPD-saúde, BACEN 4.658, SOC 2, ANVISA, HIPAA, etc.">
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Additional context (optional)</label>
+      <textarea name="context" rows="3" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Anything specific? Existing systems, prior PoC attempts, internal team composition…"></textarea>
+    </div>
+    <button type="submit" class="btn-primary w-full text-base">See my analysis</button>
+    <p class="text-xs text-subtle text-center">No signup at this step. The analysis appears immediately below.</p>
+  </form>
+  {% else %}
+  <p class="eyebrow mb-3 text-center">Diagnóstico interativo</p>
+  <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Responda 5 perguntas. Veja seu fit vertical em 30 segundos.</h2>
+  <p class="text-center text-ink/60 mb-12">Sem cadastro. Você decide se quer receber o relatório por email depois.</p>
+
+  <form id="diag-business-form" data-diag-base="/api/industry-assessment" class="space-y-6 card p-8 md:p-10">
+    <div>
+      <label class="eyebrow block mb-2">Cargo</label>
+      <select name="role" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option>CEO / Founder</option>
+        <option>COO / Operações</option>
+        <option>CTO / VP Engineering</option>
+        <option>Head of Innovation / Transformação Digital</option>
+        <option>Head of Compliance / Regulatory Affairs</option>
+        <option>Diretor Industrial / de Operações</option>
+        <option>Outro</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Vertical</label>
+      <select name="vertical" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="manufacturing">Manufatura</option>
+        <option value="logistics">Logística &amp; supply chain</option>
+        <option value="healthcare">Healthcare provider</option>
+        <option value="life_sciences">Life Sciences (pharma / biotech)</option>
+        <option value="finserv">Serviços financeiros</option>
+        <option value="other">Outro (descreva no contexto)</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Faixa de faturamento anual aproximada</label>
+      <select name="company_size" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="under_100m">Abaixo de R$ 100M</option>
+        <option value="100m_500m">R$ 100M-500M</option>
+        <option value="500m_2b">R$ 500M-2B</option>
+        <option value="above_2b">Acima de R$ 2B</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Maturidade atual de IA nas operações da vertical</label>
+      <select name="ai_maturity" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="none">Nenhuma — explorando conceitualmente</option>
+        <option value="exploring">1-2 PoCs rodando, nada em produção</option>
+        <option value="early_prod">1-2 casos em produção, considerando escalar</option>
+        <option value="scaling">Múltiplos casos em produção, otimizando</option>
+        <option value="mature">Operação madura com time ML/IA interno</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Dor primária que endereçaria com IA/automação primeiro</label>
+      <select name="main_pain" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="unplanned_downtime">Downtime não planejado / confiabilidade de ativos</option>
+        <option value="quality_inspection">Inspeção de qualidade / detecção de defeito</option>
+        <option value="supply_visibility">Visibilidade de supply chain / acurácia de ETA</option>
+        <option value="route_optimization">Otimização de rota / custo de last-mile</option>
+        <option value="document_processing">Carga de processamento documental (clínico, regulatório, contratual)</option>
+        <option value="clinical_documentation">Sobrecarga de documentação clínica</option>
+        <option value="regulatory_reporting">Reporte regulatório (GxP, BACEN, ANVISA)</option>
+        <option value="fraud_aml">Detecção de fraude / monitoramento AML</option>
+        <option value="kyc_onboarding">KYC / onboarding de cliente</option>
+        <option value="other">Outra (descreva no contexto)</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Ambiente de compliance (texto curto)</label>
+      <input name="compliance" type="text" maxlength="200" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="GxP, LGPD-saúde, BACEN 4.658, SOC 2, ANVISA, HIPAA, etc.">
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Contexto adicional (opcional)</label>
+      <textarea name="context" rows="3" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Algo específico? Sistemas existentes, tentativas anteriores de PoC, composição do time interno…"></textarea>
+    </div>
+    <button type="submit" class="btn-primary w-full text-base">Ver minha análise</button>
+    <p class="text-xs text-subtle text-center">Sem cadastro nessa etapa. A análise aparece imediatamente abaixo.</p>
+  </form>
+  {% endif %}
+</section>
+
+{% include "_diag_flow_steps.html" %}
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<section class="max-w-5xl mx-auto px-6 py-20">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-4">Vertical playbooks</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight">Five verticals with accumulated depth.</h2>
+
+  <div class="grid md:grid-cols-2 gap-6">
+    <div class="card p-7">
+      <p class="h-serif text-2xl mb-3 text-accent">Manufacturing</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Predictive maintenance from existing PLC/sensor streams, MES/ERP integration, OEE dashboards, computer-vision quality inspection. Highest ROI when historical failure data exists and CMMS is already in place.</p>
+    </div>
+    <div class="card p-7">
+      <p class="h-serif text-2xl mb-3 text-accent">Logistics &amp; supply chain</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Offline-first fleet telemetry with satellite fallback, ML-based route and ETA optimization, last-mile tracking. Highest ROI when route diversity is real (rural / urban mix).</p>
+    </div>
+    <div class="card p-7">
+      <p class="h-serif text-2xl mb-3 text-accent">Healthcare provider</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Clinical documentation assistants, RAG over institutional protocols, intake triage. LGPD-saúde and sector regulations addressed from the architecture, not retrofitted. Highest ROI when EHR access and structured handoff exist.</p>
+    </div>
+    <div class="card p-7">
+      <p class="h-serif text-2xl mb-3 text-accent">Life Sciences</p>
+      <p class="text-sm text-ink/70 leading-relaxed">SOP automation, regulatory document drafting, structured retrieval over technical literature. GxP validation package bundled with delivery — IQ/OQ/PQ artifacts ready for ANVISA / FDA inspection trail.</p>
+    </div>
+    <div class="card p-7">
+      <p class="h-serif text-2xl mb-3 text-accent">Financial services</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Real-time fraud detection, AML monitoring, KYC onboarding, RAG over regulatory normatives (BACEN, CVM). BACEN 4.658-aligned controls from the architecture.</p>
+    </div>
+    <div class="card p-7 bg-ink text-paper">
+      <p class="h-serif text-2xl mb-3">Not in your vertical?</p>
+      <p class="text-sm text-paper/80 leading-relaxed mb-4">If the diagnostic returns "no playbook fit," that means we'd build the engagement as a bespoke Anuvia AI Engineering project. The call is still honest: sometimes the right answer is "not yet."</p>
+    </div>
+  </div>
+  {% else %}
+  <p class="eyebrow mb-4">Playbooks verticais</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight">Cinco verticais com profundidade acumulada.</h2>
+
+  <div class="grid md:grid-cols-2 gap-6">
+    <div class="card p-7">
+      <p class="h-serif text-2xl mb-3 text-accent">Manufatura</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Manutenção preditiva a partir de streams existentes de PLC/sensor, integração MES/ERP, dashboards de OEE, inspeção de qualidade por visão computacional. ROI maior quando há histórico de falha e CMMS já está no lugar.</p>
+    </div>
+    <div class="card p-7">
+      <p class="h-serif text-2xl mb-3 text-accent">Logística &amp; supply chain</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Telemetria de frota offline-first com fallback satelital, otimização de rota e ETA por ML, tracking last-mile. ROI maior quando há diversidade real de rota (mix rural / urbano).</p>
+    </div>
+    <div class="card p-7">
+      <p class="h-serif text-2xl mb-3 text-accent">Healthcare provider</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Assistentes de documentação clínica, RAG sobre protocolos institucionais, triagem em intake. LGPD-saúde e normativos setoriais endereçados a partir da arquitetura, não retrofitados. ROI maior quando há acesso a EHR e handoff estruturado.</p>
+    </div>
+    <div class="card p-7">
+      <p class="h-serif text-2xl mb-3 text-accent">Life Sciences</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Automação de SOPs, drafting regulatório, recuperação estruturada sobre literatura técnica. Validation package GxP entregue junto — artefatos IQ/OQ/PQ prontos para trilha de inspeção ANVISA / FDA.</p>
+    </div>
+    <div class="card p-7">
+      <p class="h-serif text-2xl mb-3 text-accent">Serviços financeiros</p>
+      <p class="text-sm text-ink/70 leading-relaxed">Detecção de fraude em tempo real, monitoramento AML, onboarding KYC, RAG sobre normativos (BACEN, CVM). Controles alinhados a BACEN 4.658 a partir da arquitetura.</p>
+    </div>
+    <div class="card p-7 bg-ink text-paper">
+      <p class="h-serif text-2xl mb-3">Não está na sua vertical?</p>
+      <p class="text-sm text-paper/80 leading-relaxed mb-4">Se o diagnóstico devolver "sem playbook fit", significa que construiríamos o engagement como projeto bespoke de Anuvia AI Engineering. A chamada continua honesta: às vezes a resposta certa é "ainda não".</p>
+    </div>
+  </div>
+  {% endif %}
+</section>
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<section class="max-w-4xl mx-auto px-6 py-20 text-center">
+  {% if lang == 'en' %}
+  <h2 class="h-serif text-3xl md:text-4xl leading-tight mb-6">Next steps after the assessment.</h2>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">A typical engagement starts with a 4-6 week vertical pilot scoped against the playbook fit identified in the assessment, with a documented eval gate before any production deploy.</p>
+  <div class="flex flex-col sm:flex-row gap-4 justify-center">
+    <a href="/industry" class="btn-ghost text-base inline-block">See the full Anuvia Industry catalog</a>
+    <a href="#signup" class="btn-primary text-base inline-block">Take the assessment</a>
+  </div>
+  {% else %}
+  <h2 class="h-serif text-3xl md:text-4xl leading-tight mb-6">Próximos passos depois do assessment.</h2>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Engagement típico começa com pilot vertical de 4-6 semanas escopado contra o fit de playbook identificado no assessment, com eval gate documentado antes de qualquer deploy em produção.</p>
+  <div class="flex flex-col sm:flex-row gap-4 justify-center">
+    <a href="/industry" class="btn-ghost text-base inline-block">Ver catálogo completo Anuvia Industry</a>
+    <a href="#signup" class="btn-primary text-base inline-block">Fazer assessment</a>
+  </div>
+  {% endif %}
+</section>
+
+{% endblock %}
