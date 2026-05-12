@@ -1,0 +1,138 @@
+{% extends "_base.html" %}
+
+{% block content %}
+
+<section class="max-w-5xl mx-auto px-6 pt-20 pb-12">
+  <p class="eyebrow mb-6">Anuvia · Cases</p>
+  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
+    Exemplos reais de entrega.
+  </h1>
+  <p class="text-xl text-ink/70 leading-relaxed max-w-3xl">
+    Padrões anonimizados de projetos que concluímos. Sem nomes fictícios. Sem métricas inventadas. Para detalhes específicos sob NDA, agende uma conversa com um Solutions Architect.
+  </p>
+</section>
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<!-- Case 1 - Manufacturing -->
+<section class="max-w-5xl mx-auto px-6 py-16">
+  <p class="eyebrow mb-6 text-accent">Manufatura · Predictive Maintenance</p>
+  <h2 class="h-serif text-3xl md:text-4xl mb-10 leading-tight">Manutenção preditiva em planta de médio porte</h2>
+
+  <div class="grid md:grid-cols-3 gap-8">
+    <div>
+      <p class="eyebrow mb-3">Problema</p>
+      <p class="text-ink/70 leading-relaxed text-sm">Indústria de médio porte perdia horas de produção a cada interrupção não planejada. A manutenção operava reativa, com custos elevados de reparo emergencial e impacto direto em prazo de entrega.</p>
+    </div>
+    <div>
+      <p class="eyebrow mb-3">Abordagem</p>
+      <p class="text-ink/70 leading-relaxed text-sm">Implementamos sistema de manutenção preditiva combinando fusão de sensores existentes, modelos de detecção de anomalia treinados sobre histórico e integração nativa com o CMMS para geração automática de ordens de serviço quando o risco ultrapassa o limite.</p>
+    </div>
+    <div>
+      <p class="eyebrow mb-3">Resultado</p>
+      <p class="text-ink/70 leading-relaxed text-sm">Tempo de inatividade não planejado caiu significativamente. A função de manutenção passou de reativa para baseada em condição, com redução clara nos custos de reparo emergencial e melhor previsibilidade no planejamento de produção.</p>
+    </div>
+  </div>
+</section>
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<!-- Case 2 - Logistics -->
+<section class="max-w-5xl mx-auto px-6 py-16">
+  <p class="eyebrow mb-6 text-accent">Logística · Fleet Telemetry</p>
+  <h2 class="h-serif text-3xl md:text-4xl mb-10 leading-tight">Visibilidade contínua de frota em rotas com conectividade instável</h2>
+
+  <div class="grid md:grid-cols-3 gap-8">
+    <div>
+      <p class="eyebrow mb-3">Problema</p>
+      <p class="text-ink/70 leading-relaxed text-sm">Empresa de logística operava sem visibilidade em tempo real da frota. Conectividade celular instável em rotas rurais causava perda de dados de telemetria e impossibilidade de identificar exceções operacionais a tempo.</p>
+    </div>
+    <div>
+      <p class="eyebrow mb-3">Abordagem</p>
+      <p class="text-ink/70 leading-relaxed text-sm">Construímos plataforma de telemetria edge-first com armazenamento local seguro durante perda de conexão, fallback por enlace satelital para eventos críticos e dashboard centralizado consolidando os dados conforme os dispositivos reconectam.</p>
+    </div>
+    <div>
+      <p class="eyebrow mb-3">Resultado</p>
+      <p class="text-ink/70 leading-relaxed text-sm">Visibilidade da frota deixou de depender da conectividade da rota. Atualizações de posição com latência abaixo do minuto, alertas automatizados de exceção e dashboards confiáveis para o time de operações.</p>
+    </div>
+  </div>
+</section>
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<!-- Case 3 - Retail GenAI -->
+<section class="max-w-5xl mx-auto px-6 py-16">
+  <p class="eyebrow mb-6 text-accent">Varejo · GenAI · Knowledge Assistant</p>
+  <h2 class="h-serif text-3xl md:text-4xl mb-10 leading-tight">Assistente interno de conhecimento com controle de acesso por documento</h2>
+
+  <div class="grid md:grid-cols-3 gap-8">
+    <div>
+      <p class="eyebrow mb-3">Problema</p>
+      <p class="text-ink/70 leading-relaxed text-sm">Grupo varejista desejava aplicar GenAI a operações internas, mas precisava garantir acurácia das respostas, controlar acesso a documentos sensíveis e ter auditabilidade completa de consultas para conformidade interna.</p>
+    </div>
+    <div>
+      <p class="eyebrow mb-3">Abordagem</p>
+      <p class="text-ink/70 leading-relaxed text-sm">Implementamos assistente RAG com controle de acesso por documento (alinhado ao perfil do usuário), citações obrigatórias em cada resposta apontando para a fonte original e harness de avaliação automatizada para detectar alucinação antes do deploy de cada nova versão.</p>
+    </div>
+    <div>
+      <p class="eyebrow mb-3">Resultado</p>
+      <p class="text-ink/70 leading-relaxed text-sm">Equipes de operações adotaram o assistente como ferramenta de trabalho diário. Acurácia mensurada acima da meta acordada em pré-projeto, com trilha de auditoria completa por consulta para revisão de compliance.</p>
+    </div>
+  </div>
+</section>
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<!-- Case 4 - FinOps -->
+<section class="max-w-5xl mx-auto px-6 py-16">
+  <p class="eyebrow mb-6 text-accent">SaaS B2B · FinOps · AWS Cost Audit</p>
+  <h2 class="h-serif text-3xl md:text-4xl mb-10 leading-tight">Redução estrutural de fatura AWS em SaaS B2B em escala</h2>
+
+  <div class="grid md:grid-cols-3 gap-8">
+    <div>
+      <p class="eyebrow mb-3">Problema</p>
+      <p class="text-ink/70 leading-relaxed text-sm">SaaS B2B com fatura AWS na casa de seis dígitos mensais observava custos crescendo de forma desalinhada com receita. Falta de visibilidade por produto e ausência de prática FinOps interna estabelecida.</p>
+    </div>
+    <div>
+      <p class="eyebrow mb-3">Abordagem</p>
+      <p class="text-ink/70 leading-relaxed text-sm">Audit completo em quatro semanas: análise de Cost and Usage Reports, identificação sistemática de oportunidades em compute, storage, networking e third-party SaaS, e implementação direta de quick wins de baixo risco durante o próprio audit.</p>
+    </div>
+    <div>
+      <p class="eyebrow mb-3">Resultado</p>
+      <p class="text-ink/70 leading-relaxed text-sm">Redução substancial da fatura mensal recorrente já no primeiro mês pós-audit. Roadmap priorizado para os meses seguintes e estabelecimento de prática FinOps interna com tagging e showback por produto.</p>
+    </div>
+  </div>
+</section>
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<!-- Case 5 - DevOps -->
+<section class="max-w-5xl mx-auto px-6 py-16">
+  <p class="eyebrow mb-6 text-accent">Scaleup · DevOps · Platform Engineering</p>
+  <h2 class="h-serif text-3xl md:text-4xl mb-10 leading-tight">Migração para Kubernetes em scaleup pós-Série B</h2>
+
+  <div class="grid md:grid-cols-3 gap-8">
+    <div>
+      <p class="eyebrow mb-3">Problema</p>
+      <p class="text-ink/70 leading-relaxed text-sm">Scaleup pós-Série B operava com deploys manuais a cada release e tempo médio de recuperação de incidentes acima do tolerável. Crescimento de time de engenharia tornou o modelo insustentável.</p>
+    </div>
+    <div>
+      <p class="eyebrow mb-3">Abordagem</p>
+      <p class="text-ink/70 leading-relaxed text-sm">Migração para EKS com GitOps via ArgoCD, observabilidade integrada com tracing distribuído, pipeline de CI/CD com testes automatizados por camada e introdução de práticas de SRE — incluindo definição de SLOs e processo de incident review.</p>
+    </div>
+    <div>
+      <p class="eyebrow mb-3">Resultado</p>
+      <p class="text-ink/70 leading-relaxed text-sm">Frequência de deploys passou de eventual para múltiplas vezes por dia. MTTR caiu para minutos. Time de engenharia reorientou tempo de operações manuais para construção de produto.</p>
+    </div>
+  </div>
+</section>
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<section class="max-w-4xl mx-auto px-6 py-24 text-center">
+  <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Conversar sobre seu cenário</h2>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Para discutir detalhes de casos específicos sob NDA ou explorar como uma abordagem similar se aplicaria ao seu contexto, agende uma conversa com um Solutions Architect da Anuvia.</p>
+  <a href="/contact" class="btn-primary text-base inline-block">Escolha um horário</a>
+</section>
+
+{% endblock %}

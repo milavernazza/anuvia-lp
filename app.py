@@ -865,6 +865,205 @@ async def api_book(payload: BookingRequest, request: Request) -> JSONResponse:
     })
 
 
+class ContactBookForm(BaseModel):
+    """Form do widget de booking embedded na /contact (e outras práticas).
+    Captura lead + agenda discovery em um único POST."""
+    model_config = ConfigDict(extra="allow")
+    name: str = Field(..., min_length=2, max_length=120)
+    email: EmailStr
+    whatsapp: str = Field(..., min_length=8, max_length=30)
+    company: Optional[str] = Field(default="", max_length=200)
+    context: Optional[str] = Field(default="", max_length=2000)
+    date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
+    time: str = Field(..., pattern=r"^\d{2}:\d{2}$")
+    source: Optional[str] = "lp_brand"
+
+    @field_validator("whatsapp")
+    @classmethod
+    def validate_whatsapp(cls, v: str) -> str:
+        normalized = normalize_phone(v)
+        if not normalized:
+            raise ValueError("WhatsApp inválido.")
+        return normalized
+
+
+@app.post("/api/contact-book")
+async def api_contact_book(form: ContactBookForm, request: Request) -> JSONResponse:
+    """Cria lead em Supabase + agenda discovery em Easyappointments.
+    Usado pelo widget de booking embedded no site brand (sem funnel-specific LP)."""
+    funnel = "BR_BRAND"
+    service_id = int(os.environ.get("EASYAPPOINTMENTS_SERVICE_ID_BR_SMB", "2"))
+    duration_min = 30
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        # 1. Insert lead
+        lead_payload = {
+            "funnel_id": funnel,
+            "name": form.name,
+            "email": form.email,
+            "phone_e164": form.whatsapp,
+            "company": form.company or None,
+            "source": form.source or "lp_brand",
+            "meta": {"context": form.context or "", "booking_via": "contact_widget"},
+            "tags": ["lp_brand", "contact_widget"],
+            "current_stage": "qualified",
+        }
+        lead_id = None
+        try:
+            r = await client.post(
+                f"{SUPA_URL}/leads",
+                headers=SUPA_HEADERS,
+                json=lead_payload,
+            )
+            if r.status_code in (200, 201):
+                rows = r.json()
+                if rows and isinstance(rows, list):
+                    lead_id = rows[0].get("id")
+            else:
+                log.warning("contact_book lead_insert non-200: %s %s", r.status_code, r.text[:200])
+        except Exception:
+            log.exception("contact_book lead_insert failed")
+
+        # 2. Build appointment in SP local time
+        try:
+            start_dt = datetime.strptime(
+                f"{form.date} {form.time}", "%Y-%m-%d %H:%M"
+            ).replace(tzinfo=TZ_SP)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Data ou hora inválidas.")
+        end_dt = start_dt + timedelta(minutes=duration_min)
+        start_str = start_dt.strftime("%Y-%m-%d %H:%M:%S")
+        end_str = end_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+        # Easyappointments requires firstName + lastName non-empty
+        name_parts = form.name.strip().split(maxsplit=1)
+        first_name = name_parts[0]
+        last_name = name_parts[1] if len(name_parts) > 1 else "."
+
+        # Build brief from form context for the appointment notes
+        notes_lines = [
+            f"Lead via /contact (brand site)",
+            f"Empresa: {form.company or '(não informada)'}",
+            f"Email: {form.email}",
+            f"WhatsApp: {form.whatsapp}",
+        ]
+        if form.context:
+            notes_lines.append("")
+            notes_lines.append("Contexto compartilhado:")
+            notes_lines.append(form.context)
+        if lead_id:
+            notes_lines.append("")
+            notes_lines.append(f"Supabase lead_id: {lead_id}")
+        notes = "\n".join(notes_lines)
+
+        # 3. Book in Easyappointments
+        booking_form = {
+            "post_data[appointment][start_datetime]": start_str,
+            "post_data[appointment][end_datetime]": end_str,
+            "post_data[appointment][id_users_provider]": str(EASY_PROVIDER_ID),
+            "post_data[appointment][id_services]": str(service_id),
+            "post_data[appointment][notes]": notes,
+            "post_data[appointment][is_unavailability]": "false",
+            "post_data[customer][first_name]": first_name,
+            "post_data[customer][last_name]": last_name,
+            "post_data[customer][email]": form.email,
+            "post_data[customer][phone_number]": form.whatsapp,
+            "post_data[customer][timezone]": "America/Sao_Paulo",
+            "post_data[manage_mode]": "false",
+            "csrfToken": "",
+        }
+        try:
+            br = await client.post(
+                f"{EASY_BASE}/index.php/booking/register",
+                headers=EASY_FORM_HEADERS,
+                data=booking_form,
+            )
+            body_text = br.text[:400]
+            if br.status_code >= 400:
+                log.error("contact_book easy register failed: %s %s", br.status_code, body_text)
+                raise HTTPException(status_code=502, detail="Não foi possível confirmar o agendamento. Tente outro horário.")
+            booking = br.json()
+            if not isinstance(booking, dict) or "appointment_id" not in booking:
+                log.error("contact_book easy register unexpected: %s", body_text)
+                raise HTTPException(status_code=502, detail="Resposta do calendário inválida.")
+        except HTTPException:
+            raise
+        except Exception:
+            log.exception("contact_book easy register exception")
+            raise HTTPException(status_code=502, detail="Erro ao agendar.")
+
+        # 4. Update lead stage to discovery_scheduled (best-effort)
+        if lead_id:
+            try:
+                await client.patch(
+                    f"{SUPA_URL}/leads?id=eq.{lead_id}",
+                    headers=SUPA_HEADERS,
+                    json={"current_stage": "discovery_scheduled"},
+                )
+            except Exception:
+                log.exception("contact_book lead stage update failed")
+
+        # 5. Slack notification (best-effort)
+        if SLACK_WEBHOOK:
+            try:
+                await client.post(
+                    SLACK_WEBHOOK,
+                    json={
+                        "text": (
+                            f":calendar: Discovery agendada via brand site\n"
+                            f"*{form.name}* — {form.company or '(sem empresa)'}\n"
+                            f"📅 {form.date} {form.time} (SP)\n"
+                            f"📞 {form.whatsapp}  ✉️ {form.email}\n"
+                            f"Source: {form.source}\n"
+                            f"Easyappointments id: {booking.get('appointment_id')}"
+                        )
+                    },
+                    timeout=10,
+                )
+            except Exception:
+                log.exception("contact_book slack notify failed (non-fatal)")
+
+        # 6. Send confirmation email (best-effort)
+        if RESEND_API_KEY:
+            try:
+                pt_weekdays = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"]
+                pt_months = [
+                    "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+                    "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+                ]
+                pretty = f"{pt_weekdays[start_dt.weekday()]}, {start_dt.day} de {pt_months[start_dt.month - 1]} às {form.time}"
+                email_html = f"""<!DOCTYPE html><html><body style="background:#fafaf9;font-family:Inter,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;"><div style="max-width:640px;margin:0 auto;"><p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;">Anuvia · Agendamento confirmado</p><p style="font-family:Georgia,serif;font-size:32px;margin:0 0 16px 0;">Olá, {first_name}</p><p style="color:#475569;line-height:1.65;">Sua conversa com um Solutions Architect da Anuvia está confirmada para <strong>{pretty}</strong> (horário de São Paulo).</p><p style="color:#475569;line-height:1.65;">Vamos te encontrar no horário com brief prévio do contexto que você compartilhou. A sessão dura 30 minutos.</p><p style="color:#78716c;font-size:13px;margin-top:32px;">Mila Vernazza · Founder Anuvia<br>Ex-AWS Solutions Architect · Ex-Google · 15+ AWS Certifications</p></div></body></html>"""
+                await client.post(
+                    "https://api.resend.com/emails",
+                    headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
+                    json={
+                        "from": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
+                        "to": [form.email],
+                        "reply_to": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
+                        "subject": f"Conversa Anuvia confirmada — {pretty}",
+                        "html": email_html,
+                        "tags": [{"name": "category", "value": "contact_booking"}],
+                    },
+                    timeout=20,
+                )
+            except Exception:
+                log.exception("contact_book confirmation email failed")
+
+    # Format friendly response
+    pt_weekdays = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"]
+    pt_months = [
+        "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+        "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+    ]
+    pretty = f"{pt_weekdays[start_dt.weekday()]}, {start_dt.day} de {pt_months[start_dt.month - 1]} às {form.time}"
+    return JSONResponse({
+        "ok": True,
+        "appointment_id": booking.get("appointment_id"),
+        "pretty": pretty,
+        "lead_id": lead_id,
+    })
+
+
 def _is_brand_host(request: Request) -> bool:
     """True if host is the main brand site (anuvia.com.br or www.anuvia.com.br)."""
     host = (request.headers.get("host") or "").lower().split(":")[0]
@@ -948,10 +1147,7 @@ async def about(request: Request):
 
 @app.get("/cases", response_class=HTMLResponse)
 async def cases(request: Request):
-    return templates.TemplateResponse(
-        "home.html",
-        {"request": request, "page_title": "Cases — em construção"},
-    )
+    return templates.TemplateResponse("cases.html", {"request": request})
 
 
 @app.get("/contact", response_class=HTMLResponse)
