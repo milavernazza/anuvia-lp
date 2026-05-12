@@ -900,27 +900,39 @@ async def api_contact_book(form: ContactBookForm, request: Request) -> JSONRespo
 
     async with httpx.AsyncClient(timeout=30) as client:
         # 1. Insert lead
-        meta = {
+        qd = {
             "context": form.context or "",
             "booking_via": "contact_widget",
         }
         if form.offering:
-            meta["offering"] = form.offering
+            qd["offering"] = form.offering
         if form.practice:
-            meta["practice"] = form.practice
+            qd["practice"] = form.practice
         tags = ["lp_brand", "contact_widget"]
         if form.practice:
             tags.append(f"practice:{form.practice}")
         if form.offering:
             tags.append(f"offering:{form.offering}")
         lead_payload = {
+            "tenant_id": "anuvia",
             "funnel_id": funnel,
+            "market": "BR",
+            "track": "brand_contact",
+            "language": "pt-BR",
             "name": form.name,
             "email": form.email,
             "phone_e164": form.whatsapp,
             "company": form.company or None,
             "source": form.source or "lp_brand",
-            "meta": meta,
+            "source_detail": {
+                "lp": "anuvia.com.br/contact",
+                "captured_at": datetime.now(timezone.utc).isoformat(),
+            },
+            "qualification_data": qd,
+            "consent": {
+                "lp_contact_widget": True,
+                "granted_at": datetime.now(timezone.utc).isoformat(),
+            },
             "tags": tags,
             "current_stage": "qualified",
         }
@@ -1200,15 +1212,19 @@ async def _create_anonymous_diag_lead(
     business_meta: dict,
     deliverable_html: str,
     tags: Optional[list] = None,
+    market: str = "BR",
+    track: str = "diagnostic",
+    language: str = "pt-BR",
 ) -> Optional[str]:
     """Insert anonymous lead (no PII) for tracking diagnostic completion.
-    Returns lead_id or None on failure. Uses placeholder email/phone to satisfy
-    NOT NULL constraints — gets overwritten when contact is upgraded."""
+    Returns lead_id or None on failure. Uses placeholder email/phone for tracking;
+    gets overwritten when contact is upgraded.
+    Uses qualification_data jsonb (correct schema column — NOT 'meta')."""
     session_token = uuid.uuid4().hex[:12]
     placeholder_email = f"anon-{session_token}@diagnostic.anuvia.local"
     placeholder_phone = "+0000000000"
     placeholder_name = f"(anônimo · {diag_type} · {session_token})"
-    meta = {
+    qualification_data = {
         "diagnostic_type": diag_type,
         "anonymous_diagnostic": True,
         "session_token": session_token,
@@ -1216,15 +1232,29 @@ async def _create_anonymous_diag_lead(
         **business_meta,
     }
     payload = {
+        "tenant_id": "anuvia",
         "funnel_id": funnel_id,
+        "market": market,
+        "track": track,
+        "language": language,
+        "source": source,
+        "source_detail": {
+            "lp": "anuvia.com.br",
+            "captured_at": datetime.now(timezone.utc).isoformat(),
+            "session_token": session_token,
+        },
         "name": placeholder_name,
         "email": placeholder_email,
         "phone_e164": placeholder_phone,
         "company": None,
-        "source": source,
-        "meta": meta,
-        "tags": list(tags or []) + ["anonymous_diagnostic", f"diag:{diag_type}"],
         "current_stage": "new",
+        "qualification_data": qualification_data,
+        "consent": {
+            "lp_diagnostic": True,
+            "anonymous": True,
+            "granted_at": datetime.now(timezone.utc).isoformat(),
+        },
+        "tags": list(tags or []) + ["anonymous_diagnostic", f"diag:{diag_type}"],
     }
     try:
         r = await client.post(f"{SUPA_URL}/leads", headers=SUPA_HEADERS, json=payload)
@@ -1232,8 +1262,9 @@ async def _create_anonymous_diag_lead(
             rows = r.json()
             if rows and isinstance(rows, list):
                 return rows[0].get("id")
+            log.warning("anonymous_diag_lead empty response body: %s", r.text[:200])
         else:
-            log.warning("anonymous_diag_lead non-200: %s %s", r.status_code, r.text[:200])
+            log.error("anonymous_diag_lead non-200: status=%s body=%s", r.status_code, r.text[:400])
     except Exception:
         log.exception("anonymous_diag_lead failed")
     return None
@@ -1247,23 +1278,23 @@ async def _upgrade_lead_with_contact(
     whatsapp: str,
     company: Optional[str],
 ) -> bool:
-    """PATCH anonymous lead with real contact info. Moves stage to 'qualified'."""
+    """PATCH anonymous lead with real contact info. Moves stage to 'qualified'.
+    Uses qualification_data jsonb column (correct schema)."""
     try:
-        # Fetch existing meta first to preserve diagnostic data
         gr = await client.get(
-            f"{SUPA_URL}/leads?id=eq.{lead_id}&select=meta,tags",
+            f"{SUPA_URL}/leads?id=eq.{lead_id}&select=qualification_data,tags",
             headers=SUPA_HEADERS,
         )
-        existing_meta = {}
+        existing_qd = {}
         existing_tags = []
         if gr.status_code == 200:
             rows = gr.json()
             if rows:
-                existing_meta = rows[0].get("meta", {}) or {}
+                existing_qd = rows[0].get("qualification_data", {}) or {}
                 existing_tags = rows[0].get("tags", []) or []
 
-        existing_meta["upgraded_at"] = datetime.now(timezone.utc).isoformat()
-        existing_meta["anonymous_diagnostic"] = False
+        existing_qd["upgraded_at"] = datetime.now(timezone.utc).isoformat()
+        existing_qd["anonymous_diagnostic"] = False
         new_tags = [t for t in existing_tags if t != "anonymous_diagnostic"]
         new_tags.append("contact_provided")
 
@@ -1273,7 +1304,7 @@ async def _upgrade_lead_with_contact(
             "phone_e164": whatsapp,
             "company": company or None,
             "current_stage": "qualified",
-            "meta": existing_meta,
+            "qualification_data": existing_qd,
             "tags": new_tags,
         }
         pr = await client.patch(
@@ -1489,11 +1520,11 @@ async def api_finops_audit_contact(form: DiagContactForm):
         # Re-fetch business meta to rebuild HTML with name
         try:
             r = await client.get(
-                f"{SUPA_URL}/leads?id=eq.{form.lead_id}&select=meta",
+                f"{SUPA_URL}/leads?id=eq.{form.lead_id}&select=qualification_data",
                 headers=SUPA_HEADERS,
             )
             rows = r.json() if r.status_code == 200 else []
-            meta = rows[0].get("meta", {}) if rows else {}
+            meta = rows[0].get("qualification_data", {}) if rows else {}
         except Exception:
             meta = {}
         _, deliverable_html = _build_finops_deliverable(meta, with_name=form.name)
@@ -1590,11 +1621,11 @@ async def api_aws_wa_contact(form: DiagContactForm):
     async with httpx.AsyncClient(timeout=20) as client:
         try:
             r = await client.get(
-                f"{SUPA_URL}/leads?id=eq.{form.lead_id}&select=meta",
+                f"{SUPA_URL}/leads?id=eq.{form.lead_id}&select=qualification_data",
                 headers=SUPA_HEADERS,
             )
             rows = r.json() if r.status_code == 200 else []
-            meta = rows[0].get("meta", {}) if rows else {}
+            meta = rows[0].get("qualification_data", {}) if rows else {}
         except Exception:
             meta = {}
         _, deliverable_html = _build_wa_deliverable(meta, with_name=form.name)
@@ -1688,11 +1719,11 @@ async def api_devops_contact(form: DiagContactForm):
     async with httpx.AsyncClient(timeout=20) as client:
         try:
             r = await client.get(
-                f"{SUPA_URL}/leads?id=eq.{form.lead_id}&select=meta",
+                f"{SUPA_URL}/leads?id=eq.{form.lead_id}&select=qualification_data",
                 headers=SUPA_HEADERS,
             )
             rows = r.json() if r.status_code == 200 else []
-            meta = rows[0].get("meta", {}) if rows else {}
+            meta = rows[0].get("qualification_data", {}) if rows else {}
         except Exception:
             meta = {}
         _, deliverable_html = _build_devops_deliverable(meta, with_name=form.name)
@@ -1800,11 +1831,11 @@ async def api_ai_readiness_contact(form: DiagContactForm):
     async with httpx.AsyncClient(timeout=20) as client:
         try:
             r = await client.get(
-                f"{SUPA_URL}/leads?id=eq.{form.lead_id}&select=meta",
+                f"{SUPA_URL}/leads?id=eq.{form.lead_id}&select=qualification_data",
                 headers=SUPA_HEADERS,
             )
             rows = r.json() if r.status_code == 200 else []
-            meta = rows[0].get("meta", {}) if rows else {}
+            meta = rows[0].get("qualification_data", {}) if rows else {}
         except Exception:
             meta = {}
         _, deliverable_html = _build_ai_readiness_deliverable(meta, with_name=form.name)
@@ -1909,11 +1940,11 @@ async def api_growth_contact(form: DiagContactForm):
     async with httpx.AsyncClient(timeout=20) as client:
         try:
             r = await client.get(
-                f"{SUPA_URL}/leads?id=eq.{form.lead_id}&select=meta",
+                f"{SUPA_URL}/leads?id=eq.{form.lead_id}&select=qualification_data",
                 headers=SUPA_HEADERS,
             )
             rows = r.json() if r.status_code == 200 else []
-            meta = rows[0].get("meta", {}) if rows else {}
+            meta = rows[0].get("qualification_data", {}) if rows else {}
         except Exception:
             meta = {}
         _, deliverable_html = _build_growth_deliverable(meta, with_name=form.name)
