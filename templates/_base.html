@@ -24,26 +24,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            'serif': ['Playfair Display', 'Georgia', 'serif'],
-            'sans': ['Inter', 'system-ui', 'sans-serif'],
-          },
-          colors: {
-            'paper': '#fafaf9',
-            'ink': '#1a1a1a',
-            'rule': '#e7e5e4',
-            'subtle': '#78716c',
-            'accent': '#0c4a6e',
-          },
-        },
-      },
-    }
-  </script>
+  {# Pre-compiled Tailwind (self-hosted). Replaces fragile cdn.tailwindcss.com JIT runtime. #}
+  <link rel="stylesheet" href="/static/css/tailwind.css?v=2">
 
   <style>
     body { background: #fafaf9; color: #1a1a1a; font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
