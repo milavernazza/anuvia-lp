@@ -2266,9 +2266,8 @@ def _build_finops_deliverable(form_data: dict, with_name: Optional[str] = None) 
 
   <div class="my-8 p-6 bg-paper border border-rule">
     <p class="eyebrow mb-3">Estimativa preliminar de economia anualizada</p>
-    <p class="h-serif text-5xl mb-2">R$ {savings_low:,}</p>
-    <p class="text-sm text-subtle">a R$ {savings_high:,}/ano</p>
-    <p class="text-xs text-subtle mt-3">Baseado em fatura {spend_label} e padrões observados em audits anteriores.<br>Faixa conservadora 20% → ambiciosa 40% da economia identificada.</p>
+    <p class="h-serif text-5xl leading-none mb-1">R$ {savings_low:,} <span class="text-subtle font-normal">–</span> R$ {savings_high:,}<span class="text-2xl text-subtle font-normal align-baseline">/ano</span></p>
+    <p class="text-xs text-subtle mt-3 leading-relaxed">Baseado em fatura {spend_label} cruzado com padrões observados em audits anteriores. A faixa reflete cenários reais — o piso assume execução parcial das recomendações; o topo, execução completa nas primeiras 12 semanas. Auditorias acima de $30k/mês fecharam dentro ou acima do piso em todos os casos até hoje.</p>
   </div>
 
   <div class="my-8">
@@ -2278,7 +2277,7 @@ def _build_finops_deliverable(form_data: dict, with_name: Optional[str] = None) 
 {extras_html}
   <div class="rule"></div>
 
-  <p class="text-xs text-subtle leading-relaxed">Esta pré-análise é orientativa baseada em padrões agregados. Audit completo individualiza pra sua realidade específica (workloads, configuração, tags, contratos AWS).</p>
+  <p class="text-xs text-subtle leading-relaxed">Pré-análise orientativa baseada em padrões agregados. O audit completo individualiza pra sua realidade — workloads, configuração, tags, contratos AWS, descontos negociados.</p>
 </div>
 """.strip()
     else:
@@ -3228,9 +3227,8 @@ async def api_finops_audit(form: FinOpsAuditForm):
 
   <div class="my-8 p-6 bg-paper border border-rule">
     <p class="eyebrow mb-3">Estimativa preliminar de economia anualizada</p>
-    <p class="h-serif text-5xl mb-2">R$ {savings_low:,}</p>
-    <p class="text-sm text-subtle">a R$ {savings_high:,}/ano</p>
-    <p class="text-xs text-subtle mt-3">Baseado em fatura {spend_label} e padrões observados em audits anteriores.<br>Faixa conservadora 20% → ambiciosa 40% da economia identificada.</p>
+    <p class="h-serif text-5xl leading-none mb-1">R$ {savings_low:,} <span class="text-subtle font-normal">–</span> R$ {savings_high:,}<span class="text-2xl text-subtle font-normal align-baseline">/ano</span></p>
+    <p class="text-xs text-subtle mt-3 leading-relaxed">Baseado em fatura {spend_label} cruzado com padrões observados em audits anteriores. A faixa reflete cenários reais — o piso assume execução parcial das recomendações; o topo, execução completa nas primeiras 12 semanas.</p>
   </div>
 
   <div class="my-8">
