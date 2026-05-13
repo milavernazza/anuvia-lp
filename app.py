@@ -16,6 +16,7 @@ score >= 80). No additional wiring needed here.
 """
 
 import asyncio
+import base64
 import json
 import logging
 import os
@@ -1482,6 +1483,346 @@ async def api_slots(request: Request, days: int = 5) -> JSONResponse:
     return JSONResponse({"days": out})
 
 
+# ----------------------------------------------------------------------------
+# Gcal event creation for discovery bookings
+#
+# Two events are created on Mila's primary calendar for every booking:
+#   A) PUBLIC: client is invited as attendee, auto-Meet conference, short
+#      client-facing description. This is what the lead sees.
+#   B) PRIVATE: same start/end, no attendees, no conference, FULL pre-call brief
+#      (lead_id, qualification_data, role, spend, pains, contexto). visibility
+#      'private' so it never leaks even if the calendar is shared.
+#
+# Both events live on the SAME calendar (mila@anuvia.com.br primary) — Mila
+# sees A on her calendar with the client attached, and B as a quiet private
+# entry with all the operational metadata she needs to prep.
+#
+# Persisted onto leads.qualification_data.gcal:
+#   { public_event_id, private_event_id, meet_url, html_link }
+# The booking confirmation email reads qualification_data.meet_url and
+# artifacts.gcal.meet_url — we write to qualification_data.meet_url as the
+# canonical path (mirrored inside qualification_data.gcal for traceability).
+# ----------------------------------------------------------------------------
+
+
+# Map funnel_id → human-readable diagnostic label (single source of truth).
+# Used in event titles ("Anuvia · Discovery · {label}" / "Brief · {label} · ...")
+# and in client-facing copy. Bilingual variants kept minimal — labels stay in
+# English by design (they're product names: "FinOps Audit", "DevOps Maturity").
+_DIAG_LABELS: dict[str, dict[str, str]] = {
+    "BR_FINOPS":     {"pt": "FinOps Audit",         "en": "FinOps Audit"},
+    "US_FINOPS":     {"pt": "FinOps Audit",         "en": "FinOps Audit"},
+    "BR_DEVOPS":     {"pt": "DevOps Maturity",      "en": "DevOps Maturity"},
+    "BR_AI":         {"pt": "AI Readiness",         "en": "AI Readiness"},
+    "BR_GROWTH":     {"pt": "Growth Sales Ops",     "en": "Growth Sales Ops"},
+    "BR_INDUSTRY":   {"pt": "Industry Assessment",  "en": "Industry Assessment"},
+    "BR_AWS_WA":     {"pt": "AWS Well-Architected", "en": "AWS Well-Architected"},
+    "BR_AWS_MIG":    {"pt": "AWS Migration Plan",   "en": "AWS Migration Plan"},
+    "BR_AWS_COST":   {"pt": "AWS Cost Review",      "en": "AWS Cost Review"},
+    "BR_GCP_WA":     {"pt": "GCP Well-Architected", "en": "GCP Well-Architected"},
+    "BR_GCP_MIG":    {"pt": "GCP Migration Plan",   "en": "GCP Migration Plan"},
+    "BR_GCP_COST":   {"pt": "GCP Cost Review",      "en": "GCP Cost Review"},
+    "BR_SMB":        {"pt": "Growth Sales Ops",     "en": "Growth Sales Ops"},
+    "BR_ENG":        {"pt": "AI Readiness",         "en": "AI Readiness"},
+    "BR_BRAND":      {"pt": "Discovery",            "en": "Discovery"},
+}
+
+
+def _diag_label_for_funnel(funnel_id: Optional[str], lang: str = "pt") -> str:
+    """Map funnel_id → human label for event titles.
+
+    Falls back to title-casing the suffix after the BR_/US_ prefix when the
+    funnel_id isn't in the explicit map (e.g. a new BR_AWS_* sub-LP added
+    without updating this file still gets a reasonable label).
+    """
+    fid = (funnel_id or "").strip().upper()
+    lang_key = "en" if (lang or "pt").lower().startswith("en") else "pt"
+    if fid in _DIAG_LABELS:
+        return _DIAG_LABELS[fid].get(lang_key) or _DIAG_LABELS[fid]["pt"]
+    # Fallback: strip BR_/US_ prefix and title-case the remainder.
+    suffix = re.sub(r"^(?:BR|US)_", "", fid)
+    if not suffix:
+        return "Discovery"
+    # Convert underscores to spaces, title-case each word
+    return suffix.replace("_", " ").title()
+
+
+def _build_client_facing_description(lead_name: str, diag_label: str, lang: str = "pt") -> str:
+    """Short, friendly description for Event A (public). NO operational metadata."""
+    first = (lead_name or "").strip().split()[0] if lead_name else ""
+    if (lang or "pt").lower().startswith("en"):
+        return (
+            f"30-minute conversation with a Solutions Architect from Anuvia"
+            f"{' — ' + diag_label if diag_label else ''}.\n\n"
+            f"We'll review your diagnostic and map a practical next step.\n\n"
+            f"The Google Meet link is on this invite."
+        )
+    return (
+        f"Conversa de 30 min com um Solutions Architect da Anuvia"
+        f"{' — ' + diag_label if diag_label else ''}.\n\n"
+        f"Vamos revisar seu diagnóstico e mapear o próximo passo prático.\n\n"
+        f"O link do Google Meet está neste convite."
+    )
+
+
+def _build_brief_description(lead: dict, form_extras: Optional[dict] = None) -> str:
+    """Rich pre-call brief for Event B (private). Includes everything Mila needs
+    to prep: lead_id, qualification_data, contact info, contexto compartilhado.
+
+    Reuses build_pre_call_brief for the structured section and appends any
+    extras passed in (e.g. /contact widget context/offering/practice that may
+    not live in qualification_data yet)."""
+    brief = build_pre_call_brief(lead or {})
+    extras = form_extras or {}
+    extra_lines: list[str] = []
+    if extras.get("offering") or extras.get("practice"):
+        extra_lines.append("")
+        extra_lines.append(
+            f"Oferta de interesse: {extras.get('offering') or '(n/a)'} "
+            f"(prática: {extras.get('practice') or '(n/a)'})"
+        )
+    ctx = (extras.get("context") or "").strip()
+    if ctx:
+        extra_lines.append("")
+        extra_lines.append("Contexto compartilhado (form):")
+        extra_lines.append(ctx)
+    lid = (lead or {}).get("id")
+    if lid:
+        extra_lines.append("")
+        extra_lines.append(f"Supabase lead_id: {lid}")
+    src = extras.get("source")
+    if src:
+        extra_lines.append(f"Source: {src}")
+    fid = (lead or {}).get("funnel_id") or extras.get("funnel_id")
+    if fid:
+        extra_lines.append(f"Funnel: {fid}")
+    if extra_lines:
+        return brief + "\n" + "\n".join(extra_lines)
+    return brief
+
+
+async def _pick_primary_gcal_account(client: httpx.AsyncClient) -> Optional[dict]:
+    """Return the first active Google account from admin_gcal_accounts.
+
+    For now we use the first active account (which should be Mila's primary —
+    mila@anuvia.com.br). If multiple accounts are active, we'd need explicit
+    routing; that's not in scope here."""
+    accounts = await _fetch_active_gcal_accounts(client)
+    if not accounts:
+        return None
+    return accounts[0]
+
+
+async def _create_gcal_event_pair_for_booking(
+    client: httpx.AsyncClient,
+    lead: dict,
+    start_dt: datetime,
+    end_dt: datetime,
+    funnel_id: str,
+    lang: str = "pt",
+    form_extras: Optional[dict] = None,
+) -> dict:
+    """Create Event A (public, with attendee + Meet) and Event B (private brief).
+
+    Returns: {
+        "public_event_id": str|None,
+        "private_event_id": str|None,
+        "meet_url": str|None,
+        "html_link": str|None,
+        "calendar_id": str|None,
+        "error": str|None,
+    }
+
+    Best-effort: never raises. On full failure returns a dict with "error" set
+    and ids as None — the caller continues so booking confirmation still goes
+    out (the .ics attachment carries enough info on its own)."""
+    result: dict = {
+        "public_event_id": None,
+        "private_event_id": None,
+        "meet_url": None,
+        "html_link": None,
+        "calendar_id": None,
+        "error": None,
+    }
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        result["error"] = "google_oauth_not_configured"
+        return result
+
+    account = await _pick_primary_gcal_account(client)
+    if not account:
+        result["error"] = "no_active_gcal_account"
+        return result
+
+    email = account.get("email")
+    refresh_token = account.get("refresh_token")
+    cal_id = account.get("calendar_id") or "primary"
+    if not (email and refresh_token):
+        result["error"] = "gcal_account_missing_credentials"
+        return result
+
+    token = await _get_cached_access_token(client, email, refresh_token)
+    if not token:
+        result["error"] = "gcal_token_exchange_failed"
+        return result
+
+    import urllib.parse as _up
+    cal_url = f"https://www.googleapis.com/calendar/v3/calendars/{_up.quote(cal_id)}/events"
+
+    diag_label = _diag_label_for_funnel(funnel_id, lang)
+    lead_name = (lead or {}).get("name") or "Lead"
+    lead_email = (lead or {}).get("email") or (form_extras or {}).get("email") or ""
+
+    # --- Event A: public, client-facing, Meet link, with attendee ---
+    public_summary = f"Anuvia · Discovery · {diag_label}"
+    public_description = _build_client_facing_description(lead_name, diag_label, lang)
+    start_iso = start_dt.astimezone(TZ_SP).isoformat()
+    end_iso = end_dt.astimezone(TZ_SP).isoformat()
+
+    public_body: dict = {
+        "summary": public_summary,
+        "description": public_description,
+        "start": {"dateTime": start_iso, "timeZone": "America/Sao_Paulo"},
+        "end":   {"dateTime": end_iso,   "timeZone": "America/Sao_Paulo"},
+        "conferenceData": {
+            "createRequest": {
+                "requestId": str(uuid.uuid4()),
+                "conferenceSolutionKey": {"type": "hangoutsMeet"},
+            }
+        },
+        "reminders": {"useDefault": True},
+        "guestsCanModify": False,
+        "guestsCanInviteOthers": False,
+        "guestsCanSeeOtherGuests": False,
+    }
+    if lead_email:
+        public_body["attendees"] = [{
+            "email": lead_email,
+            "displayName": lead_name,
+            "responseStatus": "needsAction",
+        }]
+
+    try:
+        ra = await client.post(
+            cal_url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            params={
+                "conferenceDataVersion": "1",
+                # Send invite email so the lead gets an Accept/Decline.
+                "sendUpdates": "all" if lead_email else "none",
+            },
+            json=public_body,
+            timeout=15,
+        )
+        if ra.status_code in (200, 201):
+            ev_a = ra.json()
+            result["public_event_id"] = ev_a.get("id")
+            result["html_link"] = ev_a.get("htmlLink")
+            result["calendar_id"] = cal_id
+            # hangoutLink is the canonical Meet URL; entryPoints carries fuller info.
+            meet_url = ev_a.get("hangoutLink")
+            if not meet_url:
+                # Fall back to entryPoints[*].uri where type == "video"
+                for ep in (ev_a.get("conferenceData") or {}).get("entryPoints") or []:
+                    if ep.get("entryPointType") == "video" and ep.get("uri"):
+                        meet_url = ep["uri"]
+                        break
+            result["meet_url"] = meet_url
+        else:
+            result["error"] = f"event_a_insert_{ra.status_code}"
+            log.warning("gcal event A insert non-2xx: %s %s", ra.status_code, ra.text[:300])
+            return result
+    except Exception:
+        log.exception("gcal event A insert exception")
+        result["error"] = "event_a_insert_exception"
+        return result
+
+    # --- Event B: private brief, no attendees, no conference ---
+    private_summary = f"Brief · {diag_label} · {lead_name}"
+    private_description = _build_brief_description(lead, form_extras=form_extras)
+    if result.get("meet_url"):
+        # Cross-link so Mila can jump from the brief to the Meet.
+        private_description = (
+            private_description
+            + f"\n\n—\nMeet link (Event A): {result['meet_url']}"
+            + (f"\nEvent A: {result.get('html_link')}" if result.get("html_link") else "")
+        )
+
+    private_body = {
+        "summary": private_summary,
+        "description": private_description,
+        "start": {"dateTime": start_iso, "timeZone": "America/Sao_Paulo"},
+        "end":   {"dateTime": end_iso,   "timeZone": "America/Sao_Paulo"},
+        "visibility": "private",
+        "transparency": "opaque",
+        "reminders": {"useDefault": False},
+    }
+    try:
+        rb = await client.post(
+            cal_url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            params={"sendUpdates": "none"},
+            json=private_body,
+            timeout=15,
+        )
+        if rb.status_code in (200, 201):
+            ev_b = rb.json()
+            result["private_event_id"] = ev_b.get("id")
+        else:
+            log.warning("gcal event B insert non-2xx: %s %s", rb.status_code, rb.text[:300])
+            # Don't blow away the successful A — just note partial failure.
+            result["error"] = (result.get("error") or "") + f" event_b_insert_{rb.status_code}".strip()
+    except Exception:
+        log.exception("gcal event B insert exception")
+        result["error"] = (result.get("error") or "") + " event_b_insert_exception"
+
+    return result
+
+
+async def _persist_gcal_on_lead(
+    client: httpx.AsyncClient, lead_id: str, gcal_result: dict
+) -> None:
+    """Merge the gcal result into qualification_data.gcal (and mirror meet_url
+    at qualification_data.meet_url, which is what the email helper reads first)."""
+    if not lead_id or not gcal_result:
+        return
+    try:
+        lr = await client.get(
+            f"{SUPA_URL}/leads?id=eq.{lead_id}&select=qualification_data",
+            headers=SUPA_HEADERS,
+        )
+        if lr.status_code != 200:
+            return
+        rows = lr.json() or []
+        if not rows:
+            return
+        qd = rows[0].get("qualification_data") or {}
+        gcal_payload = {
+            "public_event_id": gcal_result.get("public_event_id"),
+            "private_event_id": gcal_result.get("private_event_id"),
+            "meet_url": gcal_result.get("meet_url"),
+            "html_link": gcal_result.get("html_link"),
+            "calendar_id": gcal_result.get("calendar_id"),
+        }
+        qd["gcal"] = gcal_payload
+        if gcal_result.get("meet_url"):
+            qd["meet_url"] = gcal_result["meet_url"]
+        pr = await client.patch(
+            f"{SUPA_URL}/leads?id=eq.{lead_id}",
+            headers=SUPA_HEADERS,
+            json={"qualification_data": qd},
+        )
+        if pr.status_code not in (200, 204):
+            log.warning("persist_gcal patch non-2xx: %s %s", pr.status_code, pr.text[:200])
+    except Exception:
+        log.exception("persist_gcal failed (non-fatal)")
+
+
 class BookingRequest(BaseModel):
     lead_id: str = Field(..., min_length=10, max_length=64)
     date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
@@ -1576,6 +1917,26 @@ async def api_book(payload: BookingRequest, request: Request) -> JSONResponse:
         except Exception:
             log.exception("lead stage update failed (non-fatal)")
 
+        # 4b. Create Gcal event pair on Mila's calendar (best-effort).
+        # Event A: public, with attendee + Meet. Event B: private brief.
+        try:
+            lead_funnel = lead.get("funnel_id") or funnel
+            gcal_result = await _create_gcal_event_pair_for_booking(
+                client,
+                lead=lead,
+                start_dt=start_dt,
+                end_dt=end_dt,
+                funnel_id=lead_funnel,
+                lang=("en" if (lead.get("language") or "").lower().startswith("en") else "pt"),
+                form_extras={
+                    "source": lead.get("source"),
+                    "funnel_id": lead_funnel,
+                },
+            )
+            await _persist_gcal_on_lead(client, payload.lead_id, gcal_result)
+        except Exception:
+            log.exception("api_book gcal event creation failed (non-fatal)")
+
         # 5. Slack notification (best-effort)
         if SLACK_WEBHOOK:
             try:
@@ -1641,64 +2002,133 @@ class ContactBookForm(BaseModel):
 @app.post("/api/contact-book")
 async def api_contact_book(form: ContactBookForm, request: Request) -> JSONResponse:
     """Cria lead em Supabase + agenda discovery em Easyappointments.
-    Usado pelo widget de booking embedded no site brand (sem funnel-specific LP)."""
+    Usado pelo widget de booking embedded no site brand (sem funnel-specific LP).
+
+    Cookie-aware: if `anuvia_lead_id` cookie is set and resolves to an existing
+    lead row, we MERGE the booking into that row (PATCH) instead of creating a
+    new one. This prevents asking returning leads for their PII a second time
+    after they've already submitted /api/<diag>/contact. Direct visitors to
+    /contact with no cookie keep the original insert path."""
     funnel = "BR_BRAND"
     service_id = int(os.environ.get("EASYAPPOINTMENTS_SERVICE_ID_BR_SMB", "2"))
     duration_min = 30
 
+    # Cookie-driven: only trust the cookie if the lead row actually exists.
+    cookie_lead_id = request.cookies.get(LEAD_ID_COOKIE) or ""
+
     async with httpx.AsyncClient(timeout=30) as client:
-        # 1. Insert lead
-        qd = {
-            "context": form.context or "",
-            "booking_via": "contact_widget",
-        }
-        if form.offering:
-            qd["offering"] = form.offering
-        if form.practice:
-            qd["practice"] = form.practice
-        tags = ["lp_brand", "contact_widget"]
-        if form.practice:
-            tags.append(f"practice:{form.practice}")
-        if form.offering:
-            tags.append(f"offering:{form.offering}")
-        lead_payload = {
-            "tenant_id": "anuvia",
-            "funnel_id": funnel,
-            "market": "BR",
-            "track": "brand_contact",
-            "language": "pt-BR",
-            "name": form.name,
-            "email": form.email,
-            "phone_e164": form.whatsapp,
-            "company": form.company or None,
-            "source": form.source or "lp_brand",
-            "source_detail": {
-                "lp": "anuvia.com.br/contact",
-                "captured_at": datetime.now(timezone.utc).isoformat(),
-            },
-            "qualification_data": qd,
-            "consent": {
-                "lp_contact_widget": True,
-                "granted_at": datetime.now(timezone.utc).isoformat(),
-            },
-            "tags": tags,
-            "current_stage": "qualified",
-        }
-        lead_id = None
-        try:
-            r = await client.post(
-                f"{SUPA_URL}/leads",
-                headers=SUPA_HEADERS,
-                json=lead_payload,
-            )
-            if r.status_code in (200, 201):
-                rows = r.json()
-                if rows and isinstance(rows, list):
-                    lead_id = rows[0].get("id")
-            else:
-                log.warning("contact_book lead_insert non-200: %s %s", r.status_code, r.text[:200])
-        except Exception:
-            log.exception("contact_book lead_insert failed")
+        existing_lead_id: Optional[str] = None
+        if cookie_lead_id:
+            try:
+                lr = await client.get(
+                    f"{SUPA_URL}/leads?id=eq.{cookie_lead_id}&select=id,name,email,phone_e164,company,qualification_data,tags",
+                    headers=SUPA_HEADERS,
+                )
+                if lr.status_code == 200:
+                    rows = lr.json() or []
+                    if rows:
+                        existing_lead_id = rows[0].get("id")
+                        existing_row = rows[0]
+            except Exception:
+                log.exception("contact_book cookie-lead lookup failed (non-fatal)")
+
+        lead_id: Optional[str] = None
+
+        if existing_lead_id:
+            # MERGE path — PATCH existing lead, do not insert.
+            lead_id = existing_lead_id
+            existing_qd = existing_row.get("qualification_data") or {}
+            existing_tags = existing_row.get("tags") or []
+            existing_qd["booking_via"] = "contact_widget"
+            if form.context:
+                existing_qd["context"] = form.context
+            if form.offering:
+                existing_qd["offering"] = form.offering
+            if form.practice:
+                existing_qd["practice"] = form.practice
+            new_tags = list(dict.fromkeys(existing_tags + ["contact_widget"]))
+            if form.practice and f"practice:{form.practice}" not in new_tags:
+                new_tags.append(f"practice:{form.practice}")
+            if form.offering and f"offering:{form.offering}" not in new_tags:
+                new_tags.append(f"offering:{form.offering}")
+            # Only overwrite PII fields if the existing row is missing them;
+            # we never want to clobber a known good name/email/phone with a
+            # weaker value submitted later.
+            patch_payload: dict = {
+                "current_stage": "qualified",
+                "qualification_data": existing_qd,
+                "tags": new_tags,
+            }
+            if not (existing_row.get("name") or "").strip():
+                patch_payload["name"] = form.name
+            if not (existing_row.get("email") or "").strip():
+                patch_payload["email"] = form.email
+            if not (existing_row.get("phone_e164") or "").strip():
+                patch_payload["phone_e164"] = form.whatsapp
+            if form.company and not (existing_row.get("company") or "").strip():
+                patch_payload["company"] = form.company
+            try:
+                pr = await client.patch(
+                    f"{SUPA_URL}/leads?id=eq.{lead_id}",
+                    headers=SUPA_HEADERS,
+                    json=patch_payload,
+                )
+                if pr.status_code not in (200, 204):
+                    log.warning("contact_book lead_patch non-2xx: %s %s", pr.status_code, pr.text[:200])
+            except Exception:
+                log.exception("contact_book lead_patch failed")
+        else:
+            # INSERT path — direct /contact visitor with no prior lead row.
+            qd = {
+                "context": form.context or "",
+                "booking_via": "contact_widget",
+            }
+            if form.offering:
+                qd["offering"] = form.offering
+            if form.practice:
+                qd["practice"] = form.practice
+            tags = ["lp_brand", "contact_widget"]
+            if form.practice:
+                tags.append(f"practice:{form.practice}")
+            if form.offering:
+                tags.append(f"offering:{form.offering}")
+            lead_payload = {
+                "tenant_id": "anuvia",
+                "funnel_id": funnel,
+                "market": "BR",
+                "track": "brand_contact",
+                "language": "pt-BR",
+                "name": form.name,
+                "email": form.email,
+                "phone_e164": form.whatsapp,
+                "company": form.company or None,
+                "source": form.source or "lp_brand",
+                "source_detail": {
+                    "lp": "anuvia.com.br/contact",
+                    "captured_at": datetime.now(timezone.utc).isoformat(),
+                },
+                "qualification_data": qd,
+                "consent": {
+                    "lp_contact_widget": True,
+                    "granted_at": datetime.now(timezone.utc).isoformat(),
+                },
+                "tags": tags,
+                "current_stage": "qualified",
+            }
+            try:
+                r = await client.post(
+                    f"{SUPA_URL}/leads",
+                    headers=SUPA_HEADERS,
+                    json=lead_payload,
+                )
+                if r.status_code in (200, 201):
+                    rows = r.json()
+                    if rows and isinstance(rows, list):
+                        lead_id = rows[0].get("id")
+                else:
+                    log.warning("contact_book lead_insert non-200: %s %s", r.status_code, r.text[:200])
+            except Exception:
+                log.exception("contact_book lead_insert failed")
 
         # 2. Build appointment in SP local time
         try:
@@ -1782,6 +2212,62 @@ async def api_contact_book(form: ContactBookForm, request: Request) -> JSONRespo
             except Exception:
                 log.exception("contact_book lead stage update failed")
 
+        # 4b. Create Gcal event pair on Mila's calendar (best-effort).
+        #     Event A: public + Meet + client as attendee.
+        #     Event B: private brief (no attendees, no Meet).
+        # Diagnostic label is derived from form.practice (brand widget hint)
+        # falling back to the lead's funnel_id. /contact lands on BR_BRAND
+        # by default; the practice attr is how the widget tags FinOps/DevOps/AI.
+        practice_to_funnel = {
+            "finops":   "BR_FINOPS",
+            "devops":   "BR_DEVOPS",
+            "ai":       "BR_AI",
+            "growth":   "BR_GROWTH",
+            "industry": "BR_INDUSTRY",
+            "aws":      "BR_AWS_WA",
+            "gcp":      "BR_GCP_WA",
+        }
+        practice_key = (form.practice or "").strip().lower()
+        diag_funnel = practice_to_funnel.get(practice_key, funnel)
+        try:
+            # Build a minimal lead-shaped dict so the brief builder works even
+            # on the INSERT path (where we haven't refetched the inserted row).
+            # qd/existing_qd live in mutually-exclusive branches above; pull
+            # from whichever exists in the local namespace.
+            _qd_for_brief = (
+                locals().get("existing_qd")
+                if existing_lead_id
+                else locals().get("qd")
+            ) or {}
+            lead_for_brief = {
+                "id": lead_id,
+                "name": form.name,
+                "email": form.email,
+                "phone_e164": form.whatsapp,
+                "company": form.company,
+                "funnel_id": diag_funnel,
+                "qualification_data": _qd_for_brief,
+            }
+            gcal_result = await _create_gcal_event_pair_for_booking(
+                client,
+                lead=lead_for_brief,
+                start_dt=start_dt,
+                end_dt=end_dt,
+                funnel_id=diag_funnel,
+                lang="pt",
+                form_extras={
+                    "context": form.context,
+                    "offering": form.offering,
+                    "practice": form.practice,
+                    "source": form.source,
+                    "funnel_id": diag_funnel,
+                },
+            )
+            if lead_id:
+                await _persist_gcal_on_lead(client, lead_id, gcal_result)
+        except Exception:
+            log.exception("contact_book gcal event creation failed (non-fatal)")
+
         # 5. Slack notification (best-effort)
         if SLACK_WEBHOOK:
             try:
@@ -1804,6 +2290,12 @@ async def api_contact_book(form: ContactBookForm, request: Request) -> JSONRespo
                 log.exception("contact_book slack notify failed (non-fatal)")
 
         # 6. Send confirmation email (best-effort)
+        # Includes an .ics attachment so the lead can accept the meeting into
+        # their own calendar (Apple/Outlook/Gmail render Accept/Decline buttons)
+        # plus an explicit "Como entrar na conversa" section pointing at the
+        # Meet link. The Meet URL is created by the Gcal event creation step
+        # (handled by another agent) — if it's not available here yet, we tell
+        # the lead the link is in the calendar invite and let the .ics carry it.
         if RESEND_API_KEY:
             try:
                 pt_weekdays = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"]
@@ -1812,7 +2304,88 @@ async def api_contact_book(form: ContactBookForm, request: Request) -> JSONRespo
                     "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
                 ]
                 pretty = f"{pt_weekdays[start_dt.weekday()]}, {start_dt.day} de {pt_months[start_dt.month - 1]} às {form.time}"
-                email_html = f"""<!DOCTYPE html><html><body style="background:#fafaf9;font-family:Inter,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;"><div style="max-width:640px;margin:0 auto;"><p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;">Anuvia · Agendamento confirmado</p><p style="font-family:Georgia,serif;font-size:32px;margin:0 0 16px 0;">Olá, {first_name}</p><p style="color:#475569;line-height:1.65;">Sua conversa com um Solutions Architect da Anuvia está confirmada para <strong>{pretty}</strong> (horário de São Paulo).</p><p style="color:#475569;line-height:1.65;">Vamos te encontrar no horário com brief prévio do contexto que você compartilhou. A sessão dura 30 minutos.</p><p style="color:#78716c;font-size:13px;margin-top:32px;">Mila Vernazza · Founder Anuvia<br>Ex-AWS Solutions Architect · Ex-Google · 15+ AWS Certifications</p></div></body></html>"""
+
+                # Try to pull a Meet URL from the lead's artifacts/qualification_data
+                # if one has already been set by the Gcal event creation step.
+                meet_url = ""
+                try:
+                    if lead_id:
+                        lr2 = await client.get(
+                            f"{SUPA_URL}/leads?id=eq.{lead_id}&select=qualification_data,artifacts",
+                            headers=SUPA_HEADERS,
+                        )
+                        if lr2.status_code == 200:
+                            rows2 = lr2.json() or []
+                            if rows2:
+                                qd2 = rows2[0].get("qualification_data") or {}
+                                arts = rows2[0].get("artifacts") or {}
+                                meet_url = (
+                                    qd2.get("meet_url")
+                                    or qd2.get("meeting_url")
+                                    or (arts.get("gcal") or {}).get("meet_url")
+                                    or (arts.get("gcal") or {}).get("hangoutLink")
+                                    or ""
+                                )
+                except Exception:
+                    log.exception("contact_book meet_url lookup failed (non-fatal)")
+
+                if meet_url:
+                    join_block = (
+                        '<div style="background:#fafaf9;border:1px solid #e7e5e4;padding:20px;margin:24px 0;">'
+                        '<p style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#78716c;margin:0 0 10px 0;font-weight:500;">Como entrar na conversa</p>'
+                        f'<p style="margin:0 0 12px 0;color:#475569;line-height:1.55;font-size:14px;">No horário marcado, entre pelo link abaixo:</p>'
+                        f'<p style="margin:0;"><a href="{meet_url}" style="display:inline-block;background:#1a1a1a;color:#fafaf9;padding:10px 18px;text-decoration:none;font-weight:500;font-size:14px;">Entrar na reunião</a></p>'
+                        f'<p style="margin:12px 0 0 0;color:#78716c;font-size:12px;line-height:1.55;">{meet_url}</p>'
+                        '</div>'
+                    )
+                    ics_location = meet_url
+                    ics_description = (
+                        f"Discovery Anuvia com {form.name}.\\n\\n"
+                        f"Link da reunião: {meet_url}\\n\\n"
+                        f"Duração: 30 minutos."
+                    )
+                else:
+                    join_block = (
+                        '<div style="background:#fafaf9;border:1px solid #e7e5e4;padding:20px;margin:24px 0;">'
+                        '<p style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#78716c;margin:0 0 10px 0;font-weight:500;">Como entrar na conversa</p>'
+                        '<p style="margin:0;color:#475569;line-height:1.55;font-size:14px;">Link enviado no convite do calendário em anexo. Aceite o convite para receber a notificação automática no horário.</p>'
+                        '</div>'
+                    )
+                    ics_location = "Online · link no convite do calendário"
+                    ics_description = (
+                        f"Discovery Anuvia com {form.name}.\n\n"
+                        f"Duração: 30 minutos.\n"
+                        f"O link da reunião será compartilhado pelo organizador."
+                    )
+
+                # Pick a practice-aware summary if available.
+                diag_label = (form.practice or form.offering or "Discovery").strip() or "Discovery"
+                ics_summary = f"Anuvia · Discovery · {diag_label}"
+
+                ics_text = _build_booking_ics(
+                    start_dt=start_dt,
+                    end_dt=end_dt,
+                    summary=ics_summary,
+                    description=ics_description,
+                    location=ics_location,
+                    attendee_email=form.email,
+                    attendee_name=form.name,
+                )
+                ics_b64 = base64.b64encode(ics_text.encode("utf-8")).decode("ascii")
+
+                footer = _anuvia_email_footer("pt")
+                email_html = (
+                    '<!DOCTYPE html><html><body style="background:#fafaf9;font-family:-apple-system,Inter,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;">'
+                    '<div style="max-width:640px;margin:0 auto;">'
+                    '<p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;margin:0 0 8px 0;">Anuvia · Agendamento confirmado</p>'
+                    f'<p style="font-family:Georgia,\'Times New Roman\',serif;font-size:32px;margin:0 0 16px 0;line-height:1.15;">Olá, {first_name}</p>'
+                    f'<p style="color:#475569;line-height:1.65;">Sua conversa com um Solutions Architect da Anuvia está confirmada para <strong>{pretty}</strong> (horário de São Paulo).</p>'
+                    '<p style="color:#475569;line-height:1.65;">A sessão dura 30 minutos e usamos o brief prévio do contexto que você compartilhou.</p>'
+                    f'{join_block}'
+                    '<p style="color:#78716c;font-size:13px;line-height:1.55;margin:24px 0 0 0;">O arquivo <strong>discovery.ics</strong> em anexo pode ser aceito direto no seu calendário (Apple, Outlook, Google).</p>'
+                    f'{footer}'
+                    '</div></body></html>'
+                )
                 await client.post(
                     "https://api.resend.com/emails",
                     headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
@@ -1822,6 +2395,13 @@ async def api_contact_book(form: ContactBookForm, request: Request) -> JSONRespo
                         "reply_to": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
                         "subject": f"Conversa Anuvia confirmada — {pretty}",
                         "html": email_html,
+                        "attachments": [
+                            {
+                                "filename": "discovery.ics",
+                                "content": ics_b64,
+                                "content_type": "text/calendar; charset=utf-8; method=REQUEST",
+                            }
+                        ],
                         "tags": [{"name": "category", "value": "contact_booking"}],
                     },
                     timeout=20,
@@ -1842,7 +2422,10 @@ async def api_contact_book(form: ContactBookForm, request: Request) -> JSONRespo
         "pretty": pretty,
         "lead_id": lead_id,
     })
-    return set_booked_cookie(response)
+    # Per-lead booked cookie + persist lead_id for future cross-page visits.
+    if lead_id:
+        set_lead_id_cookie(response, lead_id)
+    return set_booked_cookie(response, lead_id)
 
 
 def _is_brand_host(request: Request) -> bool:
@@ -1978,16 +2561,40 @@ TRANSLATIONS = {
 # Cookie set by booking endpoints (server-side) and by the booking widget JS
 # (client-side) to track whether the visitor has already booked a discovery
 # call. Used by templates via the `has_booked` template context flag.
-BOOKED_COOKIE = "anuvia_booked"
+#
+# IMPORTANT: the booked cookie is SCOPED PER LEAD — its name is
+# `anuvia_booked_<lead_id_short>` (last 8 chars of the lead UUID). The lead id
+# itself lives in `anuvia_lead_id` (HttpOnly). This way a fresh visitor with a
+# stale per-lead cookie still sees the booking form, and the same browser used
+# by a new lead (e.g. cleared form, different campaign) doesn't get told they
+# already booked.
+BOOKED_COOKIE_PREFIX = "anuvia_booked_"
+LEAD_ID_COOKIE = "anuvia_lead_id"
 BOOKED_COOKIE_MAX_AGE = 60 * 24 * 60 * 60  # 60 days, in seconds
+LEAD_ID_COOKIE_MAX_AGE = 7 * 24 * 60 * 60  # 7 days, in seconds
+
+# Legacy global cookie name — kept ONLY as a constant for callers/tests that
+# may still reference it. New code MUST NOT use this — use the per-lead helpers.
+BOOKED_COOKIE = "anuvia_booked"
 
 
-def set_booked_cookie(response: JSONResponse) -> JSONResponse:
-    """Attach the anuvia_booked=1 cookie to a JSONResponse.
+def _short_lead_id(lead_id: str) -> str:
+    """Last 8 chars of a lead uuid — used to scope the booked cookie per lead."""
+    s = (lead_id or "").replace("-", "")
+    return s[-8:] if len(s) >= 8 else s
+
+
+def set_booked_cookie(response: JSONResponse, lead_id: Optional[str] = None) -> JSONResponse:
+    """Attach the per-lead `anuvia_booked_<short>=1` cookie to a JSONResponse.
     httponly=False so JS on the client can also detect the booking state
-    (used for the diag-flow booking widget reveal)."""
+    (used for the diag-flow booking widget reveal).
+
+    If no lead_id is provided, this is a no-op — we never want to set a
+    global booked cookie because it leaks across leads."""
+    if not lead_id:
+        return response
     response.set_cookie(
-        key=BOOKED_COOKIE,
+        key=BOOKED_COOKIE_PREFIX + _short_lead_id(lead_id),
         value="1",
         max_age=BOOKED_COOKIE_MAX_AGE,
         path="/",
@@ -1997,9 +2604,62 @@ def set_booked_cookie(response: JSONResponse) -> JSONResponse:
     return response
 
 
+def set_lead_id_cookie(response: JSONResponse, lead_id: str) -> JSONResponse:
+    """Attach the `anuvia_lead_id` cookie (HttpOnly, 7d, SameSite=Lax) so
+    subsequent booking submissions can be merged into the existing lead row
+    instead of creating a fresh one."""
+    if not lead_id:
+        return response
+    response.set_cookie(
+        key=LEAD_ID_COOKIE,
+        value=lead_id,
+        max_age=LEAD_ID_COOKIE_MAX_AGE,
+        path="/",
+        samesite="lax",
+        httponly=True,
+    )
+    return response
+
+
 def tpl_ctx(request: Request, **extra) -> dict:
-    """Build the standard template context with locale, t (translations), currency."""
+    """Build the standard template context with locale, t (translations), currency.
+
+    Also resolves the per-lead `anuvia_booked_<short>` cookie and exposes:
+      - has_booked: bool — only True when a lead_id cookie is present AND the
+        matching per-lead booked cookie is set. A stale global cookie no
+        longer hijacks fresh visitors.
+      - lead_known: bool — True when the lead_id cookie is present AND
+        resolves to a real row in Supabase.
+      - lead_known_name / lead_known_email: pre-fill values for the booking
+        widget when lead_known is True. Empty strings otherwise."""
     loc = get_locale(request)
+    lead_id = request.cookies.get(LEAD_ID_COOKIE) or ""
+    has_booked = False
+    lead_known = False
+    lead_known_name = ""
+    lead_known_email = ""
+    if lead_id:
+        short = _short_lead_id(lead_id)
+        if request.cookies.get(BOOKED_COOKIE_PREFIX + short) == "1":
+            has_booked = True
+        # Synchronous best-effort lookup — tpl_ctx is called inside both async
+        # and sync template-render paths, and Jinja itself is sync. Tolerate
+        # any network/Supabase failure quietly: a missing/unreachable row just
+        # means we render the full form (lead_known stays False).
+        try:
+            with httpx.Client(timeout=5) as client:
+                rr = client.get(
+                    f"{SUPA_URL}/leads?id=eq.{lead_id}&select=id,name,email",
+                    headers=SUPA_HEADERS,
+                )
+                if rr.status_code == 200:
+                    rows = rr.json() or []
+                    if rows:
+                        lead_known = True
+                        lead_known_name = (rows[0].get("name") or "") or ""
+                        lead_known_email = (rows[0].get("email") or "") or ""
+        except Exception:
+            pass
     ctx = {
         "request": request,
         "lang": loc["lang"],
@@ -2010,7 +2670,10 @@ def tpl_ctx(request: Request, **extra) -> dict:
         "host": loc["host"],
         "t": TRANSLATIONS[loc["lang"]],
         "fmt_price": lambda s: format_price(s, loc["currency"]),
-        "has_booked": request.cookies.get(BOOKED_COOKIE) == "1",
+        "has_booked": has_booked,
+        "lead_known": lead_known,
+        "lead_known_name": lead_known_name,
+        "lead_known_email": lead_known_email,
     }
     ctx.update(extra)
     return ctx
@@ -2303,6 +2966,232 @@ async def _upgrade_lead_with_contact(
         return False
 
 
+# ----------------------------------------------------------------------------
+# Email helpers — Anuvia branded footer, inline-style adapter for deliverable
+# HTML, and ICS (iCalendar) attachment builder for booking confirmations.
+# ----------------------------------------------------------------------------
+
+def _anuvia_email_footer(lang: str = "pt") -> str:
+    """Return the canonical Anuvia organizational footer (no personal name).
+
+    Used at the bottom of every transactional email. Inline styles only — email
+    clients strip <style> blocks. Keep this in ONE place so the footer stays
+    consistent across diagnostic, booking, and follow-up emails."""
+    if lang == "en":
+        tagline = "Anuvia · Senior engineering for Cloud, AI, Platform and RevOps"
+    else:
+        tagline = "Anuvia · Engenharia sênior em Cloud, IA, Plataforma e RevOps"
+    creds = "Ex-AWS · Ex-Google · Ex-MongoDB · 15× AWS-certified · MongoDB-certified · GCP-certified"
+    return (
+        '<p style="color:#78716c;font-size:13px;line-height:1.55;margin-top:32px;">'
+        f'<strong style="color:#1a1a1a;font-weight:500;">{tagline}</strong><br>'
+        f'{creds}'
+        '</p>'
+    )
+
+
+def _inline_deliverable_for_email(html: str) -> str:
+    """Adapt a deliverable HTML fragment (Tailwind classes) into inline-styled
+    HTML for email rendering. Email clients (Gmail, Outlook, Apple Mail) strip
+    <style> blocks and ignore external Tailwind. The fragments use a small
+    set of project-specific classes — we map the ones that carry visual
+    hierarchy into inline-style attributes.
+
+    Specifically, this restores the visual hierarchy of the "Estimativa
+    preliminar de economia anualizada" block (eyebrow + big serif amount +
+    sub-explanation) which otherwise renders as flat text in clients."""
+
+    # The headline savings card. Replace the wrapper div + its children with an
+    # inline-styled equivalent that mirrors the site visual.
+    out = html
+
+    # Card wrapper (the savings block).
+    out = out.replace(
+        '<div class="my-8 p-6 bg-paper border border-rule">',
+        '<div style="background:#fafaf9;border:1px solid #e7e5e4;padding:24px;margin:32px 0;">',
+    )
+
+    # Eyebrows inside the savings block (and elsewhere in the deliverable).
+    out = re.sub(
+        r'<p class="eyebrow mb-3">',
+        '<p style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#78716c;margin:0 0 12px 0;font-weight:500;">',
+        out,
+    )
+    out = re.sub(
+        r'<p class="eyebrow mb-4">',
+        '<p style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#78716c;margin:0 0 16px 0;font-weight:500;">',
+        out,
+    )
+
+    # Headline greeting (h-serif text-4xl).
+    out = re.sub(
+        r'<p class="h-serif text-4xl mb-6 leading-tight">',
+        '<p style="font-family:Georgia,\'Times New Roman\',serif;font-size:28px;font-weight:normal;color:#1a1a1a;line-height:1.15;margin:0 0 24px 0;">',
+        out,
+    )
+
+    # The big savings amount (h-serif text-5xl) — this is the key visual.
+    out = re.sub(
+        r'<p class="h-serif text-5xl leading-none mb-1">',
+        '<p style="font-family:Georgia,\'Times New Roman\',serif;font-size:36px;font-weight:normal;color:#1a1a1a;line-height:1.1;margin:0 0 4px 0;">',
+        out,
+    )
+
+    # The "/ano" or "/year" suffix inside the amount.
+    out = out.replace(
+        '<span class="text-2xl text-subtle font-normal align-baseline">',
+        '<span style="font-size:18px;color:#78716c;font-weight:normal;">',
+    )
+
+    # The em-dash separator between low and high in the amount.
+    out = out.replace(
+        '<span class="text-subtle font-normal">',
+        '<span style="color:#78716c;font-weight:normal;">',
+    )
+
+    # Sub-explanation paragraph under the amount.
+    out = re.sub(
+        r'<p class="text-xs text-subtle mt-3 leading-relaxed">',
+        '<p style="font-size:12px;color:#78716c;margin:12px 0 0 0;line-height:1.55;">',
+        out,
+    )
+
+    # Other text-subtle paragraphs (close-out lines in the deliverable).
+    out = re.sub(
+        r'<p class="text-xs text-subtle leading-relaxed">',
+        '<p style="font-size:12px;color:#78716c;margin:0;line-height:1.55;">',
+        out,
+    )
+
+    # Body paragraphs.
+    out = re.sub(
+        r'<p class="text-ink/80 leading-relaxed mb-5">',
+        '<p style="color:#475569;line-height:1.65;margin:0 0 20px 0;">',
+        out,
+    )
+    out = re.sub(
+        r'<p class="text-ink/80 leading-relaxed">',
+        '<p style="color:#475569;line-height:1.65;margin:0;">',
+        out,
+    )
+
+    # Section wrappers (my-8 div).
+    out = out.replace(
+        '<div class="my-8">',
+        '<div style="margin:32px 0;">',
+    )
+
+    # The horizontal rule.
+    out = out.replace(
+        '<div class="rule"></div>',
+        '<div style="border-top:1px solid #e7e5e4;margin:24px 0;"></div>',
+    )
+
+    # List items.
+    out = re.sub(
+        r'<li class="text-ink/80 leading-relaxed">',
+        '<li style="color:#475569;line-height:1.65;margin-bottom:8px;">',
+        out,
+    )
+    out = re.sub(
+        r'<ul class="space-y-3 text-sm list-disc list-inside">',
+        '<ul style="font-size:14px;color:#475569;padding-left:18px;margin:0;">',
+        out,
+    )
+    out = re.sub(
+        r'<ul class="space-y-2 text-sm text-ink/80 mb-5">',
+        '<ul style="font-size:14px;color:#475569;padding-left:0;list-style:none;margin:0 0 20px 0;">',
+        out,
+    )
+
+    # "Or schedule yourself" CTA inside the deliverable.
+    out = re.sub(
+        r'<a href="([^"]+)" class="btn-primary text-sm inline-block">',
+        r'<a href="\1" style="display:inline-block;background:#1a1a1a;color:#fafaf9;padding:10px 18px;text-decoration:none;font-size:14px;font-weight:500;">',
+        out,
+    )
+
+    # The outer card class is already stripped by callers; strip mb-* utilities
+    # that survived to avoid stray-class attributes in some clients.
+    out = re.sub(r'\s*class="text-sm text-ink/70"', '', out)
+
+    return out
+
+
+def _ics_escape(text: str) -> str:
+    """Escape special chars per RFC 5545: backslash, comma, semicolon, newline."""
+    if not text:
+        return ""
+    return (
+        text.replace("\\", "\\\\")
+            .replace(";", "\\;")
+            .replace(",", "\\,")
+            .replace("\n", "\\n")
+            .replace("\r", "")
+    )
+
+
+def _build_booking_ics(
+    *,
+    start_dt: datetime,
+    end_dt: datetime,
+    summary: str,
+    description: str,
+    location: str,
+    attendee_email: str,
+    attendee_name: str,
+    organizer_email: str = "mila@anuvia.com.br",
+    organizer_name: str = "Anuvia",
+    uid: Optional[str] = None,
+) -> str:
+    """Construct a minimal but valid RFC 5545 iCalendar string for a single
+    appointment. Uses UTC stamps to avoid VTIMEZONE block complexity. The
+    receiving client renders it in the local TZ and offers accept/decline.
+
+    No external dependency — keeps the deployment simple. If `icalendar` lib
+    is later added, this can be swapped for a richer builder."""
+    if uid is None:
+        uid = f"anuvia-discovery-{uuid.uuid4()}@anuvia.com.br"
+
+    # Convert to UTC for DTSTART/DTEND/DTSTAMP.
+    start_utc = start_dt.astimezone(timezone.utc)
+    end_utc = end_dt.astimezone(timezone.utc)
+    now_utc = datetime.now(timezone.utc)
+
+    def _fmt(dt: datetime) -> str:
+        return dt.strftime("%Y%m%dT%H%M%SZ")
+
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//Anuvia//Discovery Call//EN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:REQUEST",
+        "BEGIN:VEVENT",
+        f"UID:{uid}",
+        f"DTSTAMP:{_fmt(now_utc)}",
+        f"DTSTART:{_fmt(start_utc)}",
+        f"DTEND:{_fmt(end_utc)}",
+        f"SUMMARY:{_ics_escape(summary)}",
+        f"DESCRIPTION:{_ics_escape(description)}",
+        f"LOCATION:{_ics_escape(location)}",
+        f"ORGANIZER;CN={_ics_escape(organizer_name)}:mailto:{organizer_email}",
+        f"ATTENDEE;CN={_ics_escape(attendee_name)};RSVP=TRUE;PARTSTAT=NEEDS-ACTION;ROLE=REQ-PARTICIPANT:mailto:{attendee_email}",
+        "STATUS:CONFIRMED",
+        "SEQUENCE:0",
+        "TRANSP:OPAQUE",
+        "BEGIN:VALARM",
+        "ACTION:DISPLAY",
+        "DESCRIPTION:Discovery Anuvia em 30 minutos",
+        "TRIGGER:-PT30M",
+        "END:VALARM",
+        "END:VEVENT",
+        "END:VCALENDAR",
+    ]
+    # RFC 5545 mandates CRLF line endings.
+    return "\r\n".join(lines) + "\r\n"
+
+
 async def _send_diag_report_email(
     client: httpx.AsyncClient,
     name: str,
@@ -2317,19 +3206,23 @@ async def _send_diag_report_email(
         return False
     first = name.split()[0] if name else "Olá"
     inner = deliverable_html.replace('class="card p-8 md:p-10"', '')
+    # Adapt Tailwind classes inside the deliverable to inline styles so the
+    # "Estimativa preliminar" block keeps its visual hierarchy in email clients.
+    inner = _inline_deliverable_for_email(inner)
+    footer = _anuvia_email_footer("pt")
     email_html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
 <body style="background:#fafaf9;font-family:-apple-system,Inter,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;">
 <div style="max-width:640px;margin:0 auto;">
   <p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;margin:0 0 8px 0;">Anuvia · {practice_label}</p>
-  <p style="font-family:Playfair Display,Georgia,serif;font-size:32px;margin:0 0 24px 0;line-height:1.15;">Olá, {first}</p>
+  <p style="font-family:Georgia,'Times New Roman',serif;font-size:32px;margin:0 0 24px 0;line-height:1.15;">Olá, {first}</p>
   <p style="color:#475569;line-height:1.65;">Obrigada por completar o diagnóstico. Aqui está o resultado completo gerado a partir das suas respostas:</p>
   <div style="background:#ffffff;border:1px solid #e7e5e4;padding:24px;margin:24px 0;">
     {inner}
   </div>
   <p style="color:#475569;line-height:1.65;">Próximo passo natural é uma conversa de 30 minutos com um Solutions Architect pra revisar o diagnóstico junto e priorizar próximos passos.</p>
   <p style="margin:24px 0;"><a href="{cta_url}" style="display:inline-block;background:#1a1a1a;color:#fafaf9;padding:12px 22px;text-decoration:none;font-weight:500;">Agendar Discovery Call</a></p>
-  <p style="color:#78716c;font-size:13px;margin-top:32px;">Mila Vernazza · Founder Anuvia<br>Ex-AWS Solutions Architect · Ex-Google · 15+ AWS Certifications</p>
+  {footer}
 </div>
 </body></html>"""
     try:
@@ -2645,7 +3538,12 @@ async def api_finops_audit_contact(form: DiagContactForm, request: Request):
                 f"Fit: {'yes' if is_fit else 'no'}",
             ],
         )
-    return JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+    response = JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+    # Persist lead_id so the booking widget on /contact (or returned inline)
+    # can merge the appointment into THIS lead row instead of asking PII again.
+    if ok_upgrade and form.lead_id:
+        set_lead_id_cookie(response, form.lead_id)
+    return response
 
 
 # ----------------------------------------------------------------------------
@@ -2809,7 +3707,12 @@ async def api_aws_wa_contact(form: DiagContactForm, request: Request):
             client, "AWS Well-Architected", form.name, form.email, form.whatsapp, form.company,
             extra_lines=[f"Foco: {meta.get('focus', '?')}  ·  Workload: {meta.get('workload', '?')}"],
         )
-    return JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+    response = JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+    # Persist lead_id so the booking widget on /contact (or returned inline)
+    # can merge the appointment into THIS lead row instead of asking PII again.
+    if ok_upgrade and form.lead_id:
+        set_lead_id_cookie(response, form.lead_id)
+    return response
 
 
 # ----------------------------------------------------------------------------
@@ -3053,7 +3956,12 @@ async def api_aws_migration_contact(form: DiagContactForm, request: Request):
                 f"Driver: {meta.get('migration_drivers', '?')}  ·  Timeline: {meta.get('timeline', '?')}",
             ],
         )
-    return JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+    response = JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+    # Persist lead_id so the booking widget on /contact (or returned inline)
+    # can merge the appointment into THIS lead row instead of asking PII again.
+    if ok_upgrade and form.lead_id:
+        set_lead_id_cookie(response, form.lead_id)
+    return response
 
 
 # ----------------------------------------------------------------------------
@@ -3300,7 +4208,12 @@ async def api_aws_landing_zone_contact(form: DiagContactForm, request: Request):
                 f"Top concern: {meta.get('top_concern', '?')}",
             ],
         )
-    return JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+    response = JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+    # Persist lead_id so the booking widget on /contact (or returned inline)
+    # can merge the appointment into THIS lead row instead of asking PII again.
+    if ok_upgrade and form.lead_id:
+        set_lead_id_cookie(response, form.lead_id)
+    return response
 
 
 # ----------------------------------------------------------------------------
@@ -3550,7 +4463,12 @@ async def api_aws_security_contact(form: DiagContactForm, request: Request):
                 f"Audit history: {meta.get('latest_audit', '?')}  ·  Incident: {meta.get('incident_history', '?')}",
             ],
         )
-    return JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+    response = JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+    # Persist lead_id so the booking widget on /contact (or returned inline)
+    # can merge the appointment into THIS lead row instead of asking PII again.
+    if ok_upgrade and form.lead_id:
+        set_lead_id_cookie(response, form.lead_id)
+    return response
 
 
 # ----------------------------------------------------------------------------
@@ -3795,7 +4713,12 @@ async def api_gcp_migration_contact(form: DiagContactForm, request: Request):
                 f"Stage: {meta.get('decision_stage', '?')}  ·  Timeline: {meta.get('timeline', '?')}",
             ],
         )
-    return JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+    response = JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+    # Persist lead_id so the booking widget on /contact (or returned inline)
+    # can merge the appointment into THIS lead row instead of asking PII again.
+    if ok_upgrade and form.lead_id:
+        set_lead_id_cookie(response, form.lead_id)
+    return response
 
 
 # ----------------------------------------------------------------------------
@@ -3963,7 +4886,12 @@ async def api_devops_contact(form: DiagContactForm, request: Request):
             client, "DevOps Maturity", form.name, form.email, form.whatsapp, form.company,
             extra_lines=[f"DORA: {meta.get('dora_level', '?')}  ·  Deploy: {meta.get('deploy_freq', '?')}"],
         )
-    return JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+    response = JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+    # Persist lead_id so the booking widget on /contact (or returned inline)
+    # can merge the appointment into THIS lead row instead of asking PII again.
+    if ok_upgrade and form.lead_id:
+        set_lead_id_cookie(response, form.lead_id)
+    return response
 
 
 # ----------------------------------------------------------------------------
@@ -4184,7 +5112,12 @@ async def api_ai_readiness_contact(form: DiagContactForm, request: Request):
                 f"Fit: {'yes' if is_fit else 'no'}",
             ],
         )
-    return JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+    response = JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+    # Persist lead_id so the booking widget on /contact (or returned inline)
+    # can merge the appointment into THIS lead row instead of asking PII again.
+    if ok_upgrade and form.lead_id:
+        set_lead_id_cookie(response, form.lead_id)
+    return response
 
 
 # ----------------------------------------------------------------------------
@@ -4393,7 +5326,12 @@ async def api_growth_contact(form: DiagContactForm, request: Request):
                 f"Fit: {'yes' if is_fit else 'no'}",
             ],
         )
-    return JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+    response = JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+    # Persist lead_id so the booking widget on /contact (or returned inline)
+    # can merge the appointment into THIS lead row instead of asking PII again.
+    if ok_upgrade and form.lead_id:
+        set_lead_id_cookie(response, form.lead_id)
+    return response
 
 
 # ----------------------------------------------------------------------------
@@ -4775,7 +5713,12 @@ async def api_industry_contact(form: DiagContactForm, request: Request):
                 f"AI maturity: {meta.get('ai_maturity', '?')}  ·  Main pain: {meta.get('main_pain', '?')}",
             ],
         )
-    return JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+    response = JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+    # Persist lead_id so the booking widget on /contact (or returned inline)
+    # can merge the appointment into THIS lead row instead of asking PII again.
+    if ok_upgrade and form.lead_id:
+        set_lead_id_cookie(response, form.lead_id)
+    return response
 
 
 class FinOpsAuditForm(BaseModel):
@@ -4927,18 +5870,22 @@ async def api_finops_audit(form: FinOpsAuditForm):
                 if is_fit else
                 f"Obrigada, {form.name.split()[0]} — alternativas pro seu caso"
             )
+            _inner_html = _inline_deliverable_for_email(
+                deliverable_html.replace('class="card p-8 md:p-10"', '')
+            )
+            _footer_html = _anuvia_email_footer("pt")
             email_html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head><body style="background:#fafaf9;font-family:-apple-system,Inter,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;">
 <div style="max-width:640px;margin:0 auto;">
   <p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;margin:0 0 8px 0;">Anuvia · FinOps</p>
-  <p style="font-family:Playfair Display,Georgia,serif;font-size:32px;margin:0 0 24px 0;line-height:1.15;">Olá, {form.name.split()[0]}</p>
+  <p style="font-family:Georgia,'Times New Roman',serif;font-size:32px;margin:0 0 24px 0;line-height:1.15;">Olá, {form.name.split()[0]}</p>
   <p style="color:#475569;line-height:1.65;">Obrigada pelo interesse no FinOps Audit. Aqui está a pré-análise gerada a partir das suas respostas:</p>
   <div style="background:#ffffff;border:1px solid #e7e5e4;padding:24px;margin:24px 0;">
-    {deliverable_html.replace('class="card p-8 md:p-10"', '')}
+    {_inner_html}
   </div>
   <p style="color:#475569;line-height:1.65;">Em até 24h te respondo com próximos passos concretos. Se quiser adiantar, agenda direto:</p>
   <p style="margin:24px 0;"><a href="https://cal.anuvia.com.br" style="display:inline-block;background:#1a1a1a;color:#fafaf9;padding:12px 22px;text-decoration:none;font-weight:500;">Agendar Discovery Call</a></p>
-  <p style="color:#78716c;font-size:13px;margin-top:32px;">Mila Vernazza · Founder Anuvia<br>Ex-AWS Solutions Architect · Ex-Google · 15+ AWS Certifications</p>
+  {_footer_html}
 </div>
 </body></html>"""
             if RESEND_API_KEY:
@@ -5069,7 +6016,8 @@ async def api_aws_well_architected(form: WellArchitectedForm):
         try:
             if RESEND_API_KEY:
                 subject = f"AWS Well-Architected Review — pré-análise pra {form.name.split()[0]}"
-                email_html = f"""<!DOCTYPE html><html><body style="background:#fafaf9;font-family:Inter,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;"><div style="max-width:640px;margin:0 auto;"><p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;">Anuvia · AWS</p><p style="font-family:Georgia,serif;font-size:32px;margin:0 0 16px 0;">Olá, {form.name.split()[0]}</p><p style="color:#475569;line-height:1.65;">Obrigada pelo interesse no AWS Well-Architected Review. Em até 24h te respondemos com escopo detalhado.</p><p style="color:#475569;line-height:1.65;">{focus_insight}</p><p style="margin:24px 0;"><a href="https://cal.anuvia.com.br" style="background:#1a1a1a;color:#fafaf9;padding:12px 22px;text-decoration:none;">Agendar Discovery Call</a></p><p style="color:#78716c;font-size:13px;margin-top:32px;">Mila Vernazza · Founder Anuvia<br>Ex-AWS Solutions Architect · Ex-Google · 15+ AWS Certifications</p></div></body></html>"""
+                _footer_html = _anuvia_email_footer("pt")
+                email_html = f"""<!DOCTYPE html><html><body style="background:#fafaf9;font-family:Inter,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;"><div style="max-width:640px;margin:0 auto;"><p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;">Anuvia · AWS</p><p style="font-family:Georgia,serif;font-size:32px;margin:0 0 16px 0;">Olá, {form.name.split()[0]}</p><p style="color:#475569;line-height:1.65;">Obrigada pelo interesse no AWS Well-Architected Review. Em até 24h te respondemos com escopo detalhado.</p><p style="color:#475569;line-height:1.65;">{focus_insight}</p><p style="margin:24px 0;"><a href="https://cal.anuvia.com.br" style="background:#1a1a1a;color:#fafaf9;padding:12px 22px;text-decoration:none;">Agendar Discovery Call</a></p>{_footer_html}</div></body></html>"""
                 await client.post(
                     "https://api.resend.com/emails",
                     headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
@@ -5215,7 +6163,8 @@ async def api_devops_maturity(form: DevOpsMaturityForm):
         try:
             if RESEND_API_KEY:
                 subject = f"DevOps Maturity Assessment — pré-análise pra {form.name.split()[0]}"
-                email_html = f"""<!DOCTYPE html><html><body style="background:#fafaf9;font-family:Inter,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;"><div style="max-width:640px;margin:0 auto;"><p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;">Anuvia · DevOps</p><p style="font-family:Georgia,serif;font-size:32px;margin:0 0 16px 0;">Olá, {form.name.split()[0]}</p><p style="color:#475569;line-height:1.65;">Pré-análise DORA preliminar: nível <strong>{level}</strong>.</p><p style="color:#475569;line-height:1.65;">{level_insight}</p><p style="color:#475569;line-height:1.65;">{pain_insight}</p><p style="margin:24px 0;"><a href="https://cal.anuvia.com.br" style="background:#1a1a1a;color:#fafaf9;padding:12px 22px;text-decoration:none;">Agendar Discovery Call</a></p><p style="color:#78716c;font-size:13px;margin-top:32px;">Mila Vernazza · Founder Anuvia<br>Ex-AWS · Ex-Google · 15+ AWS Certifications</p></div></body></html>"""
+                _footer_html = _anuvia_email_footer("pt")
+                email_html = f"""<!DOCTYPE html><html><body style="background:#fafaf9;font-family:Inter,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;"><div style="max-width:640px;margin:0 auto;"><p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;">Anuvia · DevOps</p><p style="font-family:Georgia,serif;font-size:32px;margin:0 0 16px 0;">Olá, {form.name.split()[0]}</p><p style="color:#475569;line-height:1.65;">Pré-análise DORA preliminar: nível <strong>{level}</strong>.</p><p style="color:#475569;line-height:1.65;">{level_insight}</p><p style="color:#475569;line-height:1.65;">{pain_insight}</p><p style="margin:24px 0;"><a href="https://cal.anuvia.com.br" style="background:#1a1a1a;color:#fafaf9;padding:12px 22px;text-decoration:none;">Agendar Discovery Call</a></p>{_footer_html}</div></body></html>"""
                 await client.post(
                     "https://api.resend.com/emails",
                     headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
@@ -5374,7 +6323,8 @@ async def api_ai_readiness(form: AIReadinessForm):
             if RESEND_API_KEY:
                 first = form.name.split()[0]
                 subject = f"AI Readiness Sprint — pré-análise pra {first}"
-                email_html = f"""<!DOCTYPE html><html><body style="background:#fafaf9;font-family:Inter,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;"><div style="max-width:640px;margin:0 auto;"><p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;">Anuvia · AI</p><p style="font-family:Georgia,serif;font-size:32px;margin:0 0 16px 0;">Olá, {first}</p><p style="color:#475569;line-height:1.65;">{stage_insight}</p><p style="color:#475569;line-height:1.65;">{pain_insight}</p><p style="margin:24px 0;"><a href="https://anuvia.com.br/contact?offering=ai-readiness&practice=ai" style="background:#1a1a1a;color:#fafaf9;padding:12px 22px;text-decoration:none;">Agendar Discovery Call</a></p><p style="color:#78716c;font-size:13px;margin-top:32px;">Mila Vernazza · Founder Anuvia<br>Ex-AWS · Ex-Google · 15+ AWS Certifications</p></div></body></html>"""
+                _footer_html = _anuvia_email_footer("pt")
+                email_html = f"""<!DOCTYPE html><html><body style="background:#fafaf9;font-family:Inter,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;"><div style="max-width:640px;margin:0 auto;"><p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;">Anuvia · AI</p><p style="font-family:Georgia,serif;font-size:32px;margin:0 0 16px 0;">Olá, {first}</p><p style="color:#475569;line-height:1.65;">{stage_insight}</p><p style="color:#475569;line-height:1.65;">{pain_insight}</p><p style="margin:24px 0;"><a href="https://anuvia.com.br/contact?offering=ai-readiness&practice=ai" style="background:#1a1a1a;color:#fafaf9;padding:12px 22px;text-decoration:none;">Agendar Discovery Call</a></p>{_footer_html}</div></body></html>"""
                 await client.post(
                     "https://api.resend.com/emails",
                     headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
@@ -5512,7 +6462,8 @@ async def api_growth_sales_ops(form: GrowthSalesOpsForm):
             if RESEND_API_KEY:
                 first = form.name.split()[0]
                 subject = f"Sales Ops Diagnostic — pré-análise pra {first}"
-                email_html = f"""<!DOCTYPE html><html><body style="background:#fafaf9;font-family:Inter,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;"><div style="max-width:640px;margin:0 auto;"><p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;">Anuvia · Growth</p><p style="font-family:Georgia,serif;font-size:32px;margin:0 0 16px 0;">Olá, {first}</p><p style="color:#475569;line-height:1.65;">{pain_insight}</p><p style="margin:24px 0;"><a href="https://anuvia.com.br/contact?offering=sales-ops-audit&practice=growth" style="background:#1a1a1a;color:#fafaf9;padding:12px 22px;text-decoration:none;">Agendar Discovery Call</a></p><p style="color:#78716c;font-size:13px;margin-top:32px;">Mila Vernazza · Founder Anuvia<br>Ex-AWS · Ex-Google · 15+ AWS Certifications</p></div></body></html>"""
+                _footer_html = _anuvia_email_footer("pt")
+                email_html = f"""<!DOCTYPE html><html><body style="background:#fafaf9;font-family:Inter,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;"><div style="max-width:640px;margin:0 auto;"><p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;">Anuvia · Growth</p><p style="font-family:Georgia,serif;font-size:32px;margin:0 0 16px 0;">Olá, {first}</p><p style="color:#475569;line-height:1.65;">{pain_insight}</p><p style="margin:24px 0;"><a href="https://anuvia.com.br/contact?offering=sales-ops-audit&practice=growth" style="background:#1a1a1a;color:#fafaf9;padding:12px 22px;text-decoration:none;">Agendar Discovery Call</a></p>{_footer_html}</div></body></html>"""
                 await client.post(
                     "https://api.resend.com/emails",
                     headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
