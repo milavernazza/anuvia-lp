@@ -7,7 +7,7 @@
   <p class="eyebrow mb-6">Anuvia · Practices · 05</p>
   <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">Anuvia Industry</h1>
   <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-12">
-    Vertical playbooks for manufacturing (OEE, predictive maintenance, MES/ERP integration), logistics (offline-first telemetry, route ML), healthcare (LGPD-saúde, clinical documentation, intake triage), Life Sciences (GxP validation packages, regulatory drafting) and financial services (BACEN 4.658, AML, KYC). New engagements inherit the vertical's reference architecture, code skeletons and compliance kit instead of rebuilding from scratch.
+    Vertical playbooks for manufacturing (OEE, predictive maintenance, MES/ERP integration), logistics (offline-first telemetry, route ML), healthcare (HIPAA / HITECH clinical documentation, intake triage), Life Sciences (GxP / 21 CFR Part 11 validation packages, regulatory drafting) and financial services (SOX, FINRA, FFIEC, AML, KYC, OFAC). New engagements inherit the vertical's reference architecture, code skeletons and compliance kit instead of rebuilding from scratch.
   </p>
   <div class="flex flex-col sm:flex-row gap-4">
     <a href="/industry/diagnostic" class="btn-primary text-base inline-block">Take the Industry Assessment</a>
@@ -83,7 +83,7 @@
       <p class="eyebrow mb-3 text-accent">Healthcare</p>
       {% if lang == 'en' %}
       <h3 class="h-serif text-2xl mb-4">Healthcare</h3>
-      <p class="text-sm text-ink/70 leading-relaxed mb-5">AI applied to clinical workflows, medical documentation, intelligent triage. Healthcare compliance native (LGPD, HIPAA, sector regulations).</p>
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">AI applied to clinical workflows, medical documentation, intelligent triage. Healthcare compliance native (HIPAA, HITECH, FDA SaMD where applicable).</p>
       <p class="text-xs text-subtle mb-2"><strong>Typical cases:</strong> clinical assistant that reduces documentation time; RAG over institutional protocols; triage automation in patient intake.</p>
       <p class="text-xs text-subtle"><strong>Typical ticket:</strong> {{ fmt_price('R$ 80-200k') }} pilot + {{ fmt_price('R$ 5-12k') }}/month operation.</p>
       {% else %}
@@ -113,8 +113,8 @@
       <p class="eyebrow mb-3 text-accent">Financial Services</p>
       {% if lang == 'en' %}
       <h3 class="h-serif text-2xl mb-4">Financial Services</h3>
-      <p class="text-sm text-ink/70 leading-relaxed mb-5">Fraud detection, compliance automation, AML monitoring, KYC customer onboarding, document processing.</p>
-      <p class="text-xs text-subtle mb-2"><strong>Typical cases:</strong> RAG over regulatory norms with compliance alerting; ML for real-time fraud detection.</p>
+      <p class="text-sm text-ink/70 leading-relaxed mb-5">Fraud detection, compliance automation (SOX, FINRA, FFIEC), AML monitoring, KYC customer onboarding, document processing.</p>
+      <p class="text-xs text-subtle mb-2"><strong>Typical cases:</strong> RAG over SEC/FINRA regulatory norms with compliance alerting; ML for real-time fraud detection; OFAC sanctions screening automation.</p>
       <p class="text-xs text-subtle"><strong>Typical ticket:</strong> {{ fmt_price('R$ 80-180k') }} sprint, {{ fmt_price('R$ 8-20k') }}/month ongoing.</p>
       {% else %}
       <h3 class="h-serif text-2xl mb-4">Serviços Financeiros</h3>
