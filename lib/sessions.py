@@ -376,7 +376,9 @@ async def session_due(limit: int = 50) -> list[dict]:
     Ordered by `next_action_at` ascending so the oldest due jobs run first.
     The orchestrator consumes this list each tick.
     """
-    now_iso = _now_iso()
+    # URL-encode the timestamp — `+00:00` UTC offset becomes a space if raw.
+    from urllib.parse import quote as _urlquote
+    now_iso = _urlquote(_now_iso(), safe="")
     url = (
         f"{SUPA_URL}/leads"
         f"?next_action=not.is.null"
