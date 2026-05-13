@@ -488,7 +488,14 @@ async def step_autonomous_track(ctx: SmokeContext) -> None:
 
 
 async def cleanup(ctx: SmokeContext) -> None:
-    """Delete any leads with the unique smoke email — best-effort."""
+    """Delete any leads with the unique smoke email — best-effort.
+
+    Deletes both the exact current smoke email AND any historic smoke leads
+    matching the legacy/new patterns:
+      - milavernazza+id%@gmail.com   (current pattern — Gmail plus-aliasing)
+      - smoke+%@anuvia.test          (historic pattern)
+      - smoke+%@smoke.anuvia.com.br  (historic pattern)
+    """
     async with step(ctx, "Cleanup: delete smoke lead(s)") as r:
         try:
             # Delete by exact email match (more precise than LIKE)
@@ -504,7 +511,24 @@ async def cleanup(ctx: SmokeContext) -> None:
                     deleted = len(rows) if isinstance(rows, list) else 0
                 except Exception:
                     deleted = 0
-            r.detail = f"deleted {deleted} row(s) for {ctx.smoke_email}"
+
+            # Also sweep historic + plus-aliased smoke rows by pattern.
+            patterns = [
+                "milavernazza+id%@gmail.com",
+                "smoke+%@anuvia.test",
+                "smoke+%@smoke.anuvia.com.br",
+            ]
+            extra_deleted = 0
+            for pat in patterns:
+                try:
+                    extra_deleted += await supa_delete_leads_by_email_pattern(ctx, pat)
+                except Exception:
+                    pass
+
+            r.detail = (
+                f"deleted {deleted} row(s) for {ctx.smoke_email} "
+                f"(+{extra_deleted} historic/pattern row(s))"
+            )
         except Exception as e:
             r.detail = f"cleanup error (ignored): {e}"
 
@@ -586,7 +610,7 @@ async def main() -> int:
     }
 
     timestamp = int(time.time())
-    smoke_email = f"smoke+{timestamp}@anuvia.test"
+    smoke_email = f"milavernazza+id{timestamp}@gmail.com"
 
     base_url = args.base_url.rstrip("/")
 
