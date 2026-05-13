@@ -86,6 +86,47 @@ try:
                 await _asyncio.sleep(_SCHEDULER_INTERVAL_S)
         _asyncio.create_task(_loop())
         log.info("orchestrator scheduler started: every %ss", _SCHEDULER_INTERVAL_S)
+
+    # Daily E2E smoke test — runs every day at 07:00 America/Sao_Paulo.
+    # Validates the full funnel (analyze → contact → booking) and alerts Slack on fail.
+    _SMOKE_ENABLED = os.environ.get("SMOKE_DAILY_ENABLED", "1") == "1"
+    _SMOKE_HOUR_BRT = int(os.environ.get("SMOKE_DAILY_HOUR_BRT", "7"))
+
+    @app.on_event("startup")
+    async def _start_daily_smoke_loop():
+        if not _SMOKE_ENABLED:
+            log.info("daily smoke disabled by env")
+            return
+        import asyncio as _asyncio
+        import subprocess as _sp
+        async def _smoke_loop():
+            last_run_date = None
+            await _asyncio.sleep(60)  # let app fully boot
+            while True:
+                try:
+                    now_brt = datetime.now(ZoneInfo("America/Sao_Paulo"))
+                    today = now_brt.date()
+                    if now_brt.hour == _SMOKE_HOUR_BRT and last_run_date != today:
+                        log.info("daily smoke firing at %s BRT", now_brt.isoformat())
+                        script = os.path.join(os.path.dirname(__file__), "scripts", "smoke_e2e.py")
+                        if os.path.exists(script):
+                            proc = await _asyncio.create_subprocess_exec(
+                                "python", script,
+                                "--base-url", "https://anuvia.com.br",
+                                "--track", "discovery",
+                                stdout=_sp.PIPE, stderr=_sp.PIPE,
+                                env={**os.environ, "SUPABASE_URL": SUPA_URL, "SUPABASE_KEY": SUPA_KEY,
+                                     "ORCHESTRATOR_SECRET": os.environ.get("ORCHESTRATOR_SECRET", "")},
+                            )
+                            out, err = await proc.communicate()
+                            log.info("daily smoke exit=%s out=%s err=%s",
+                                     proc.returncode, out.decode()[-400:], err.decode()[-400:])
+                        last_run_date = today
+                except Exception:
+                    log.exception("daily smoke crashed")
+                await _asyncio.sleep(60)  # check every minute
+        _asyncio.create_task(_smoke_loop())
+        log.info("daily smoke scheduler started: %02d:00 BRT", _SMOKE_HOUR_BRT)
 except Exception as _e:  # pragma: no cover — defensive boot
     _AUTONOMOUS_FUNNEL_ENABLED = False
     log.warning("Autonomous funnel v1 NOT mounted (%s). Site still serves OK.", _e)
