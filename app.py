@@ -4289,6 +4289,10 @@ async def api_growth_analyze(form: GrowthAnalyzeForm, request: Request):
     form_data = form.model_dump()
     lang = get_locale(request)["lang"]
     analysis_meta, html = _build_growth_deliverable(form_data, lang=lang)
+    # Track B autonomous classification reads signals from qualification_data —
+    # persist any extras the client sent (budget_declared, budget_amount, urgency,
+    # company_size, etc.) so classify_track can act on them.
+    extras = getattr(form, "model_extra", None) or {}
     business_meta = {
         "role": form.role,
         "team_size": form.team_size,
@@ -4297,6 +4301,7 @@ async def api_growth_analyze(form: GrowthAnalyzeForm, request: Request):
         "crm": form.crm or "",
         "sales_cycle": form.sales_cycle or "",
         "context": form.context or "",
+        **extras,
         **analysis_meta,
     }
     async with httpx.AsyncClient(timeout=15) as client:
