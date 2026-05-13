@@ -592,14 +592,19 @@ def _post_meta(slug: str, post) -> dict:
         meta["date_sort"] = str(raw_date or "")
     meta["excerpt"] = meta.get("excerpt") or _make_excerpt(post.content)
     meta["title"] = meta.get("title") or slug.replace("-", " ").title()
-    meta["author"] = meta.get("author") or "Mila Vernazza"
+    meta["author"] = meta.get("author") or "Anuvia"
     meta["tags"] = meta.get("tags") or []
     meta["cover_image"] = meta.get("cover_image") or meta.get("cover") or ""
+    # Language frontmatter — defaults to PT for backward compatibility with
+    # existing posts. New posts should set `lang: pt` or `lang: en` explicitly.
+    raw_lang = str(meta.get("lang", "pt")).lower().strip()
+    meta["lang"] = "en" if raw_lang in ("en", "en-us", "en_us", "english") else "pt"
     return meta
 
 
-def _list_posts() -> list[dict]:
-    """List all posts with metadata, sorted by date desc."""
+def _list_posts(lang_filter: Optional[str] = None) -> list[dict]:
+    """List all posts with metadata, sorted by date desc.
+    If lang_filter is set ('pt' or 'en'), only return posts of that language."""
     posts: list[dict] = []
     if not os.path.isdir(POSTS_DIR):
         return posts
@@ -613,7 +618,10 @@ def _list_posts() -> list[dict]:
                 post = frontmatter.load(f)
             if (post.metadata or {}).get("draft") is True:
                 continue
-            posts.append(_post_meta(slug, post))
+            meta = _post_meta(slug, post)
+            if lang_filter and meta.get("lang") != lang_filter:
+                continue
+            posts.append(meta)
         except Exception:
             log.exception("failed to load post %s", path)
     posts.sort(key=lambda p: p.get("date_sort") or "", reverse=True)
@@ -651,20 +659,17 @@ def _is_blog_host(request: Request) -> bool:
 @app.get("/blog", response_class=HTMLResponse)
 @app.get("/blog/", response_class=HTMLResponse)
 async def blog_index(request: Request) -> HTMLResponse:
-    posts = _list_posts()
-    return templates.TemplateResponse(
-        "blog_index.html",
-        {
-            "request": request,
-            "posts": posts,
-            "blog_base_url": BLOG_BASE_URL,
-        },
-    )
+    loc = get_locale(request)
+    lang = loc["lang"]
+    posts = _list_posts(lang_filter=lang)
+    ctx = tpl_ctx(request, posts=posts, blog_base_url=BLOG_BASE_URL)
+    return templates.TemplateResponse("blog_index.html", ctx)
 
 
 @app.get("/blog/feed.xml")
 async def blog_feed(request: Request) -> Response:
-    posts = _list_posts()[:20]
+    loc = get_locale(request)
+    posts = _list_posts(lang_filter=loc["lang"])[:20]
     items_xml = []
     for p in posts:
         url = f"{BLOG_BASE_URL}/blog/{p['slug']}"
@@ -677,13 +682,19 @@ async def blog_feed(request: Request) -> Response:
       <description><![CDATA[{p.get('excerpt','')}]]></description>
     </item>"""
         )
+    rss_lang = "en-US" if loc["lang"] == "en" else "pt-BR"
+    rss_desc = (
+        "Anuvia blog — applied engineering for cloud, AI and platform teams."
+        if loc["lang"] == "en"
+        else "Anuvia — IA aplicada a vendas e ops. Insights e estudos de caso."
+    )
     rss = f"""<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
   <channel>
     <title>Anuvia — Blog</title>
     <link>{BLOG_BASE_URL}/blog</link>
-    <description>IA aplicada a vendas e ops. Insights e estudos de caso da Anuvia.</description>
-    <language>pt-BR</language>
+    <description>{rss_desc}</description>
+    <language>{rss_lang}</language>
 {chr(10).join(items_xml)}
   </channel>
 </rss>"""
@@ -695,14 +706,12 @@ async def blog_post(request: Request, slug: str) -> HTMLResponse:
     post = _load_post(slug)
     if not post:
         raise HTTPException(status_code=404, detail="Post não encontrado")
-    return templates.TemplateResponse(
-        "blog_post.html",
-        {
-            "request": request,
-            "post": post,
-            "blog_base_url": BLOG_BASE_URL,
-        },
-    )
+    # Host-language strict: a PT post on anuvia.net (EN) is hidden — redirect to /blog index.
+    loc = get_locale(request)
+    if post.get("lang") and post["lang"] != loc["lang"]:
+        return RedirectResponse(url="/blog", status_code=302)
+    ctx = tpl_ctx(request, post=post, blog_base_url=BLOG_BASE_URL)
+    return templates.TemplateResponse("blog_post.html", ctx)
 
 
 @app.get("/health")

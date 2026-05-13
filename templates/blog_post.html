@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="{{ lang_full|default('pt-BR') }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -162,6 +162,7 @@
         ← Anuvia Notes
       </a>
     </header>
+    {% set anuvia_home = 'https://anuvia.net' if lang == 'en' else 'https://anuvia.com.br' %}
 
     <!-- Article header -->
     <article>
@@ -195,25 +196,38 @@
       </div>
       {% endif %}
 
-      <!-- Author bio -->
+      <!-- Author / Anuvia footer -->
       <div class="rule mt-12 pt-10">
-        <p class="eyebrow mb-2">Autora</p>
-        <p class="h-serif text-2xl text-slate-900 mb-2">{{ post.author }}</p>
+        <p class="eyebrow mb-2">Anuvia</p>
+        {% if lang == 'en' %}
+        <p class="h-serif text-2xl text-slate-900 mb-2">Senior engineering in Cloud, AI and Platform</p>
         <p class="text-slate-600 leading-relaxed">
-          Founder da Anuvia. Trabalho com SMBs e times de engenharia
-          aplicando IA pra fechar mais propostas com menos esforço operacional.
+          Ex-AWS · Ex-Google · Ex-MongoDB · 15× AWS-certified · GCP-certified.
+          We deliver production systems with documented rollback, eval harness and cost ceiling
+          measured per workload.
         </p>
         <div class="mt-4 flex gap-4 text-sm">
-          <a href="https://www.linkedin.com/in/milavernazza" class="text-slate-600 hover:text-slate-900 transition underline underline-offset-2">LinkedIn</a>
-          <a href="https://anuvia.com.br" class="text-slate-600 hover:text-slate-900 transition underline underline-offset-2">Anuvia</a>
-          <a href="https://diagnostico.anuvia.com.br" class="text-slate-600 hover:text-slate-900 transition underline underline-offset-2">Diagnóstico grátis</a>
+          <a href="{{ anuvia_home }}" class="text-slate-600 hover:text-slate-900 transition underline underline-offset-2">Anuvia</a>
+          <a href="{{ anuvia_home }}/contact" class="text-slate-600 hover:text-slate-900 transition underline underline-offset-2">Talk to a Solutions Architect</a>
         </div>
+        {% else %}
+        <p class="h-serif text-2xl text-slate-900 mb-2">Engenharia sênior em Cloud, IA e Plataforma</p>
+        <p class="text-slate-600 leading-relaxed">
+          Ex-AWS · Ex-Google · Ex-MongoDB · 15× AWS-certified · GCP-certified.
+          Entregamos sistemas em produção com rollback documentado, eval harness e teto de custo
+          medido por workload.
+        </p>
+        <div class="mt-4 flex gap-4 text-sm">
+          <a href="{{ anuvia_home }}" class="text-slate-600 hover:text-slate-900 transition underline underline-offset-2">Anuvia</a>
+          <a href="{{ anuvia_home }}/contact" class="text-slate-600 hover:text-slate-900 transition underline underline-offset-2">Falar com Solutions Architect</a>
+        </div>
+        {% endif %}
       </div>
     </article>
 
     <!-- Bottom footer -->
     <footer class="rule mt-20 pt-8 flex justify-between text-sm text-slate-500">
-      <a href="/blog" class="hover:text-slate-900 transition">← Mais ensaios</a>
+      <a href="/blog" class="hover:text-slate-900 transition">{% if lang == 'en' %}← More notes{% else %}← Mais ensaios{% endif %}</a>
       <a href="/blog/feed.xml" class="hover:text-slate-900 transition">RSS</a>
     </footer>
 

@@ -2,7 +2,8 @@
 title: "Clareza antes da ferramenta: por que sua IA virou custo afundado"
 slug: clareza-antes-da-ferramenta
 date: 2026-05-11
-author: Mila Vernazza
+author: Anuvia
+lang: pt
 excerpt: "PMEs brasileiras estão gastando R$ 800–2.000/mês em ferramentas de IA que ninguém usa direito. O problema não é tecnologia. É clareza."
 tags:
   - IA aplicada
