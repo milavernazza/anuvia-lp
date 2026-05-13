@@ -54,7 +54,52 @@
     {% endif %}
     <p class="h-serif text-2xl mb-6 bw-confirm-label"></p>
 
-    <form class="bw-booking-form grid md:grid-cols-2 gap-5">
+    {% if lead_known %}
+    {# Lead already submitted PII upstream (e.g. /api/<diag>/contact). Skip the
+       name/email/whatsapp/empresa fields — backend will merge into the row
+       identified by the anuvia_lead_id cookie. Keep only the optional
+       Context textarea so the SA still gets fresh notes for this booking. #}
+    <div class="mb-6 p-4 border-l-2 border-accent bg-white">
+      {% if lang == 'en' %}
+      <p class="eyebrow mb-1">Booking as</p>
+      <p class="text-sm text-ink/80">{{ lead_known_name }}{% if lead_known_email %} <span class="text-ink/50">({{ lead_known_email }})</span>{% endif %}</p>
+      {% else %}
+      <p class="eyebrow mb-1">Agendando como</p>
+      <p class="text-sm text-ink/80">{{ lead_known_name }}{% if lead_known_email %} <span class="text-ink/50">({{ lead_known_email }})</span>{% endif %}</p>
+      {% endif %}
+    </div>
+    <form class="bw-booking-form grid md:grid-cols-2 gap-5" data-lead-known="1">
+      <input type="hidden" name="date" class="bw-date">
+      <input type="hidden" name="time" class="bw-time">
+      {# Hidden mirrors of the known PII so server-side validation (which still
+         requires these Pydantic fields) succeeds even when the user doesn't
+         type anything. Backend will detect the lead_id cookie and merge
+         instead of inserting a new row. #}
+      <input type="hidden" name="name" value="{{ lead_known_name }}">
+      <input type="hidden" name="email" value="{{ lead_known_email }}">
+      <input type="hidden" name="whatsapp" value="+0000000000">
+      <input type="hidden" name="company" value="">
+      <div class="md:col-span-2">
+        {% if lang == 'en' %}
+        <label class="eyebrow block mb-2">Context (optional)</label>
+        <textarea name="context" rows="3" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="What prompted booking this call? Any specific system, metric or decision?"></textarea>
+        {% else %}
+        <label class="eyebrow block mb-2">Contexto (opcional)</label>
+        <textarea name="context" rows="3" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="O que motivou agendar essa conversa? Algum sistema, métrica ou decisão específica?"></textarea>
+        {% endif %}
+      </div>
+      <div class="md:col-span-2 flex flex-col sm:flex-row gap-3 items-center justify-between">
+        {% if lang == 'en' %}
+        <p class="text-xs text-subtle">Data stays with Anuvia. No mailing lists, no spam.</p>
+        <button type="submit" class="btn-primary text-sm">Confirm slot</button>
+        {% else %}
+        <p class="text-xs text-subtle">Dados ficam só com a Anuvia. Sem listas de email, sem spam.</p>
+        <button type="submit" class="btn-primary text-sm">Confirmar horário</button>
+        {% endif %}
+      </div>
+    </form>
+    {% else %}
+    <form class="bw-booking-form grid md:grid-cols-2 gap-5" data-lead-known="0">
       <input type="hidden" name="date" class="bw-date">
       <input type="hidden" name="time" class="bw-time">
       <div class="md:col-span-2">
@@ -104,6 +149,7 @@
         {% endif %}
       </div>
     </form>
+    {% endif %}
   </div>
 
   <!-- Confirmation (after booking) -->
@@ -299,6 +345,7 @@
       const res = await fetch('/api/contact-book', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify(data),
       });
       const result = await res.json();
@@ -307,13 +354,15 @@
         successLabel.textContent = result.pretty || (selectedDay.label + STR.at + selectedSlot);
         successBlock.classList.remove('hidden');
         successBlock.scrollIntoView({ behavior: 'smooth' });
-        // Mark this visitor as booked so the site swaps "Book a discovery"
-        // CTAs for post-booking alternates on subsequent navigations.
-        // (Server also sets this cookie on /api/contact-book, but the JS
-        // write is a defense-in-depth + lets us short-circuit even before
-        // any new page load.)
+        // Mark this visitor as booked PER-LEAD so the site swaps "Book a
+        // discovery" CTAs for post-booking alternates on subsequent
+        // navigations. Server sets this cookie too; JS write is defense-in-
+        // depth + lets us short-circuit even before any new page load.
         try {
-          document.cookie = 'anuvia_booked=1; path=/; max-age=' + (60*24*60*60) + '; samesite=lax';
+          if (result.lead_id) {
+            const shortId = String(result.lead_id).replace(/-/g, '').slice(-8);
+            document.cookie = 'anuvia_booked_' + shortId + '=1; path=/; max-age=' + (60*24*60*60) + '; samesite=lax';
+          }
         } catch (e) { /* non-fatal */ }
       } else {
         alert((result && result.detail) || STR.failedConfirm);
