@@ -52,7 +52,7 @@ if os.path.isdir(_STATIC_DIR):
 # ---------------------------------------------------------------------------
 try:
     from lib.sessions import router as _sessions_router, session_update, session_set_next  # noqa: E402
-    from lib.orchestrator import router as _orchestrator_router  # noqa: E402
+    from lib.orchestrator import router as _orchestrator_router, tick as _orchestrator_tick  # noqa: E402
     from lib.track_b import router as _track_b_router  # noqa: E402,F401
     import lib.track_b  # noqa: E402,F401 — registers handlers as side-effect
     app.include_router(_sessions_router)
@@ -60,6 +60,32 @@ try:
     app.include_router(_track_b_router)
     _AUTONOMOUS_FUNNEL_ENABLED = True
     log.info("Autonomous funnel v1 mounted: /api/session, /api/orchestrator, /api/track-b")
+
+    # In-process scheduler — runs orchestrator.tick() every 10 minutes.
+    # Disable by setting ORCHESTRATOR_SCHEDULER_ENABLED=0 (e.g., when running
+    # behind multiple uvicorn workers and you'd rather use n8n as the cron).
+    _SCHEDULER_INTERVAL_S = int(os.environ.get("ORCHESTRATOR_SCHEDULER_INTERVAL_S", "600"))
+    _SCHEDULER_ENABLED = os.environ.get("ORCHESTRATOR_SCHEDULER_ENABLED", "1") == "1"
+
+    @app.on_event("startup")
+    async def _start_orchestrator_loop():
+        if not _SCHEDULER_ENABLED:
+            log.info("orchestrator scheduler disabled by env")
+            return
+        import asyncio as _asyncio
+        async def _loop():
+            # Initial delay so worker boots before first run.
+            await _asyncio.sleep(30)
+            while True:
+                try:
+                    summary = await _orchestrator_tick(limit=100)
+                    if summary.get("processed"):
+                        log.info("orchestrator scheduled tick: %s", summary)
+                except Exception:
+                    log.exception("orchestrator scheduled tick crashed")
+                await _asyncio.sleep(_SCHEDULER_INTERVAL_S)
+        _asyncio.create_task(_loop())
+        log.info("orchestrator scheduler started: every %ss", _SCHEDULER_INTERVAL_S)
 except Exception as _e:  # pragma: no cover — defensive boot
     _AUTONOMOUS_FUNNEL_ENABLED = False
     log.warning("Autonomous funnel v1 NOT mounted (%s). Site still serves OK.", _e)
