@@ -185,6 +185,13 @@
         contactSection.classList.add('hidden');
         bookingSection.classList.remove('hidden');
         bookingSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Mark visitor as booked — diagnostic /contact upgrades the lead and
+        // reveals the booking widget; treat reaching the booking step as a
+        // booking-intent signal so the rest of the site stops pushing
+        // "Book a discovery" CTAs and shows the post-booking alternate.
+        try {
+          document.cookie = 'anuvia_booked=1; path=/; max-age=' + (60*24*60*60) + '; samesite=lax';
+        } catch (e) { /* non-fatal */ }
       } else {
         alert((result && result.detail && (Array.isArray(result.detail) ? STR.checkFields : result.detail)) || STR.errRegister);
         btn.disabled = false;

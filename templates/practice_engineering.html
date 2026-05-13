@@ -325,14 +325,22 @@
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">If deploy or incident frequency worries you, start with the DevOps Maturity Assessment. Not sure? Book 30 min, no pitch.</p>
   <div class="flex flex-col sm:flex-row gap-4 justify-center">
     <a href="/engineering/devops/maturity" class="btn-primary text-base inline-block">DevOps Maturity Assessment</a>
+    {% if has_booked %}
+    <a href="/cases" class="btn-ghost text-base inline-block">Read our cases</a>
+    {% else %}
     <a href="/contact" class="btn-ghost text-base inline-block">Talk to a Solutions Architect</a>
+    {% endif %}
   </div>
   {% else %}
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Próximo passo.</h2>
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Se deploy ou incident frequency te preocupa, comece pelo DevOps Maturity Assessment. Não sabe? Agenda 30min sem pitch.</p>
   <div class="flex flex-col sm:flex-row gap-4 justify-center">
     <a href="/engineering/devops/maturity" class="btn-primary text-base inline-block">DevOps Maturity Assessment</a>
+    {% if has_booked %}
+    <a href="/cases" class="btn-ghost text-base inline-block">Ler nossos cases</a>
+    {% else %}
     <a href="/contact" class="btn-ghost text-base inline-block">Falar com um Solutions Architect</a>
+    {% endif %}
   </div>
   {% endif %}
 </section>

@@ -1,0 +1,279 @@
+{% extends "_base.html" %}
+
+{% block content %}
+
+<!-- HERO -->
+<section class="max-w-5xl mx-auto px-6 pt-20 pb-12">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-6">Anuvia Cloud · AWS · Migration Planning</p>
+  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
+    AWS Migration<br><span class="italic">Planning.</span>
+  </h1>
+  <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
+    6-10 week engagement for orgs planning AWS migration — from on-prem, from another cloud provider, or AWS-to-AWS account consolidation. Deliverables: TCO model against your current invoices, wave plan, dependency map, risk register. Conducted by an ex-AWS Solutions Architect with 15+ active AWS certifications.
+  </p>
+  <p class="text-sm text-subtle mb-12">6-10 weeks · {{ fmt_price('R$ 50-120k') }} · TCO model + wave plan + dependency map + risk register</p>
+  {% else %}
+  <p class="eyebrow mb-6">Anuvia Cloud · AWS · Migration Planning</p>
+  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
+    AWS Migration<br><span class="italic">Planning.</span>
+  </h1>
+  <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
+    Engagement de 6-10 semanas para orgs planejando migração AWS — saindo de on-prem, de outro cloud provider, ou consolidação de accounts AWS. Entregáveis: TCO model contra suas faturas atuais, wave plan, dependency map, risk register. Conduzido por ex-AWS Solutions Architect com 15+ certificações AWS ativas.
+  </p>
+  <p class="text-sm text-subtle mb-12">6-10 semanas · R$ 50-120k · TCO model + wave plan + dependency map + risk register</p>
+  {% endif %}
+</section>
+{% include "_authority_strip.html" %}
+
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<!-- STEP 1 — Interactive diagnostic -->
+<section class="max-w-3xl mx-auto px-6 py-16" id="signup">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-3 text-center">Interactive diagnostic</p>
+  <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Answer 5 questions. See your preliminary read in 30 seconds.</h2>
+  <p class="text-center text-ink/60 mb-12">No signup. You decide whether you want the report by email afterward.</p>
+
+  <form id="diag-business-form" data-diag-base="/api/aws-migration" class="space-y-6 card p-8 md:p-10">
+    <div>
+      <label class="eyebrow block mb-2">Role / function</label>
+      <select name="role" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option>CTO / VP Engineering</option>
+        <option>Head of Platform / Infrastructure</option>
+        <option>Cloud Architect / DevOps Lead</option>
+        <option>Head of Security</option>
+        <option>CFO / Finance Leader</option>
+        <option>Founder / CEO</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Current environment</label>
+      <select name="current_environment" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="on_prem">On-premise / own data center</option>
+        <option value="other_cloud">Another cloud provider (Azure/GCP/Oracle)</option>
+        <option value="hybrid">Hybrid (on-prem + cloud)</option>
+        <option value="multi_account_aws">Already on AWS, multi-account consolidation</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Workload count to migrate</label>
+      <select name="workload_count" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="1_5">1-5 workloads</option>
+        <option value="5_20">5-20 workloads</option>
+        <option value="20_50">20-50 workloads</option>
+        <option value="above_50">More than 50 workloads</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Primary migration driver</label>
+      <select name="migration_drivers" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="cost_pressure">Cost pressure / TCO reduction</option>
+        <option value="m_and_a">M&amp;A integration</option>
+        <option value="end_of_lifecycle">Hardware / OS / vendor end-of-lifecycle</option>
+        <option value="regulatory">Regulatory / compliance / data residency</option>
+        <option value="scaling">Scaling — elasticity needed</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Target timeline</label>
+      <select name="timeline" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="under_3m">Under 3 months</option>
+        <option value="3_6m">3-6 months</option>
+        <option value="6_12m">6-12 months</option>
+        <option value="above_12m">More than 12 months</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Additional context (optional)</label>
+      <textarea name="context" rows="3" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Specific drivers, constraints, or workload types we should know about?"></textarea>
+    </div>
+    <button type="submit" class="btn-primary w-full text-base">See my analysis</button>
+    <p class="text-xs text-subtle text-center">No signup at this step. The analysis appears immediately below.</p>
+  </form>
+  {% else %}
+  <p class="eyebrow mb-3 text-center">Diagnóstico interativo</p>
+  <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Responda 5 perguntas. Veja sua leitura preliminar em 30 segundos.</h2>
+  <p class="text-center text-ink/60 mb-12">Sem cadastro. Você decide se quer receber o relatório por email depois.</p>
+
+  <form id="diag-business-form" data-diag-base="/api/aws-migration" class="space-y-6 card p-8 md:p-10">
+    <div>
+      <label class="eyebrow block mb-2">Cargo / função</label>
+      <select name="role" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option>CTO / VP Engineering</option>
+        <option>Head of Platform / Infrastructure</option>
+        <option>Cloud Architect / DevOps Lead</option>
+        <option>Head of Security</option>
+        <option>CFO / Finance Leader</option>
+        <option>Founder / CEO</option>
+        <option>Outro</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Ambiente atual</label>
+      <select name="current_environment" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="on_prem">On-premise / data center próprio</option>
+        <option value="other_cloud">Outro cloud provider (Azure/GCP/Oracle)</option>
+        <option value="hybrid">Híbrido (on-prem + cloud)</option>
+        <option value="multi_account_aws">Já em AWS, consolidação multi-account</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Quantidade de workloads a migrar</label>
+      <select name="workload_count" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="1_5">1-5 workloads</option>
+        <option value="5_20">5-20 workloads</option>
+        <option value="20_50">20-50 workloads</option>
+        <option value="above_50">Mais de 50 workloads</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Driver principal da migração</label>
+      <select name="migration_drivers" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="cost_pressure">Pressão de custo / redução de TCO</option>
+        <option value="m_and_a">Integração M&amp;A</option>
+        <option value="end_of_lifecycle">End-of-lifecycle de hardware / SO / vendor</option>
+        <option value="regulatory">Regulatório / compliance / data residency</option>
+        <option value="scaling">Scaling — precisa de elasticidade</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Timeline alvo</label>
+      <select name="timeline" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="under_3m">Menos de 3 meses</option>
+        <option value="3_6m">3-6 meses</option>
+        <option value="6_12m">6-12 meses</option>
+        <option value="above_12m">Mais de 12 meses</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Contexto adicional (opcional)</label>
+      <textarea name="context" rows="3" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Drivers específicos, restrições, tipos de workload que devemos saber?"></textarea>
+    </div>
+    <button type="submit" class="btn-primary w-full text-base">Ver minha análise</button>
+    <p class="text-xs text-subtle text-center">Sem cadastro nessa etapa. A análise aparece imediatamente abaixo.</p>
+  </form>
+  {% endif %}
+</section>
+
+{% include "_diag_flow_steps.html" %}
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<!-- METHODOLOGY -->
+<section class="max-w-5xl mx-auto px-6 py-20">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-4">Methodology</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight">From discovery to migration plan.</h2>
+
+  <div class="space-y-10">
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">01</p><p class="eyebrow mt-2">Weeks 1-2</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Discovery &amp; Inventory</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">AWS Migration Hub + Application Discovery Service deployed to inventory workloads automatically. Manual interviews with workload owners to capture context the tools miss. Network topology, data flows, compliance constraints documented.</p>
+        <p class="text-sm text-subtle"><strong>Deliverable:</strong> workload inventory + dependency map + topology</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">02</p><p class="eyebrow mt-2">Weeks 3-4</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">TCO Model</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">TCO modeled against your existing data center costs (energy, cooling, hardware, ops staff) or current cloud provider invoices including egress. Reserved Instance / Savings Plan commit scenarios modeled. Migration cost vs. ongoing run cost decomposed.</p>
+        <p class="text-sm text-subtle"><strong>Deliverable:</strong> 3-year TCO model with confidence intervals</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">03</p><p class="eyebrow mt-2">Weeks 5-7</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Wave Plan &amp; Pattern Selection</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Workloads grouped into waves by dependency, complexity and business risk. Pattern selection per workload (rehost, replatform, refactor, retire). Strangler vs. big-bang call made explicit. Cutover windows mapped to org calendar.</p>
+        <p class="text-sm text-subtle"><strong>Deliverable:</strong> wave plan + pattern catalog + cutover schedule</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">04</p><p class="eyebrow mt-2">Weeks 8-10</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Risk Register &amp; Executive Pack</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Risk register with mitigations per workload. Rollback criteria documented. Executive presentation with go/no-go decision support. Optional handover to Anuvia execution squad or your internal team.</p>
+        <p class="text-sm text-subtle"><strong>Deliverable:</strong> risk register + exec pack + handover docs</p>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <p class="eyebrow mb-4">Metodologia</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight">Do discovery ao plano de migração.</h2>
+
+  <div class="space-y-10">
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">01</p><p class="eyebrow mt-2">Semanas 1-2</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Discovery &amp; Inventário</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">AWS Migration Hub + Application Discovery Service deployados pra inventariar workloads automaticamente. Entrevistas manuais com workload owners pra capturar contexto que ferramenta não pega. Network topology, data flows, restrições de compliance documentadas.</p>
+        <p class="text-sm text-subtle"><strong>Entregável:</strong> inventário de workloads + dependency map + topologia</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">02</p><p class="eyebrow mt-2">Semanas 3-4</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">TCO Model</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">TCO modelado contra custos reais do seu data center (energia, cooling, hardware, ops staff) ou faturas do cloud provider atual incluindo egress. Cenários de Reserved Instance / Savings Plan commit modelados. Migration cost vs. ongoing run cost decompostos.</p>
+        <p class="text-sm text-subtle"><strong>Entregável:</strong> TCO model de 3 anos com intervalos de confiança</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">03</p><p class="eyebrow mt-2">Semanas 5-7</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Wave Plan &amp; Pattern Selection</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Workloads agrupados em waves por dependência, complexidade e risco. Pattern selection por workload (rehost, replatform, refactor, retire). Strangler vs. big-bang decidido explicitamente. Janelas de cutover mapeadas ao calendário da org.</p>
+        <p class="text-sm text-subtle"><strong>Entregável:</strong> wave plan + pattern catalog + cutover schedule</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">04</p><p class="eyebrow mt-2">Semanas 8-10</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Risk Register &amp; Executive Pack</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Risk register com mitigações por workload. Critérios de rollback documentados. Apresentação executiva com suporte à decisão go/no-go. Opção de handover pra squad de execução Anuvia ou seu time interno.</p>
+        <p class="text-sm text-subtle"><strong>Entregável:</strong> risk register + exec pack + handover docs</p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</section>
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<!-- FINAL CTA -->
+<section class="max-w-4xl mx-auto px-6 py-24 text-center">
+  {% if lang == 'en' %}
+  <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Plan the migration with discipline.</h2>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Take the interactive diagnostic above. No signup up front — you decide afterward whether you want the report.</p>
+  {% if has_booked %}
+  <a href="/cases" class="btn-primary text-base inline-block">Read our cases</a>
+  {% else %}
+  <a href="/contact" class="btn-primary text-base inline-block">Book a discovery call (30 min)</a>
+  {% endif %}
+  {% else %}
+  <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Planeje a migração com disciplina.</h2>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Faz o diagnóstico interativo acima. Sem cadastro inicial — só decide se quer receber o relatório depois.</p>
+  {% if has_booked %}
+  <a href="/cases" class="btn-primary text-base inline-block">Ler nossos cases</a>
+  {% else %}
+  <a href="/contact" class="btn-primary text-base inline-block">Agendar discovery (30 min)</a>
+  {% endif %}
+  {% endif %}
+</section>
+
+{% endblock %}

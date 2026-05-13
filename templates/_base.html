@@ -79,7 +79,11 @@
       </nav>
       <div class="flex items-center gap-3">
         <a href="{{ t.lang_toggle_to_url }}{{ request.url.path }}" class="lang-pill font-medium uppercase hidden sm:inline-block" aria-label="Switch to {{ t.lang_toggle_to }}">{{ t.lang_toggle_to }}</a>
+        {% if has_booked %}
+        <a href="/cases" class="btn-primary text-sm hidden md:inline-block">{{ t.cta_post_booking }}</a>
+        {% else %}
         <a href="/contact" class="btn-primary text-sm hidden md:inline-block">{{ t.cta_book }}</a>
+        {% endif %}
       </div>
     </div>
   </header>
@@ -107,6 +111,10 @@
         <ul class="space-y-2 text-ink/80">
           <li><a href="/cloud/finops/audit" class="hover:text-ink">FinOps Audit</a></li>
           <li><a href="/cloud/aws/well-architected" class="hover:text-ink">AWS Well-Architected</a></li>
+          <li><a href="/cloud/aws/migration" class="hover:text-ink">AWS Migration Planning</a></li>
+          <li><a href="/cloud/aws/landing-zone" class="hover:text-ink">AWS Landing Zone</a></li>
+          <li><a href="/cloud/aws/security-posture" class="hover:text-ink">AWS Security Posture</a></li>
+          <li><a href="/cloud/gcp/migration" class="hover:text-ink">GCP Migration</a></li>
           <li><a href="/engineering/devops/maturity" class="hover:text-ink">DevOps Maturity</a></li>
           <li><a href="/ai/readiness" class="hover:text-ink">AI Readiness</a></li>
           <li><a href="/growth/sales-ops" class="hover:text-ink">Sales Ops Diagnostic</a></li>

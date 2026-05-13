@@ -356,14 +356,22 @@
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Start with the AI Readiness Sprint — we map where AI actually moves ROI in your operation. No hype, no demo.</p>
   <div class="flex flex-col sm:flex-row gap-4 justify-center">
     <a href="/ai/readiness" class="btn-primary text-base inline-block">AI Readiness Sprint</a>
+    {% if has_booked %}
+    <a href="/cases" class="btn-ghost text-base inline-block">Read our cases</a>
+    {% else %}
     <a href="/contact" class="btn-ghost text-base inline-block">Talk to a Solutions Architect</a>
+    {% endif %}
   </div>
   {% else %}
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Próximo passo.</h2>
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Comece pelo AI Readiness Sprint — mapeamos onde IA realmente move ROI pra sua operação. Sem hype, sem demo.</p>
   <div class="flex flex-col sm:flex-row gap-4 justify-center">
     <a href="/ai/readiness" class="btn-primary text-base inline-block">AI Readiness Sprint</a>
+    {% if has_booked %}
+    <a href="/cases" class="btn-ghost text-base inline-block">Ler nossos cases</a>
+    {% else %}
     <a href="/contact" class="btn-ghost text-base inline-block">Falar com um Solutions Architect</a>
+    {% endif %}
   </div>
   {% endif %}
 </section>

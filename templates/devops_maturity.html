@@ -246,17 +246,33 @@
     </div>
   </div>
   {% endif %}
+
+  <p class="text-xs text-subtle mt-10">
+    {% if lang == 'en' %}
+    <a href="/samples/devops_maturity" class="underline hover:text-ink" target="_blank" rel="noopener">Download sample report (PDF, watermarked)</a>
+    {% else %}
+    <a href="/samples/devops_maturity" class="underline hover:text-ink" target="_blank" rel="noopener">Baixar relatório exemplo (PDF, com marca d'água)</a>
+    {% endif %}
+  </p>
 </section>
 
 <section class="max-w-4xl mx-auto px-6 py-24 text-center">
   {% if lang == 'en' %}
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Request the assessment.</h2>
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Take the interactive diagnostic above. No signup up front.</p>
+  {% if has_booked %}
+  <a href="/cases" class="btn-primary text-base inline-block">Read our cases</a>
+  {% else %}
   <a href="/contact" class="btn-primary text-base inline-block">Book a discovery call (30 min)</a>
+  {% endif %}
   {% else %}
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Solicite o assessment.</h2>
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Faz o diagnóstico interativo acima. Sem cadastro inicial.</p>
+  {% if has_booked %}
+  <a href="/cases" class="btn-primary text-base inline-block">Ler nossos cases</a>
+  {% else %}
   <a href="/contact" class="btn-primary text-base inline-block">Agendar discovery (30 min)</a>
+  {% endif %}
   {% endif %}
 </section>
 

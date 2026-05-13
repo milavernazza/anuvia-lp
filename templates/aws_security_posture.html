@@ -1,0 +1,285 @@
+{% extends "_base.html" %}
+
+{% block content %}
+
+<!-- HERO -->
+<section class="max-w-5xl mx-auto px-6 pt-20 pb-12">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-6">Anuvia Cloud · AWS · Security</p>
+  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
+    Security Posture<br><span class="italic">Assessment.</span>
+  </h1>
+  <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
+    4-6 week AWS security audit covering IAM, network exposure, encryption at rest and in transit, logging baseline and compliance posture (SOC 2, ISO 27001, LGPD, HIPAA, PCI-DSS, BACEN 4.658). Findings prioritized by blast-radius (HRI / MRI / LRI), with concrete remediation paths per finding.
+  </p>
+  <p class="text-sm text-subtle mb-12">4-6 weeks · {{ fmt_price('R$ 30-70k') }} · Executive report + HRI-prioritized remediation roadmap</p>
+  {% else %}
+  <p class="eyebrow mb-6">Anuvia Cloud · AWS · Security</p>
+  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
+    Security Posture<br><span class="italic">Assessment.</span>
+  </h1>
+  <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
+    Audit de segurança AWS de 4-6 semanas cobrindo IAM, network exposure, encryption at rest e em trânsito, logging baseline e compliance posture (SOC 2, ISO 27001, LGPD, HIPAA, PCI-DSS, BACEN 4.658). Findings priorizados por blast-radius (HRI / MRI / LRI), com paths de remediação concretos por finding.
+  </p>
+  <p class="text-sm text-subtle mb-12">4-6 semanas · R$ 30-70k · Relatório executivo + roadmap de remediação priorizado por HRI</p>
+  {% endif %}
+</section>
+{% include "_authority_strip.html" %}
+
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<!-- STEP 1 — Interactive diagnostic -->
+<section class="max-w-3xl mx-auto px-6 py-16" id="signup">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-3 text-center">Interactive diagnostic</p>
+  <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Answer 5 questions. See your preliminary read in 30 seconds.</h2>
+  <p class="text-center text-ink/60 mb-12">No signup. You decide whether you want the report by email afterward.</p>
+
+  <form id="diag-business-form" data-diag-base="/api/aws-security-posture" class="space-y-6 card p-8 md:p-10">
+    <div>
+      <label class="eyebrow block mb-2">Role / function</label>
+      <select name="role" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option>CTO / VP Engineering</option>
+        <option>CISO / Head of Security</option>
+        <option>Head of Platform / Infrastructure</option>
+        <option>Compliance / Risk Officer</option>
+        <option>Cloud Architect</option>
+        <option>Founder / CEO</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Compliance target</label>
+      <select name="compliance_target" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="none">No specific framework target</option>
+        <option value="soc2">SOC 2 (Type I or II)</option>
+        <option value="iso27001">ISO 27001</option>
+        <option value="lgpd">LGPD (data protection)</option>
+        <option value="hipaa">HIPAA</option>
+        <option value="pci_dss">PCI-DSS</option>
+        <option value="bacen_4658">BACEN Res. 4.658</option>
+        <option value="multiple">Multiple frameworks</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Most recent external audit / pen test</label>
+      <select name="latest_audit" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="never">Never</option>
+        <option value="over_2y">More than 2 years ago</option>
+        <option value="1_2y">1-2 years ago</option>
+        <option value="under_1y">Less than 1 year ago</option>
+        <option value="in_progress">Currently in progress</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">IAM state today</label>
+      <select name="iam_state" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="federated_sso">Federated SSO + SCIM provisioning</option>
+        <option value="mixed">Mixed — some federated, some local users</option>
+        <option value="mostly_local_users">Mostly local IAM users with access keys</option>
+        <option value="dont_know">Don't know exactly</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Incident history</label>
+      <select name="incident_history" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select (optional)…</option>
+        <option value="never">No reported incident</option>
+        <option value="minor">Minor incident (no PII / no data loss)</option>
+        <option value="major_one_plus">One or more major incidents</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Additional context (optional)</label>
+      <textarea name="context" rows="3" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Specific trigger? (audit prep, board mandate, customer security questionnaire, recent incident...)"></textarea>
+    </div>
+    <button type="submit" class="btn-primary w-full text-base">See my analysis</button>
+    <p class="text-xs text-subtle text-center">No signup at this step. The analysis appears immediately below.</p>
+  </form>
+  {% else %}
+  <p class="eyebrow mb-3 text-center">Diagnóstico interativo</p>
+  <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Responda 5 perguntas. Veja sua leitura preliminar em 30 segundos.</h2>
+  <p class="text-center text-ink/60 mb-12">Sem cadastro. Você decide se quer receber o relatório por email depois.</p>
+
+  <form id="diag-business-form" data-diag-base="/api/aws-security-posture" class="space-y-6 card p-8 md:p-10">
+    <div>
+      <label class="eyebrow block mb-2">Cargo / função</label>
+      <select name="role" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option>CTO / VP Engineering</option>
+        <option>CISO / Head of Security</option>
+        <option>Head of Platform / Infrastructure</option>
+        <option>Compliance / Risk Officer</option>
+        <option>Cloud Architect</option>
+        <option>Founder / CEO</option>
+        <option>Outro</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Target de compliance</label>
+      <select name="compliance_target" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="none">Sem framework específico</option>
+        <option value="soc2">SOC 2 (Type I ou II)</option>
+        <option value="iso27001">ISO 27001</option>
+        <option value="lgpd">LGPD (proteção de dados)</option>
+        <option value="hipaa">HIPAA</option>
+        <option value="pci_dss">PCI-DSS</option>
+        <option value="bacen_4658">BACEN Res. 4.658</option>
+        <option value="multiple">Múltiplos frameworks</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Audit externo / pen test mais recente</label>
+      <select name="latest_audit" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="never">Nunca</option>
+        <option value="over_2y">Há mais de 2 anos</option>
+        <option value="1_2y">1-2 anos atrás</option>
+        <option value="under_1y">Menos de 1 ano atrás</option>
+        <option value="in_progress">Em curso agora</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Estado IAM hoje</label>
+      <select name="iam_state" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="federated_sso">SSO federado + SCIM provisioning</option>
+        <option value="mixed">Misto — alguns federados, alguns locais</option>
+        <option value="mostly_local_users">Maior parte IAM users locais com access keys</option>
+        <option value="dont_know">Não sei exatamente</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Histórico de incidente</label>
+      <select name="incident_history" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione (opcional)…</option>
+        <option value="never">Nenhum incidente reportado</option>
+        <option value="minor">Incidente menor (sem PII / sem data loss)</option>
+        <option value="major_one_plus">Um ou mais incidentes major</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Contexto adicional (opcional)</label>
+      <textarea name="context" rows="3" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Trigger específico? (preparação de audit, mandato de board, questionário de cliente, incidente recente...)"></textarea>
+    </div>
+    <button type="submit" class="btn-primary w-full text-base">Ver minha análise</button>
+    <p class="text-xs text-subtle text-center">Sem cadastro nessa etapa. A análise aparece imediatamente abaixo.</p>
+  </form>
+  {% endif %}
+</section>
+
+{% include "_diag_flow_steps.html" %}
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<!-- METHODOLOGY -->
+<section class="max-w-5xl mx-auto px-6 py-20">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-4">Methodology</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight">From audit to remediation plan.</h2>
+
+  <div class="space-y-10">
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">01</p><p class="eyebrow mt-2">Week 1</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">IAM &amp; Access Audit</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Full IAM inventory: users, roles, groups, policies, access keys (with age and last-used). SSO and SCIM coverage mapped. Service-account proliferation analyzed. Privilege escalation paths traced via IAM Access Analyzer.</p>
+        <p class="text-sm text-subtle"><strong>Deliverable:</strong> IAM findings catalog + recommended target state</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">02</p><p class="eyebrow mt-2">Week 2</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Network Exposure &amp; Encryption</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Public exposure surface analyzed: open security groups, public S3 buckets, exposed RDS endpoints, NACLs gaps. Encryption-at-rest coverage per service (S3, EBS, RDS, DynamoDB, Redshift). KMS key inventory with policy review.</p>
+        <p class="text-sm text-subtle"><strong>Deliverable:</strong> network and encryption findings + remediation playbook</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">03</p><p class="eyebrow mt-2">Weeks 3-4</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Logging Baseline &amp; Compliance Mapping</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">CloudTrail (org-wide, immutable), Config rules per pillar, Security Hub findings, GuardDuty enabled and tuned. Logging coverage gaps identified. Findings mapped to your compliance framework (SOC 2 / ISO / LGPD / etc.) with control IDs.</p>
+        <p class="text-sm text-subtle"><strong>Deliverable:</strong> logging audit + compliance control mapping matrix</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">04</p><p class="eyebrow mt-2">Weeks 5-6</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Risk-Ranked Roadmap &amp; Executive Pack</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">All findings consolidated, classified HRI / MRI / LRI by blast radius and likelihood. Remediation effort estimated per finding. Roadmap sequenced for 30 / 60 / 90-day execution. Executive presentation for board / leadership.</p>
+        <p class="text-sm text-subtle"><strong>Deliverable:</strong> ranked findings + remediation roadmap + exec pack</p>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <p class="eyebrow mb-4">Metodologia</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight">Do audit ao plano de remediação.</h2>
+
+  <div class="space-y-10">
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">01</p><p class="eyebrow mt-2">Semana 1</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">IAM &amp; Access Audit</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Inventário IAM completo: users, roles, groups, policies, access keys (com idade e last-used). Coverage de SSO e SCIM mapeada. Proliferação de service accounts analisada. Privilege escalation paths traçadas via IAM Access Analyzer.</p>
+        <p class="text-sm text-subtle"><strong>Entregável:</strong> catálogo IAM findings + target state recomendado</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">02</p><p class="eyebrow mt-2">Semana 2</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Network Exposure &amp; Encryption</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Surface de exposure pública analisada: security groups abertos, S3 buckets públicos, RDS endpoints expostos, gaps de NACL. Encryption-at-rest coverage por serviço (S3, EBS, RDS, DynamoDB, Redshift). Inventário KMS com policy review.</p>
+        <p class="text-sm text-subtle"><strong>Entregável:</strong> findings network e encryption + playbook de remediação</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">03</p><p class="eyebrow mt-2">Semanas 3-4</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Logging Baseline &amp; Compliance Mapping</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">CloudTrail (org-wide, immutable), Config rules por pilar, Security Hub findings, GuardDuty habilitado e tunado. Gaps de cobertura de logging identificados. Findings mapeados ao seu framework de compliance (SOC 2 / ISO / LGPD / etc.) com control IDs.</p>
+        <p class="text-sm text-subtle"><strong>Entregável:</strong> audit de logging + matrix de control mapping</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">04</p><p class="eyebrow mt-2">Semanas 5-6</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Roadmap Priorizado &amp; Executive Pack</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Findings consolidadas, classificadas HRI / MRI / LRI por blast radius e likelihood. Esforço de remediação estimado por finding. Roadmap sequenciado pra execução 30 / 60 / 90 dias. Apresentação executiva pra board / liderança.</p>
+        <p class="text-sm text-subtle"><strong>Entregável:</strong> findings priorizadas + roadmap de remediação + exec pack</p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</section>
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<!-- FINAL CTA -->
+<section class="max-w-4xl mx-auto px-6 py-24 text-center">
+  {% if lang == 'en' %}
+  <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Find what matters before someone else does.</h2>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Take the interactive diagnostic above. No signup up front — you decide afterward whether you want the report.</p>
+  {% if has_booked %}
+  <a href="/cases" class="btn-primary text-base inline-block">Read our cases</a>
+  {% else %}
+  <a href="/contact" class="btn-primary text-base inline-block">Book a discovery call (30 min)</a>
+  {% endif %}
+  {% else %}
+  <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Encontre o que importa antes de outro alguém encontrar.</h2>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Faz o diagnóstico interativo acima. Sem cadastro inicial — só decide se quer receber o relatório depois.</p>
+  {% if has_booked %}
+  <a href="/cases" class="btn-primary text-base inline-block">Ler nossos cases</a>
+  {% else %}
+  <a href="/contact" class="btn-primary text-base inline-block">Agendar discovery (30 min)</a>
+  {% endif %}
+  {% endif %}
+</section>
+
+{% endblock %}

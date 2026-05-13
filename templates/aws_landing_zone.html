@@ -1,0 +1,277 @@
+{% extends "_base.html" %}
+
+{% block content %}
+
+<!-- HERO -->
+<section class="max-w-5xl mx-auto px-6 pt-20 pb-12">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-6">Anuvia Cloud · AWS · Landing Zone</p>
+  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
+    Multi-Account /<br><span class="italic">Landing Zone.</span>
+  </h1>
+  <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
+    Landing Zone implementation with AWS Control Tower, Service Control Policies, AWS Organizations, automated account vending and baseline IAM / network / logging. Engineered to support 16+ accounts, multi-team isolation, regulatory posture and per-OU cost allocation from day one.
+  </p>
+  <p class="text-sm text-subtle mb-12">6-12 weeks · {{ fmt_price('R$ 60-150k') }} · Control Tower + SCP catalog + audit/log accounts + account factory</p>
+  {% else %}
+  <p class="eyebrow mb-6">Anuvia Cloud · AWS · Landing Zone</p>
+  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
+    Multi-Account /<br><span class="italic">Landing Zone.</span>
+  </h1>
+  <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
+    Implementação de Landing Zone com AWS Control Tower, Service Control Policies, AWS Organizations, account vending automatizado e baseline IAM / network / logging. Desenhada para suportar 16+ accounts, isolation multi-team, posture regulatório e cost allocation por OU desde o dia um.
+  </p>
+  <p class="text-sm text-subtle mb-12">6-12 semanas · R$ 60-150k · Control Tower + catálogo SCP + audit/log accounts + account factory</p>
+  {% endif %}
+</section>
+{% include "_authority_strip.html" %}
+
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<!-- STEP 1 — Interactive diagnostic -->
+<section class="max-w-3xl mx-auto px-6 py-16" id="signup">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-3 text-center">Interactive diagnostic</p>
+  <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Answer 5 questions. See your preliminary read in 30 seconds.</h2>
+  <p class="text-center text-ink/60 mb-12">No signup. You decide whether you want the report by email afterward.</p>
+
+  <form id="diag-business-form" data-diag-base="/api/aws-landing-zone" class="space-y-6 card p-8 md:p-10">
+    <div>
+      <label class="eyebrow block mb-2">Role / function</label>
+      <select name="role" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option>CTO / VP Engineering</option>
+        <option>Head of Platform / Infrastructure</option>
+        <option>Cloud Architect / Solutions Architect</option>
+        <option>Head of Security</option>
+        <option>Compliance / Risk Officer</option>
+        <option>Founder / CEO</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">AWS accounts today</label>
+      <select name="accounts_today" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="1">1 account</option>
+        <option value="2_5">2-5 accounts</option>
+        <option value="6_15">6-15 accounts</option>
+        <option value="16_plus">16+ accounts</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Current governance state</label>
+      <select name="governance_state" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="none">No governance — accounts created ad hoc</option>
+        <option value="ad_hoc">Ad-hoc — some standards, not enforced</option>
+        <option value="partial_control_tower">Partial Control Tower deployment</option>
+        <option value="full_control_tower">Full Control Tower deployed</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Top concern</label>
+      <select name="top_concern" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="security_baseline">Security baseline (Hub, GuardDuty, Config, CloudTrail)</option>
+        <option value="cost_allocation">Multi-team cost allocation</option>
+        <option value="multi_team_isolation">Multi-team isolation / blast radius</option>
+        <option value="regulatory">Regulatory / compliance (LGPD, ISO 27001, BACEN)</option>
+        <option value="scaling_team">Scaling the team — account vending velocity</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">AWS Organizations setup</label>
+      <select name="aws_org_setup" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select (optional)…</option>
+        <option value="none">None — single account, no Organizations</option>
+        <option value="basic">Basic — root + 1-2 OUs</option>
+        <option value="mature">Mature — structured OUs with policies</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Additional context (optional)</label>
+      <textarea name="context" rows="3" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Specific triggers? (recent audit finding, M&A, regulatory mandate, team scaling...)"></textarea>
+    </div>
+    <button type="submit" class="btn-primary w-full text-base">See my analysis</button>
+    <p class="text-xs text-subtle text-center">No signup at this step. The analysis appears immediately below.</p>
+  </form>
+  {% else %}
+  <p class="eyebrow mb-3 text-center">Diagnóstico interativo</p>
+  <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Responda 5 perguntas. Veja sua leitura preliminar em 30 segundos.</h2>
+  <p class="text-center text-ink/60 mb-12">Sem cadastro. Você decide se quer receber o relatório por email depois.</p>
+
+  <form id="diag-business-form" data-diag-base="/api/aws-landing-zone" class="space-y-6 card p-8 md:p-10">
+    <div>
+      <label class="eyebrow block mb-2">Cargo / função</label>
+      <select name="role" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option>CTO / VP Engineering</option>
+        <option>Head of Platform / Infrastructure</option>
+        <option>Cloud Architect / Solutions Architect</option>
+        <option>Head of Security</option>
+        <option>Compliance / Risk Officer</option>
+        <option>Founder / CEO</option>
+        <option>Outro</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Accounts AWS hoje</label>
+      <select name="accounts_today" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="1">1 account</option>
+        <option value="2_5">2-5 accounts</option>
+        <option value="6_15">6-15 accounts</option>
+        <option value="16_plus">16+ accounts</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Estado de governance atual</label>
+      <select name="governance_state" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="none">Sem governance — accounts criadas ad hoc</option>
+        <option value="ad_hoc">Ad-hoc — alguns padrões, não enforced</option>
+        <option value="partial_control_tower">Control Tower parcial</option>
+        <option value="full_control_tower">Control Tower completo</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Preocupação principal</label>
+      <select name="top_concern" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="security_baseline">Security baseline (Hub, GuardDuty, Config, CloudTrail)</option>
+        <option value="cost_allocation">Cost allocation multi-time</option>
+        <option value="multi_team_isolation">Isolation multi-time / blast radius</option>
+        <option value="regulatory">Regulatório / compliance (LGPD, ISO 27001, BACEN)</option>
+        <option value="scaling_team">Escalar o time — velocidade de account vending</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Setup AWS Organizations</label>
+      <select name="aws_org_setup" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione (opcional)…</option>
+        <option value="none">Nenhuma — single account, sem Organizations</option>
+        <option value="basic">Básica — root + 1-2 OUs</option>
+        <option value="mature">Madura — OUs estruturadas com policies</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Contexto adicional (opcional)</label>
+      <textarea name="context" rows="3" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Triggers específicos? (audit recente, M&A, mandato regulatório, escalar time...)"></textarea>
+    </div>
+    <button type="submit" class="btn-primary w-full text-base">Ver minha análise</button>
+    <p class="text-xs text-subtle text-center">Sem cadastro nessa etapa. A análise aparece imediatamente abaixo.</p>
+  </form>
+  {% endif %}
+</section>
+
+{% include "_diag_flow_steps.html" %}
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<!-- METHODOLOGY -->
+<section class="max-w-5xl mx-auto px-6 py-20">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-4">Methodology</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight">From design to operational LZ.</h2>
+
+  <div class="space-y-10">
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">01</p><p class="eyebrow mt-2">Weeks 1-2</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">OU Design &amp; Account Inventory</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">OU hierarchy designed against your org boundaries (workload, environment, sensitivity). Existing accounts audited and assigned to target OUs. Compliance and data-residency requirements mapped onto OU structure.</p>
+        <p class="text-sm text-subtle"><strong>Deliverable:</strong> OU design diagram + account migration plan</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">02</p><p class="eyebrow mt-2">Weeks 3-5</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Control Tower &amp; SCP Catalog</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Control Tower deployed with audit and log archive accounts. SCP catalog written per OU — region restriction, root-key prevention, service whitelisting, data-residency enforcement. Mandatory and recommended guardrails enabled per pillar.</p>
+        <p class="text-sm text-subtle"><strong>Deliverable:</strong> Control Tower operational + SCP catalog with rationale</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">03</p><p class="eyebrow mt-2">Weeks 6-8</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Baseline &amp; Account Factory</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Baseline IAM (SSO + SCIM), network (shared services, transit gateway, DNS), logging (centralized CloudTrail, Config aggregator) and security (Security Hub, GuardDuty, Macie where applicable). Account Factory automation for self-service vending with governance review.</p>
+        <p class="text-sm text-subtle"><strong>Deliverable:</strong> baseline operational + account factory live</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">04</p><p class="eyebrow mt-2">Weeks 9-12</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Cost Categories &amp; Handover</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Cost Categories defined per OU for showback/chargeback. Tagging strategy formalized and enforced via SCPs. Runbook for ongoing operations handed over. Training session with platform team.</p>
+        <p class="text-sm text-subtle"><strong>Deliverable:</strong> cost allocation operational + runbooks + training</p>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <p class="eyebrow mb-4">Metodologia</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight">Do design ao LZ operacional.</h2>
+
+  <div class="space-y-10">
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">01</p><p class="eyebrow mt-2">Semanas 1-2</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">OU Design &amp; Inventário de Accounts</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Hierarquia OU desenhada contra suas org boundaries (workload, ambiente, sensitivity). Accounts existentes auditadas e atribuídas a OUs alvo. Requisitos de compliance e data residency mapeados na estrutura OU.</p>
+        <p class="text-sm text-subtle"><strong>Entregável:</strong> diagrama OU + plano de migração de accounts</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">02</p><p class="eyebrow mt-2">Semanas 3-5</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Control Tower &amp; Catálogo SCP</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Control Tower deployed com audit account e log archive account. Catálogo SCP escrito por OU — restrição de região, prevenção de root-key, whitelisting de serviço, enforcement de data residency. Mandatory + recommended guardrails habilitados por pilar.</p>
+        <p class="text-sm text-subtle"><strong>Entregável:</strong> Control Tower operacional + catálogo SCP com racional</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">03</p><p class="eyebrow mt-2">Semanas 6-8</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Baseline &amp; Account Factory</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Baseline IAM (SSO + SCIM), network (shared services, transit gateway, DNS), logging (CloudTrail centralizado, Config aggregator) e security (Security Hub, GuardDuty, Macie quando aplicável). Automação de Account Factory pra vending self-service com governance review.</p>
+        <p class="text-sm text-subtle"><strong>Entregável:</strong> baseline operacional + account factory ativo</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">04</p><p class="eyebrow mt-2">Semanas 9-12</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Cost Categories &amp; Handover</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Cost Categories definidas por OU pra showback/chargeback. Tagging strategy formalizada e enforced via SCPs. Runbook pra operação contínua entregue. Sessão de training com platform team.</p>
+        <p class="text-sm text-subtle"><strong>Entregável:</strong> cost allocation operacional + runbooks + training</p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</section>
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<!-- FINAL CTA -->
+<section class="max-w-4xl mx-auto px-6 py-24 text-center">
+  {% if lang == 'en' %}
+  <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Build the Landing Zone right the first time.</h2>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Take the interactive diagnostic above. No signup up front — you decide afterward whether you want the report.</p>
+  {% if has_booked %}
+  <a href="/cases" class="btn-primary text-base inline-block">Read our cases</a>
+  {% else %}
+  <a href="/contact" class="btn-primary text-base inline-block">Book a discovery call (30 min)</a>
+  {% endif %}
+  {% else %}
+  <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Construa o Landing Zone certo da primeira vez.</h2>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Faz o diagnóstico interativo acima. Sem cadastro inicial — só decide se quer receber o relatório depois.</p>
+  {% if has_booked %}
+  <a href="/cases" class="btn-primary text-base inline-block">Ler nossos cases</a>
+  {% else %}
+  <a href="/contact" class="btn-primary text-base inline-block">Agendar discovery (30 min)</a>
+  {% endif %}
+  {% endif %}
+</section>
+
+{% endblock %}

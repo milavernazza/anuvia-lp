@@ -245,11 +245,19 @@
   {% if lang == 'en' %}
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Discuss your scenario</h2>
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">To discuss specific case details under NDA or explore how a similar approach would apply to your context, book a call with an Anuvia Solutions Architect.</p>
+  {% if has_booked %}
+  <a href="/about" class="btn-primary text-base inline-block">About Anuvia</a>
+  {% else %}
   <a href="/contact" class="btn-primary text-base inline-block">Pick a slot</a>
+  {% endif %}
   {% else %}
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Conversar sobre seu cenário</h2>
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Para discutir detalhes de casos específicos sob NDA ou explorar como uma abordagem similar se aplicaria ao seu contexto, agende uma conversa com um Solutions Architect da Anuvia.</p>
+  {% if has_booked %}
+  <a href="/about" class="btn-primary text-base inline-block">Sobre a Anuvia</a>
+  {% else %}
   <a href="/contact" class="btn-primary text-base inline-block">Escolha um horário</a>
+  {% endif %}
   {% endif %}
 </section>
 

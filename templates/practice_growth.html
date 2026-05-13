@@ -287,14 +287,22 @@
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Pre-qualification for the Sales Ops Diagnostic takes 90 seconds and returns a preliminary analysis within 24h. Then we decide the next steps together.</p>
   <div class="flex flex-col sm:flex-row gap-4 justify-center">
     <a href="/growth/sales-ops" class="btn-primary text-base inline-block">Pre-qualification</a>
+    {% if has_booked %}
+    <a href="/cases" class="btn-ghost text-base inline-block">Read our cases</a>
+    {% else %}
     <a href="/contact" class="btn-ghost text-base inline-block">Talk to a Solutions Architect</a>
+    {% endif %}
   </div>
   {% else %}
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Próximo passo.</h2>
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Pré-qualificação do Sales Ops Diagnostic leva 90 segundos e devolve análise preliminar em até 24h. Depois decidimos juntos os próximos passos.</p>
   <div class="flex flex-col sm:flex-row gap-4 justify-center">
     <a href="/growth/sales-ops" class="btn-primary text-base inline-block">Pré-qualificação</a>
+    {% if has_booked %}
+    <a href="/cases" class="btn-ghost text-base inline-block">Ler nossos cases</a>
+    {% else %}
     <a href="/contact" class="btn-ghost text-base inline-block">Falar com um Solutions Architect</a>
+    {% endif %}
   </div>
   {% endif %}
 </section>

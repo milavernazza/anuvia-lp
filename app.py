@@ -29,7 +29,7 @@ import httpx
 import frontmatter
 import markdown as md_lib
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
@@ -1735,12 +1735,13 @@ async def api_contact_book(form: ContactBookForm, request: Request) -> JSONRespo
         "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
     ]
     pretty = f"{pt_weekdays[start_dt.weekday()]}, {start_dt.day} de {pt_months[start_dt.month - 1]} às {form.time}"
-    return JSONResponse({
+    response = JSONResponse({
         "ok": True,
         "appointment_id": booking.get("appointment_id"),
         "pretty": pretty,
         "lead_id": lead_id,
     })
+    return set_booked_cookie(response)
 
 
 def _is_brand_host(request: Request) -> bool:
@@ -1843,6 +1844,7 @@ TRANSLATIONS = {
         "footer_cases": "Cases",
         "footer_blog": "Blog",
         "footer_contact": "Contato",
+        "cta_post_booking": "Ler nossos cases",
         "lang_toggle_to": "EN",
         "lang_toggle_to_url": "https://anuvia.net",
     },
@@ -1865,10 +1867,33 @@ TRANSLATIONS = {
         "footer_cases": "Cases",
         "footer_blog": "Blog",
         "footer_contact": "Contact",
+        "cta_post_booking": "Read our cases",
         "lang_toggle_to": "PT",
         "lang_toggle_to_url": "https://anuvia.com.br",
     },
 }
+
+
+# Cookie set by booking endpoints (server-side) and by the booking widget JS
+# (client-side) to track whether the visitor has already booked a discovery
+# call. Used by templates via the `has_booked` template context flag.
+BOOKED_COOKIE = "anuvia_booked"
+BOOKED_COOKIE_MAX_AGE = 60 * 24 * 60 * 60  # 60 days, in seconds
+
+
+def set_booked_cookie(response: JSONResponse) -> JSONResponse:
+    """Attach the anuvia_booked=1 cookie to a JSONResponse.
+    httponly=False so JS on the client can also detect the booking state
+    (used for the diag-flow booking widget reveal)."""
+    response.set_cookie(
+        key=BOOKED_COOKIE,
+        value="1",
+        max_age=BOOKED_COOKIE_MAX_AGE,
+        path="/",
+        samesite="lax",
+        httponly=False,
+    )
+    return response
 
 
 def tpl_ctx(request: Request, **extra) -> dict:
@@ -1884,6 +1909,7 @@ def tpl_ctx(request: Request, **extra) -> dict:
         "host": loc["host"],
         "t": TRANSLATIONS[loc["lang"]],
         "fmt_price": lambda s: format_price(s, loc["currency"]),
+        "has_booked": request.cookies.get(BOOKED_COOKIE) == "1",
     }
     ctx.update(extra)
     return ctx
@@ -1957,6 +1983,26 @@ async def lp_aws_well_architected(request: Request):
     return templates.TemplateResponse("aws_well_architected.html", tpl_ctx(request))
 
 
+@app.get("/cloud/aws/migration", response_class=HTMLResponse)
+async def lp_aws_migration(request: Request):
+    return templates.TemplateResponse("aws_migration.html", tpl_ctx(request))
+
+
+@app.get("/cloud/aws/landing-zone", response_class=HTMLResponse)
+async def lp_aws_landing_zone(request: Request):
+    return templates.TemplateResponse("aws_landing_zone.html", tpl_ctx(request))
+
+
+@app.get("/cloud/aws/security-posture", response_class=HTMLResponse)
+async def lp_aws_security_posture(request: Request):
+    return templates.TemplateResponse("aws_security_posture.html", tpl_ctx(request))
+
+
+@app.get("/cloud/gcp/migration", response_class=HTMLResponse)
+async def lp_gcp_migration(request: Request):
+    return templates.TemplateResponse("gcp_migration.html", tpl_ctx(request))
+
+
 @app.get("/engineering/devops/maturity", response_class=HTMLResponse)
 async def lp_devops_maturity(request: Request):
     return templates.TemplateResponse("devops_maturity.html", tpl_ctx(request))
@@ -1985,6 +2031,36 @@ async def cases(request: Request):
 @app.get("/contact", response_class=HTMLResponse)
 async def contact(request: Request):
     return templates.TemplateResponse("contact.html", tpl_ctx(request))
+
+
+# ============================================================================
+# Sample PDF deliverables — watermarked "SAMPLE · CONFIDENTIAL" previews
+# Served via short keys so the LPs can link with friendly URLs.
+# ============================================================================
+_SAMPLE_PDFS: dict[str, str] = {
+    "finops_audit": "sample_finops_audit_report.pdf",
+    "aws_well_architected": "sample_aws_well_architected.pdf",
+    "devops_maturity": "sample_devops_maturity_assessment.pdf",
+    "ai_readiness": "sample_ai_readiness_sprint.pdf",
+    "sales_ops": "sample_sales_ops_diagnostic.pdf",
+    "industry": "sample_industry_assessment.pdf",
+}
+
+
+@app.get("/samples/{filename}")
+async def serve_sample_pdf(filename: str):
+    """Serve a watermarked sample deliverable PDF.
+
+    `filename` is a whitelisted short key (not the actual filename) to avoid
+    path traversal and to keep the LP URLs stable independent of file naming.
+    """
+    actual = _SAMPLE_PDFS.get(filename)
+    if not actual:
+        raise HTTPException(status_code=404, detail="Sample not found")
+    path = os.path.join(os.path.dirname(__file__), "static", "samples", actual)
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Sample file missing")
+    return FileResponse(path, media_type="application/pdf", filename=actual)
 
 
 # ============================================================================
@@ -2491,6 +2567,682 @@ async def api_aws_wa_contact(form: DiagContactForm):
         await _notify_slack_diag(
             client, "AWS Well-Architected", form.name, form.email, form.whatsapp, form.company,
             extra_lines=[f"Foco: {meta.get('focus', '?')}  ·  Workload: {meta.get('workload', '?')}"],
+        )
+    return JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+
+
+# ----------------------------------------------------------------------------
+# AWS Migration Planning — diagnostic-first flow
+# ----------------------------------------------------------------------------
+
+AWS_MIG_ENV_LABEL = {
+    "on_prem": "on-premise / data center próprio",
+    "other_cloud": "outro provedor cloud (Azure/GCP/Oracle)",
+    "hybrid": "ambiente híbrido (on-prem + cloud)",
+    "multi_account_aws": "AWS já em uso, consolidação multi-account",
+}
+
+AWS_MIG_DRIVER_INSIGHT = {
+    "cost_pressure": "Cost-driven migrations typically realize 18-32% TCO reduction year one, peaking at year 3. Conditional on RI/Savings Plan commit being modeled during planning (not after migration) — the most common cause of post-migration sticker shock is on-demand spend that never got rebalanced.",
+    "m_and_a": "M&A migrations require account-aware landing zone before workload migration. Without account isolation upfront, workload migrations from the acquired entity contaminate the IAM/network boundary of the acquirer — typically takes 9-12 months to untangle if skipped.",
+    "end_of_lifecycle": "End-of-lifecycle migrations (hardware EOL, OS EOL, vendor sunset) are the highest-urgency category. Plan accommodates parallel cutover with rollback windows tied to the lifecycle deadline — typically a 4-6 week buffer pre-deadline is non-negotiable.",
+    "regulatory": "Regulatory-driven migrations (LGPD, data residency, BACEN 4.658, healthcare) require region/account selection as the first decision, not the last. Wave plan sequences regulated workloads first to validate the compliance posture before scaling.",
+    "scaling": "Scaling-driven migrations are the easiest economically (clear ROI) but most architecture-sensitive — the wave plan needs to refactor at least the data layer (RDS-managed, S3 tiering, Aurora Serverless where applicable) to capture the elasticity benefit. Pure lift-and-shift wastes 60-70% of the migration upside.",
+}
+
+AWS_MIG_TIMELINE_INSIGHT = {
+    "under_3m": "Sub-3-month timeline is aggressive — only viable with Strangler pattern (one workload at a time, parallel run, gradual traffic cutover). Big-bang migration in this window almost always overruns and triggers rollback. Plan will prioritize cost-bleeders and end-of-lifecycle workloads first.",
+    "3_6m": "3-6 month timeline is the standard mid-market migration window. Plan typically delivers 60-80% of workloads migrated within window, with stragglers (legacy DB, niche dependencies) deferred to follow-on wave.",
+    "6_12m": "6-12 month timeline supports a full multi-wave migration with proper landing zone build, account vending, and parallel data sync periods. This is the lowest-risk window for >20 workloads.",
+    "above_12m": "12+ month timeline gives room for full re-platforming (not just lift-and-shift) — capturing the architectural upside (managed databases, serverless, autoscaling) that lift-and-shift leaves on the table. ROI is materially higher but requires sustained executive commitment.",
+}
+
+
+class AWSMigrationAnalyzeForm(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    role: str
+    current_environment: str
+    workload_count: str
+    migration_drivers: str
+    timeline: str
+    context: Optional[str] = ""
+
+
+def _build_aws_migration_deliverable(form_data: dict, with_name: Optional[str] = None) -> tuple[dict, str]:
+    current_environment = form_data.get("current_environment", "")
+    workload_count = form_data.get("workload_count", "")
+    migration_drivers = form_data.get("migration_drivers", "")
+    timeline = form_data.get("timeline", "")
+    env_label = AWS_MIG_ENV_LABEL.get(current_environment, current_environment or "ambiente atual")
+    driver_insight = AWS_MIG_DRIVER_INSIGHT.get(migration_drivers, "")
+    timeline_insight = AWS_MIG_TIMELINE_INSIGHT.get(timeline, "")
+
+    extra_blocks = []
+    if timeline == "under_3m" and workload_count in ("20_50", "above_50"):
+        extra_blocks.append(
+            "Timeline apertado vs. número de workloads: recomendamos Strangler pattern com priorização de cost-bleeders primeiro. Migration big-bang acima de 20 workloads em 3 meses tem taxa de rollback histórica acima de 60%."
+        )
+    if current_environment == "m_and_a" or migration_drivers == "m_and_a":
+        extra_blocks.append(
+            "M&A migration: landing zone account-aware é pré-requisito não-negociável antes do primeiro workload migrar. Pular essa etapa adiciona 9-12 meses de retrabalho IAM/network depois."
+        )
+    if workload_count == "above_50":
+        extra_blocks.append(
+            "50+ workloads exige factory model: pipeline de wave bem definido, runbooks reutilizáveis por padrão arquitetural (web tier, batch, data, ML), squad dedicada. Sem factory, throughput cai a partir do wave 3."
+        )
+    if current_environment == "on_prem":
+        extra_blocks.append(
+            "Migração on-prem→AWS: Application Discovery Service + Migration Hub coletam inventário de servidor/dependência em 2-4 semanas. TCO modelado contra custo real de data center (não apenas hardware — também energia, cooling, espaço, ops staff)."
+        )
+    elif current_environment == "other_cloud":
+        extra_blocks.append(
+            "Migração cloud-to-cloud: discovery foca em mapear equivalências de serviço gerenciado (ex.: Azure SQL → Aurora, GCS → S3, Pub/Sub → SQS/SNS/Kinesis). Egress costs do provider atual costumam ser o item mais subestimado do TCO."
+        )
+
+    extras_html = ""
+    if extra_blocks:
+        items = "".join(f'<li class="text-ink/80 leading-relaxed">{b}</li>' for b in extra_blocks)
+        extras_html = f"""
+  <div class="my-8">
+    <p class="eyebrow mb-3">Sinais específicos das suas respostas</p>
+    <ul class="space-y-3 text-sm list-disc list-inside">{items}</ul>
+  </div>
+"""
+    greeting = f"Análise pronta, {with_name.split()[0]}." if with_name else "Análise pronta."
+    html = f"""
+<div class="card p-8 md:p-10">
+  <p class="eyebrow mb-4">Pré-análise · gerada agora</p>
+  <p class="h-serif text-4xl mb-6 leading-tight">{greeting}</p>
+
+  <div class="my-8 p-6 bg-paper border border-rule">
+    <p class="eyebrow mb-3">Discovery & TCO baseline</p>
+    <p class="text-ink/80 leading-relaxed">Discovery starts with AWS Migration Hub + Application Discovery Service to inventory workloads. TCO modeled against your existing data center costs or current cloud provider invoices. A partir de {env_label}, o plano cobre wave map, dependency graph, e cutover schedule por workload.</p>
+  </div>
+
+  <div class="my-8">
+    <p class="eyebrow mb-3">Sobre o driver de migração</p>
+    <p class="text-ink/80 leading-relaxed">{driver_insight}</p>
+  </div>
+
+  <div class="my-8">
+    <p class="eyebrow mb-3">Sobre o timeline informado</p>
+    <p class="text-ink/80 leading-relaxed">{timeline_insight}</p>
+  </div>
+{extras_html}
+  <div class="rule"></div>
+
+  <p class="text-xs text-subtle leading-relaxed">AWS Migration Planning Anuvia: 6-10 semanas, R$ 50-120k. Entrega TCO model, wave plan, dependency map e risk register pra suportar decisão executiva de migração.</p>
+</div>
+""".strip()
+    return {
+        "current_environment": current_environment,
+        "workload_count": workload_count,
+        "migration_drivers": migration_drivers,
+        "timeline": timeline,
+    }, html
+
+
+@app.post("/api/aws-migration/analyze")
+async def api_aws_migration_analyze(form: AWSMigrationAnalyzeForm, request: Request):
+    form_data = form.model_dump()
+    analysis_meta, html = _build_aws_migration_deliverable(form_data)
+    business_meta = {
+        "role": form.role,
+        "current_environment": form.current_environment,
+        "workload_count": form.workload_count,
+        "migration_drivers": form.migration_drivers,
+        "timeline": form.timeline,
+        "context": form.context or "",
+        **analysis_meta,
+    }
+    async with httpx.AsyncClient(timeout=15) as client:
+        lead_id = await _create_anonymous_diag_lead(
+            client,
+            funnel_id=f"{get_locale(request)['market']}_AWS_MIG",
+            source="lp_aws_migration",
+            diag_type="aws_migration",
+            market=get_locale(request)["market"],
+            track="cloud_aws_migration",
+            language=get_locale(request)["lang_full"],
+            business_meta=business_meta,
+            deliverable_html=html,
+            tags=["lp_aws_migration", "cloud_aws_migration"],
+        )
+    return JSONResponse({"ok": True, "lead_id": lead_id, "html": html})
+
+
+@app.post("/api/aws-migration/contact")
+async def api_aws_migration_contact(form: DiagContactForm):
+    async with httpx.AsyncClient(timeout=20) as client:
+        try:
+            r = await client.get(
+                f"{SUPA_URL}/leads?id=eq.{form.lead_id}&select=qualification_data",
+                headers=SUPA_HEADERS,
+            )
+            rows = r.json() if r.status_code == 200 else []
+            meta = rows[0].get("qualification_data", {}) if rows else {}
+        except Exception:
+            meta = {}
+        _, deliverable_html = _build_aws_migration_deliverable(meta, with_name=form.name)
+        ok_upgrade = await _upgrade_lead_with_contact(
+            client, form.lead_id, form.name, form.email, form.whatsapp, form.company
+        )
+        first = form.name.split()[0]
+        subject = f"AWS Migration Planning — pré-análise pra {first}"
+        email_sent = await _send_diag_report_email(
+            client, form.name, form.email, "AWS Migration", subject, deliverable_html
+        )
+        await _notify_slack_diag(
+            client, "AWS Migration Planning", form.name, form.email, form.whatsapp, form.company,
+            extra_lines=[
+                f"Env: {meta.get('current_environment', '?')}  ·  Workloads: {meta.get('workload_count', '?')}",
+                f"Driver: {meta.get('migration_drivers', '?')}  ·  Timeline: {meta.get('timeline', '?')}",
+            ],
+        )
+    return JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+
+
+# ----------------------------------------------------------------------------
+# AWS Landing Zone / Multi-Account — diagnostic-first flow
+# ----------------------------------------------------------------------------
+
+AWS_LZ_CONCERN_INSIGHT = {
+    "security_baseline": "Security baseline at LZ build typically includes Security Hub, GuardDuty, Config rules per pillar, centralized CloudTrail in audit account, SCPs preventing root-key creation. A maturidade de cada item se diferencia mais por SCP coverage do que por ferramenta — Anuvia entrega catálogo SCP por OU como artefato.",
+    "cost_allocation": "Multi-team cost allocation depends on tagging strategy first, then per-OU billing via Cost Categories. Landing Zone formalizes both. Sem tagging baseline antes do LZ, allocation post-hoc gera disputa entre times e não para de pé. Cost Categories per OU é o controle mais reutilizável.",
+    "multi_team_isolation": "Multi-team isolation matures via OU design + SCPs limiting cross-team blast radius, plus per-team VPC patterns and shared services accounts (logging, security, network). O erro comum é tratar isolation como problema de IAM puro — VPC/network isolation é igualmente importante.",
+    "regulatory": "Common Brazilian patterns: ISO 27001-aligned LZ + LGPD data-residency SCPs blocking us-east regions for sensitive workloads. Para BACEN 4.658, adicionamos SCP de retenção mínima de logs em audit account + WAF baseline per ingress. ANVISA/healthcare requer encryption-at-rest SCPs por classe de dado.",
+    "scaling_team": "Scaling-team motivation prioritiza account vending automation (Service Catalog + Account Factory) com baseline turn-key — o gargalo deixa de ser provisionamento manual e vira governance review. SLA típico: nova account em <2h vs. semanas em ambiente sem LZ.",
+}
+
+AWS_LZ_GOVERNANCE_INSIGHT = {
+    "none": "Sem governance hoje: caso clássico de LZ greenfield. Engagement completo cobre AWS Organizations setup, OU hierarchy, Control Tower deployment, baseline SCPs, account vending. 8-12 semanas.",
+    "ad_hoc": "Governance ad-hoc é o pior dos mundos — accounts existem mas sem padrão. LZ build requer migration plan de accounts existentes pra OUs corretas + retrofit de baseline. Pré-trabalho de auditoria de 1-2 semanas antes do build começar.",
+    "partial_control_tower": "Control Tower parcial: tipicamente Account Factory deployed mas sem SCP catalog maduro ou baseline observability. Engagement reduzido (6-8 semanas) focado em fechar gaps específicos — guardrails, audit/log account, network shared services.",
+    "full_control_tower": "Control Tower maduro: engagement vira optimization review (4-6 semanas). Foco em SCP coverage gaps, cost allocation refinement, e potencial migração pra OUs mais granulares conforme org cresce.",
+}
+
+AWS_LZ_ORG_INSIGHT = {
+    "none": "Sem AWS Organizations: precondição obrigatória — Organizations é fundação do LZ moderno. Setup integrado ao engagement (semana 1).",
+    "basic": "Organizations básica (root + 1-2 OUs): cobertura suficiente pra começar. Engagement vai refinar OU design pra refletir org boundaries (workload, environment, sensitivity).",
+    "mature": "Organizations madura com OUs estruturados: engagement foca em policy depth — SCP coverage, delegated admin patterns, shared services accounts.",
+}
+
+
+class AWSLandingZoneAnalyzeForm(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    role: str
+    accounts_today: str
+    governance_state: str
+    top_concern: str
+    aws_org_setup: Optional[str] = ""
+    context: Optional[str] = ""
+
+
+def _build_aws_landing_zone_deliverable(form_data: dict, with_name: Optional[str] = None) -> tuple[dict, str]:
+    accounts_today = form_data.get("accounts_today", "")
+    governance_state = form_data.get("governance_state", "")
+    top_concern = form_data.get("top_concern", "")
+    aws_org_setup = form_data.get("aws_org_setup", "") or ""
+    concern_insight = AWS_LZ_CONCERN_INSIGHT.get(top_concern, "")
+    gov_insight = AWS_LZ_GOVERNANCE_INSIGHT.get(governance_state, "")
+    org_insight = AWS_LZ_ORG_INSIGHT.get(aws_org_setup, "")
+
+    extra_blocks = []
+    if accounts_today == "1" and governance_state in ("none", "ad_hoc"):
+        extra_blocks.append(
+            "Single account hoje + governance baixa: LZ greenfield com migração de workloads existentes pra accounts dedicadas por ambiente (dev/stg/prod) + workload boundary. Padrão mais comum em mid-market entrando em compliance."
+        )
+    if accounts_today == "16_plus" and governance_state in ("none", "ad_hoc"):
+        extra_blocks.append(
+            "16+ accounts sem governance estruturada é o cenário de maior risco — drift de baseline acumula rapidamente. Recomendamos audit de inventário (semana 0) antes do build começar, pra mapear o que migra, o que fica, o que se aposenta."
+        )
+    if top_concern == "regulatory" and accounts_today in ("6_15", "16_plus"):
+        extra_blocks.append(
+            "Regulatory + 6+ accounts: priorizar dedicated audit/log account com retention SCPs + region-restriction SCPs por OU. ISO 27001 e LGPD são tratados como controles de fundação, não retrofit."
+        )
+
+    extras_html = ""
+    if extra_blocks:
+        items = "".join(f'<li class="text-ink/80 leading-relaxed">{b}</li>' for b in extra_blocks)
+        extras_html = f"""
+  <div class="my-8">
+    <p class="eyebrow mb-3">Sinais específicos das suas respostas</p>
+    <ul class="space-y-3 text-sm list-disc list-inside">{items}</ul>
+  </div>
+"""
+    greeting = f"Análise pronta, {with_name.split()[0]}." if with_name else "Análise pronta."
+    html = f"""
+<div class="card p-8 md:p-10">
+  <p class="eyebrow mb-4">Pré-análise · gerada agora</p>
+  <p class="h-serif text-4xl mb-6 leading-tight">{greeting}</p>
+
+  <div class="my-8 p-6 bg-paper border border-rule">
+    <p class="eyebrow mb-3">O que o Landing Zone build entrega</p>
+    <p class="text-ink/80 leading-relaxed">Implementação AWS Control Tower + AWS Organizations com OU hierarchy, Service Control Policies por OU, account vending automatizado, baseline IAM/network/logging em audit & log accounts dedicadas. 6-12 semanas, R$ 60-150k.</p>
+  </div>
+
+  <div class="my-8">
+    <p class="eyebrow mb-3">Sobre sua preocupação principal</p>
+    <p class="text-ink/80 leading-relaxed">{concern_insight}</p>
+  </div>
+
+  <div class="my-8">
+    <p class="eyebrow mb-3">Sobre o estado de governance atual</p>
+    <p class="text-ink/80 leading-relaxed">{gov_insight}</p>
+  </div>
+
+  <div class="my-8">
+    <p class="eyebrow mb-3">Sobre AWS Organizations</p>
+    <p class="text-ink/80 leading-relaxed">{org_insight}</p>
+  </div>
+{extras_html}
+  <div class="rule"></div>
+
+  <p class="text-xs text-subtle leading-relaxed">Landing Zone Implementation Anuvia: Control Tower, SCPs, OU design, account vending, baseline IAM/network/logging.</p>
+</div>
+""".strip()
+    return {
+        "accounts_today": accounts_today,
+        "governance_state": governance_state,
+        "top_concern": top_concern,
+        "aws_org_setup": aws_org_setup,
+    }, html
+
+
+@app.post("/api/aws-landing-zone/analyze")
+async def api_aws_landing_zone_analyze(form: AWSLandingZoneAnalyzeForm, request: Request):
+    form_data = form.model_dump()
+    analysis_meta, html = _build_aws_landing_zone_deliverable(form_data)
+    business_meta = {
+        "role": form.role,
+        "accounts_today": form.accounts_today,
+        "governance_state": form.governance_state,
+        "top_concern": form.top_concern,
+        "aws_org_setup": form.aws_org_setup or "",
+        "context": form.context or "",
+        **analysis_meta,
+    }
+    async with httpx.AsyncClient(timeout=15) as client:
+        lead_id = await _create_anonymous_diag_lead(
+            client,
+            funnel_id=f"{get_locale(request)['market']}_AWS_LZ",
+            source="lp_aws_landing_zone",
+            diag_type="aws_landing_zone",
+            market=get_locale(request)["market"],
+            track="cloud_aws_landing_zone",
+            language=get_locale(request)["lang_full"],
+            business_meta=business_meta,
+            deliverable_html=html,
+            tags=["lp_aws_landing_zone", "cloud_aws_landing_zone"],
+        )
+    return JSONResponse({"ok": True, "lead_id": lead_id, "html": html})
+
+
+@app.post("/api/aws-landing-zone/contact")
+async def api_aws_landing_zone_contact(form: DiagContactForm):
+    async with httpx.AsyncClient(timeout=20) as client:
+        try:
+            r = await client.get(
+                f"{SUPA_URL}/leads?id=eq.{form.lead_id}&select=qualification_data",
+                headers=SUPA_HEADERS,
+            )
+            rows = r.json() if r.status_code == 200 else []
+            meta = rows[0].get("qualification_data", {}) if rows else {}
+        except Exception:
+            meta = {}
+        _, deliverable_html = _build_aws_landing_zone_deliverable(meta, with_name=form.name)
+        ok_upgrade = await _upgrade_lead_with_contact(
+            client, form.lead_id, form.name, form.email, form.whatsapp, form.company
+        )
+        first = form.name.split()[0]
+        subject = f"AWS Landing Zone — pré-análise pra {first}"
+        email_sent = await _send_diag_report_email(
+            client, form.name, form.email, "AWS Landing Zone", subject, deliverable_html
+        )
+        await _notify_slack_diag(
+            client, "AWS Landing Zone", form.name, form.email, form.whatsapp, form.company,
+            extra_lines=[
+                f"Accounts: {meta.get('accounts_today', '?')}  ·  Governance: {meta.get('governance_state', '?')}",
+                f"Top concern: {meta.get('top_concern', '?')}",
+            ],
+        )
+    return JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+
+
+# ----------------------------------------------------------------------------
+# AWS Security Posture Assessment — diagnostic-first flow
+# ----------------------------------------------------------------------------
+
+AWS_SEC_IAM_INSIGHT = {
+    "federated_sso": "IAM federado via SSO + SCIM provisioning é o estado-meta. Audit foca em coverage gaps — break-glass accounts, service accounts ainda locais, role assumption boundaries. Tipicamente <2 HRI findings em IAM nesse cenário.",
+    "mixed": "IAM misto (alguns federados, outros locais) é o cenário mais comum. Audit prioriza inventário de IAM users locais ativos, migração path pra SSO + SCIM, e SCP de prevenção de novas keys de longa duração. Padrão: 4-8 findings em IAM, 1-2 HRI.",
+    "mostly_local_users": "Mostly local users is the highest-leverage finding category — typical first-month remediation moves the org to SSO + SCIM provisioning. Toda credencial estática rotacionável é exposure window aberto. Audit costuma encontrar 3-5 HRI só em IAM nesse cenário, incluindo access keys com idade >365 dias.",
+    "dont_know": "Não saber o estado de IAM é, na prática, equivalente a 'mostly local users' — inventário de IAM é o ponto-zero do audit. Costuma virar a primeira semana inteira do engagement.",
+}
+
+AWS_SEC_COMPLIANCE_INSIGHT = {
+    "none": "Sem target de compliance: audit usa CIS AWS Foundations Benchmark + Anuvia security baseline como referência. Cobertura de IAM, network, encryption, logging.",
+    "soc2": "SOC 2: audit alinha findings aos controls SOC 2 Type II (CC6 logical access, CC7 system operations, CC8 change management). Saída inclui control mapping pra auditor externo.",
+    "iso27001": "ISO 27001: audit alinha aos controles Anexo A (A.5-A.18). Findings classificados por cláusula. Compatível com SoA já em uso.",
+    "lgpd": "LGPD compliance posture review covers data residency, encryption at rest with KMS keys per data class, access logging via CloudTrail Lake, deletion/portability automation. Mapeamento aos Art. 46-49 (medidas de segurança) é entregue.",
+    "hipaa": "HIPAA: audit cobre PHI handling — encryption at rest/transit, BAA-applicable services, access logging por tipo de PHI, breach notification automation.",
+    "pci_dss": "PCI-DSS: audit foca em CDE (cardholder data environment) — segmentation, network controls, encryption keys, log retention. Saída inclui scope reduction recommendations quando aplicável.",
+    "bacen_4658": "BACEN Res. 4.658: audit cobre controles obrigatórios — política de segurança cibernética, plano de ação/resposta, autenticação multifator, criptografia, logs de eventos relevantes, gestão de terceiros. Compatível com framework BACEN.",
+    "multiple": "Múltiplos frameworks: audit prioriza overlap analysis — controles únicos costumam ter overlap de 60-80% entre SOC 2, ISO 27001 e LGPD. Saída inclui matrix unificada de findings por framework.",
+}
+
+AWS_SEC_INCIDENT_INSIGHT = {
+    "never": "Sem incidente reportado: audit usa baseline preventivo. Recomendação típica inclui tabletop exercise pra validar runbooks contra cenário real.",
+    "minor": "Incidente menor histórico: audit usa o post-mortem (se documentado) como input. Costuma indicar gap em detecção mais do que em prevention — GuardDuty + Security Hub maturação.",
+    "major_one_plus": "Incidente major histórico: audit é tratado como post-incident review estendido. Prioridade em containment patterns, blast-radius reduction (SCPs, network segmentation), e incident response automation (Lambda response runbooks, SOAR-light com Security Hub).",
+}
+
+
+class AWSSecurityAnalyzeForm(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    role: str
+    compliance_target: str
+    latest_audit: str
+    iam_state: str
+    incident_history: Optional[str] = ""
+    context: Optional[str] = ""
+
+
+def _build_aws_security_deliverable(form_data: dict, with_name: Optional[str] = None) -> tuple[dict, str]:
+    compliance_target = form_data.get("compliance_target", "")
+    latest_audit = form_data.get("latest_audit", "")
+    iam_state = form_data.get("iam_state", "")
+    incident_history = form_data.get("incident_history", "") or ""
+    iam_insight = AWS_SEC_IAM_INSIGHT.get(iam_state, "")
+    compliance_insight = AWS_SEC_COMPLIANCE_INSIGHT.get(compliance_target, "")
+    incident_insight = AWS_SEC_INCIDENT_INSIGHT.get(incident_history, "") if incident_history else ""
+
+    extra_blocks = []
+    if latest_audit == "never":
+        extra_blocks.append(
+            "Nenhum audit prévio: relatório serve também como baseline auditável pra conversas posteriores com auditores externos. Vamos documentar tudo com evidência reproducível."
+        )
+    elif latest_audit == "over_2y":
+        extra_blocks.append(
+            "Último audit há mais de 2 anos: drift de configuração é significativo. Audit típico identifica 8-15 HRI nesse cenário — 50%+ em IAM, 20-30% em network exposure, restante em logging/encryption."
+        )
+    elif latest_audit == "in_progress":
+        extra_blocks.append(
+            "Audit externo em curso: nosso engagement é coordenado pra produzir evidence pacote complementar — controles técnicos que auditor não vai exercitar em depth (network policy, IAM permissioning, key management) ficam documentados pra acelerar fechamento."
+        )
+    if iam_state == "mostly_local_users" and incident_history == "major_one_plus":
+        extra_blocks.append(
+            "Combinação local users + incident major histórico é o cenário de maior risco recorrente. Recomendação típica: SSO + SCIM provisioning + access key rotation enforcement como remediação semana 1, antes de qualquer outra coisa."
+        )
+
+    extras_html = ""
+    if extra_blocks:
+        items = "".join(f'<li class="text-ink/80 leading-relaxed">{b}</li>' for b in extra_blocks)
+        extras_html = f"""
+  <div class="my-8">
+    <p class="eyebrow mb-3">Sinais específicos das suas respostas</p>
+    <ul class="space-y-3 text-sm list-disc list-inside">{items}</ul>
+  </div>
+"""
+    incident_block = ""
+    if incident_insight:
+        incident_block = f"""
+  <div class="my-8">
+    <p class="eyebrow mb-3">Sobre o histórico de incidente</p>
+    <p class="text-ink/80 leading-relaxed">{incident_insight}</p>
+  </div>
+"""
+    greeting = f"Análise pronta, {with_name.split()[0]}." if with_name else "Análise pronta."
+    html = f"""
+<div class="card p-8 md:p-10">
+  <p class="eyebrow mb-4">Pré-análise · gerada agora</p>
+  <p class="h-serif text-4xl mb-6 leading-tight">{greeting}</p>
+
+  <div class="my-8 p-6 bg-paper border border-rule">
+    <p class="eyebrow mb-3">Sobre o estado IAM (sinal de maior alavancagem)</p>
+    <p class="text-ink/80 leading-relaxed">{iam_insight}</p>
+  </div>
+
+  <div class="my-8">
+    <p class="eyebrow mb-3">Sobre o target de compliance</p>
+    <p class="text-ink/80 leading-relaxed">{compliance_insight}</p>
+  </div>
+{incident_block}{extras_html}
+  <div class="rule"></div>
+
+  <p class="text-xs text-subtle leading-relaxed">Security Posture Assessment Anuvia: 4-6 semanas, R$ 30-70k. Cobertura IAM, network exposure, encryption, logging baseline, compliance posture. Findings priorizados por blast-radius (HRI/MRI/LRI).</p>
+</div>
+""".strip()
+    return {
+        "compliance_target": compliance_target,
+        "latest_audit": latest_audit,
+        "iam_state": iam_state,
+        "incident_history": incident_history,
+    }, html
+
+
+@app.post("/api/aws-security-posture/analyze")
+async def api_aws_security_analyze(form: AWSSecurityAnalyzeForm, request: Request):
+    form_data = form.model_dump()
+    analysis_meta, html = _build_aws_security_deliverable(form_data)
+    business_meta = {
+        "role": form.role,
+        "compliance_target": form.compliance_target,
+        "latest_audit": form.latest_audit,
+        "iam_state": form.iam_state,
+        "incident_history": form.incident_history or "",
+        "context": form.context or "",
+        **analysis_meta,
+    }
+    async with httpx.AsyncClient(timeout=15) as client:
+        lead_id = await _create_anonymous_diag_lead(
+            client,
+            funnel_id=f"{get_locale(request)['market']}_AWS_SEC",
+            source="lp_aws_security_posture",
+            diag_type="aws_security_posture",
+            market=get_locale(request)["market"],
+            track="cloud_aws_security_posture",
+            language=get_locale(request)["lang_full"],
+            business_meta=business_meta,
+            deliverable_html=html,
+            tags=["lp_aws_security_posture", "cloud_aws_security_posture"],
+        )
+    return JSONResponse({"ok": True, "lead_id": lead_id, "html": html})
+
+
+@app.post("/api/aws-security-posture/contact")
+async def api_aws_security_contact(form: DiagContactForm):
+    async with httpx.AsyncClient(timeout=20) as client:
+        try:
+            r = await client.get(
+                f"{SUPA_URL}/leads?id=eq.{form.lead_id}&select=qualification_data",
+                headers=SUPA_HEADERS,
+            )
+            rows = r.json() if r.status_code == 200 else []
+            meta = rows[0].get("qualification_data", {}) if rows else {}
+        except Exception:
+            meta = {}
+        _, deliverable_html = _build_aws_security_deliverable(meta, with_name=form.name)
+        ok_upgrade = await _upgrade_lead_with_contact(
+            client, form.lead_id, form.name, form.email, form.whatsapp, form.company
+        )
+        first = form.name.split()[0]
+        subject = f"AWS Security Posture — pré-análise pra {first}"
+        email_sent = await _send_diag_report_email(
+            client, form.name, form.email, "AWS Security", subject, deliverable_html
+        )
+        await _notify_slack_diag(
+            client, "AWS Security Posture", form.name, form.email, form.whatsapp, form.company,
+            extra_lines=[
+                f"IAM: {meta.get('iam_state', '?')}  ·  Compliance: {meta.get('compliance_target', '?')}",
+                f"Audit history: {meta.get('latest_audit', '?')}  ·  Incident: {meta.get('incident_history', '?')}",
+            ],
+        )
+    return JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
+
+
+# ----------------------------------------------------------------------------
+# GCP Migration Strategy — diagnostic-first flow
+# ----------------------------------------------------------------------------
+
+GCP_INTEREST_INSIGHT = {
+    "bigquery_analytics": "BigQuery vs. Redshift comparison hinges on query patterns (BigQuery wins on ad-hoc analytical, Redshift wins on predictable BI). Migration cost dominated by data egress from AWS — modelamos egress real do CUR antes de qualquer decisão. Em ~30% dos casos, a melhor jogada é federated query (Redshift Spectrum + BigQuery Omni), não migração completa.",
+    "vertex_ai_ml": "Vertex AI's competitive edge today is in MLOps tooling for traditional ML; for LLM-centric work, AWS Bedrock + SageMaker is typically stronger. We'll model the workload-specific case — quando os pipelines são tabular/clássicos, Vertex costuma ganhar; quando são generative/agentic, Bedrock costuma ganhar.",
+    "kubernetes_gke": "GKE Autopilot é diferenciado em ops overhead (literalmente nodeless), mas custo por workload em escala média costuma ser maior do que EKS bem-tunado. Análise foca em ops cost (não só infra cost) — tempo de SRE liberado conta.",
+    "full_workload_migration": "Full workload migration AWS→GCP é tipicamente a chamada errada para 60-70% dos casos — egress costs + retreinamento da operação superam o ganho de feature. Análise vai mapear quais workloads de fato beneficiam, e quais ficam melhor com integração cross-cloud.",
+    "multi_cloud_strategy": "Multi-cloud is rarely the right answer for cost, often the right answer for resilience and vendor leverage. We'll model both with explicit overhead estimates — typical multi-cloud overhead is 15-30% em ops + 5-15% em infra. Vale a pena quando o leverage de negociação compensa, ou quando regulatory exige.",
+}
+
+GCP_DECISION_INSIGHT = {
+    "exploring": "Exploring stage: análise mais ampla, com TCO modeling cross-cloud e identificação de 2-3 use cases candidatos. Saída suporta decisão go/no-go.",
+    "evaluating": "Evaluating stage: análise mais profunda, com benchmarks de workload específico e POC scope. Saída suporta decisão de qual workload migrar primeiro.",
+    "committed": "Committed stage: análise direta vira plano executável — wave plan, account/project setup, migration patterns por workload. Reduz scope analítico, aumenta scope de execução.",
+}
+
+GCP_CURRENT_CLOUD_INSIGHT = {
+    "aws_primary": "AWS primário: análise foca em egress modeling, equivalência de serviço gerenciado (RDS↔Cloud SQL, Aurora↔Spanner, Redshift↔BigQuery, etc.), e workload affinity (alguns workloads naturalmente preferem GCP, outros AWS).",
+    "azure_primary": "Azure primário: cross-cloud Azure↔GCP é menos comum mas tem casos válidos (analytics consolidation em BigQuery, ML em Vertex). Análise mapeia equivalências e gaps.",
+    "multi_cloud": "Multi-cloud já em uso: análise foca em consolidation ou expansion — reduzir overhead operacional vs. adicionar capability específica.",
+    "on_prem_only": "On-prem only: análise inclui modeling on-prem→GCP direto (raramente faz sentido pular AWS, mas em casos data-gravity com BigQuery o caso fecha).",
+}
+
+
+class GCPMigrationAnalyzeForm(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    role: str
+    gcp_interest: str
+    current_cloud: str
+    decision_stage: str
+    timeline: str
+    context: Optional[str] = ""
+
+
+def _build_gcp_migration_deliverable(form_data: dict, with_name: Optional[str] = None) -> tuple[dict, str]:
+    gcp_interest = form_data.get("gcp_interest", "")
+    current_cloud = form_data.get("current_cloud", "")
+    decision_stage = form_data.get("decision_stage", "")
+    timeline = form_data.get("timeline", "")
+    interest_insight = GCP_INTEREST_INSIGHT.get(gcp_interest, "")
+    decision_insight = GCP_DECISION_INSIGHT.get(decision_stage, "")
+    current_insight = GCP_CURRENT_CLOUD_INSIGHT.get(current_cloud, "")
+
+    extra_blocks = []
+    if gcp_interest == "multi_cloud_strategy" and current_cloud == "aws_primary":
+        extra_blocks.append(
+            "Multi-cloud strategy partindo de AWS primário: análise modelará explicitamente 3 cenários — (a) AWS-only otimizado, (b) AWS+GCP seletivo (BigQuery / Vertex specific), (c) full multi-cloud. Em 60-70% dos casos, (b) bate (c) em TCO."
+        )
+    if gcp_interest == "bigquery_analytics" and current_cloud == "aws_primary":
+        extra_blocks.append(
+            "BigQuery analytics partindo de AWS: data gravity é o fator decisivo. Se 80%+ do dado nasce na AWS, federated query (Redshift Spectrum + BigQuery Omni) costuma bater migration. Se nasce distribuído ou em SaaS, BigQuery centraliza melhor."
+        )
+    if decision_stage == "committed" and timeline == "exploratory":
+        extra_blocks.append(
+            "Combinação 'committed' + 'exploratory timeline' é incomum — análise vai validar o committed antes de gastar tempo em timeline open-ended. Em ~30% dos casos, a decisão volta atrás depois do TCO real."
+        )
+    if timeline == "under_3m":
+        extra_blocks.append(
+            "Timeline sub-3 meses: análise comprime e foca em decisão executável. Detalhamento técnico fica em sprint follow-on. Recomendável só quando o caso é claro (regulatory, EOL, M&A)."
+        )
+
+    extras_html = ""
+    if extra_blocks:
+        items = "".join(f'<li class="text-ink/80 leading-relaxed">{b}</li>' for b in extra_blocks)
+        extras_html = f"""
+  <div class="my-8">
+    <p class="eyebrow mb-3">Sinais específicos das suas respostas</p>
+    <ul class="space-y-3 text-sm list-disc list-inside">{items}</ul>
+  </div>
+"""
+    greeting = f"Análise pronta, {with_name.split()[0]}." if with_name else "Análise pronta."
+    html = f"""
+<div class="card p-8 md:p-10">
+  <p class="eyebrow mb-4">Pré-análise · gerada agora</p>
+  <p class="h-serif text-4xl mb-6 leading-tight">{greeting}</p>
+
+  <div class="my-8 p-6 bg-paper border border-rule">
+    <p class="eyebrow mb-3">Sobre o interesse principal em GCP</p>
+    <p class="text-ink/80 leading-relaxed">{interest_insight}</p>
+  </div>
+
+  <div class="my-8">
+    <p class="eyebrow mb-3">Sobre o ambiente atual</p>
+    <p class="text-ink/80 leading-relaxed">{current_insight}</p>
+  </div>
+
+  <div class="my-8">
+    <p class="eyebrow mb-3">Sobre o estágio de decisão</p>
+    <p class="text-ink/80 leading-relaxed">{decision_insight}</p>
+  </div>
+{extras_html}
+  <div class="rule"></div>
+
+  <p class="text-xs text-subtle leading-relaxed">GCP Migration Strategy Anuvia: 4-8 semanas, R$ 40-90k. Cross-cloud comparison, TCO modeling, data gravity analysis, vendor lock-in assessment. Conduzido por ex-Google + ex-AWS — conselho técnico não comprometido com vendor único.</p>
+</div>
+""".strip()
+    return {
+        "gcp_interest": gcp_interest,
+        "current_cloud": current_cloud,
+        "decision_stage": decision_stage,
+        "timeline": timeline,
+    }, html
+
+
+@app.post("/api/gcp-migration/analyze")
+async def api_gcp_migration_analyze(form: GCPMigrationAnalyzeForm, request: Request):
+    form_data = form.model_dump()
+    analysis_meta, html = _build_gcp_migration_deliverable(form_data)
+    business_meta = {
+        "role": form.role,
+        "gcp_interest": form.gcp_interest,
+        "current_cloud": form.current_cloud,
+        "decision_stage": form.decision_stage,
+        "timeline": form.timeline,
+        "context": form.context or "",
+        **analysis_meta,
+    }
+    async with httpx.AsyncClient(timeout=15) as client:
+        lead_id = await _create_anonymous_diag_lead(
+            client,
+            funnel_id=f"{get_locale(request)['market']}_GCP_MIG",
+            source="lp_gcp_migration",
+            diag_type="gcp_migration",
+            market=get_locale(request)["market"],
+            track="cloud_gcp_migration",
+            language=get_locale(request)["lang_full"],
+            business_meta=business_meta,
+            deliverable_html=html,
+            tags=["lp_gcp_migration", "cloud_gcp_migration"],
+        )
+    return JSONResponse({"ok": True, "lead_id": lead_id, "html": html})
+
+
+@app.post("/api/gcp-migration/contact")
+async def api_gcp_migration_contact(form: DiagContactForm):
+    async with httpx.AsyncClient(timeout=20) as client:
+        try:
+            r = await client.get(
+                f"{SUPA_URL}/leads?id=eq.{form.lead_id}&select=qualification_data",
+                headers=SUPA_HEADERS,
+            )
+            rows = r.json() if r.status_code == 200 else []
+            meta = rows[0].get("qualification_data", {}) if rows else {}
+        except Exception:
+            meta = {}
+        _, deliverable_html = _build_gcp_migration_deliverable(meta, with_name=form.name)
+        ok_upgrade = await _upgrade_lead_with_contact(
+            client, form.lead_id, form.name, form.email, form.whatsapp, form.company
+        )
+        first = form.name.split()[0]
+        subject = f"GCP Migration Strategy — pré-análise pra {first}"
+        email_sent = await _send_diag_report_email(
+            client, form.name, form.email, "GCP Migration", subject, deliverable_html
+        )
+        await _notify_slack_diag(
+            client, "GCP Migration Strategy", form.name, form.email, form.whatsapp, form.company,
+            extra_lines=[
+                f"Interest: {meta.get('gcp_interest', '?')}  ·  Current: {meta.get('current_cloud', '?')}",
+                f"Stage: {meta.get('decision_stage', '?')}  ·  Timeline: {meta.get('timeline', '?')}",
+            ],
         )
     return JSONResponse({"ok": True, "lead_upgraded": ok_upgrade, "email_sent": email_sent})
 

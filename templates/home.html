@@ -13,7 +13,11 @@
     Cloud, platform and applied AI consulting for engineering orgs running production workloads above $30k/month in AWS-primary environments. Mid-market and scale-up, Series B onward. Architecture Decision Records, documented rollback procedures and a cost ceiling per workload defined before the first deploy.
   </p>
   <div class="flex flex-col sm:flex-row gap-4">
+    {% if has_booked %}
+    <a href="/cases" class="btn-primary text-base inline-block">Read our cases</a>
+    {% else %}
     <a href="/contact" class="btn-primary text-base inline-block">Book a 30-min call with a Solutions Architect</a>
+    {% endif %}
     <a href="#practices" class="btn-ghost text-base inline-block">See the practices</a>
   </div>
   {% else %}
@@ -24,7 +28,11 @@
     Consultoria em cloud, plataforma e IA aplicada para orgs de engenharia operando workloads em produção acima de $30k/mês em ambientes AWS-primários. Mid-market e scale-up, Series B em diante. Architecture Decision Records, procedimentos de rollback documentados e teto de custo por workload definidos antes do primeiro deploy.
   </p>
   <div class="flex flex-col sm:flex-row gap-4">
+    {% if has_booked %}
+    <a href="/cases" class="btn-primary text-base inline-block">Ler nossos cases</a>
+    {% else %}
     <a href="/contact" class="btn-primary text-base inline-block">Conversar 30 min com Solutions Architect</a>
+    {% endif %}
     <a href="#practices" class="btn-ghost text-base inline-block">Conhecer as práticas</a>
   </div>
   {% endif %}
@@ -143,6 +151,21 @@
       <p class="text-xs text-subtle">Manufacturing · Logistics · Healthcare · Life Sciences · FinServ</p>
     </a>
 
+    {% if has_booked %}
+    <a href="/cases" class="card card-hover p-8 group bg-ink text-paper hover:bg-ink/90">
+      {% if lang == 'en' %}
+      <p class="eyebrow mb-3 text-paper/60">After your call</p>
+      <h3 class="h-serif text-2xl mb-4">Read how teams shipped this</h3>
+      <p class="text-sm text-paper/80 leading-relaxed mb-6">You've booked the discovery — while you wait, browse the cases. Cost cuts, incident reductions, AI rollouts and platform builds, with the architecture decisions and the trade-offs spelled out.</p>
+      <p class="text-xs text-paper/60">Read our cases →</p>
+      {% else %}
+      <p class="eyebrow mb-3 text-paper/60">Depois da conversa</p>
+      <h3 class="h-serif text-2xl mb-4">Leia como entregamos isso</h3>
+      <p class="text-sm text-paper/80 leading-relaxed mb-6">Você já agendou a discovery — enquanto isso, navegue pelos cases. Cortes de custo, redução de incidentes, rollouts de IA e platform builds, com decisões de arquitetura e trade-offs explicitados.</p>
+      <p class="text-xs text-paper/60">Ler nossos cases →</p>
+      {% endif %}
+    </a>
+    {% else %}
     <a href="/contact" class="card card-hover p-8 group bg-ink text-paper hover:bg-ink/90">
       {% if lang == 'en' %}
       <p class="eyebrow mb-3 text-paper/60">Start here</p>
@@ -156,6 +179,7 @@
       <p class="text-xs text-paper/60">Agendar →</p>
       {% endif %}
     </a>
+    {% endif %}
   </div>
 </section>
 
@@ -365,11 +389,19 @@
   {% if lang == 'en' %}
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Next step.</h2>
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">A 30-minute call with a Solutions Architect. Bring the workload, the bill, the incident, or the stack you're considering. We'll map it to a practice, propose the lowest-commitment diagnostic that returns useful signal, and leave a one-page summary in your inbox. No proposal at the end of the call.</p>
+  {% if has_booked %}
+  <a href="/cases" class="btn-primary text-base inline-block">Read our cases</a>
+  {% else %}
   <a href="/contact" class="btn-primary text-base inline-block">Pick a slot with a Solutions Architect</a>
+  {% endif %}
   {% else %}
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Próximo passo.</h2>
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">30 minutos com um Solutions Architect. Traga o workload, a fatura, o incident ou a stack que está considerando. Mapeamos para uma prática, propomos o diagnóstico de menor compromisso que devolve sinal útil e deixamos um resumo de uma página na sua inbox. Sem proposta no encerramento.</p>
+  {% if has_booked %}
+  <a href="/cases" class="btn-primary text-base inline-block">Ler nossos cases</a>
+  {% else %}
   <a href="/contact" class="btn-primary text-base inline-block">Escolha um horário com um Solutions Architect</a>
+  {% endif %}
   {% endif %}
 </section>
 

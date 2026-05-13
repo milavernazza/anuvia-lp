@@ -1,0 +1,279 @@
+{% extends "_base.html" %}
+
+{% block content %}
+
+<!-- HERO -->
+<section class="max-w-5xl mx-auto px-6 pt-20 pb-12">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-6">Anuvia Cloud · GCP · Strategy</p>
+  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
+    GCP Migration<br><span class="italic">Strategy.</span>
+  </h1>
+  <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
+    4-8 week strategic analysis for organizations considering GCP. Cross-cloud comparison (AWS / Azure / on-prem vs. GCP), TCO modeling, data gravity analysis, vendor lock-in assessment. Conducted by an ex-Google + ex-AWS Solutions Architect — technical advice not tied to a single vendor.
+  </p>
+  <p class="text-sm text-subtle mb-12">4-8 weeks · {{ fmt_price('R$ 40-90k') }} · Cross-cloud comparison + TCO model + data gravity analysis + decision support</p>
+  {% else %}
+  <p class="eyebrow mb-6">Anuvia Cloud · GCP · Estratégia</p>
+  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8 max-w-4xl">
+    GCP Migration<br><span class="italic">Strategy.</span>
+  </h1>
+  <p class="text-xl md:text-2xl text-ink/70 leading-relaxed max-w-3xl mb-8">
+    Análise estratégica de 4-8 semanas para organizações considerando GCP. Comparação cross-cloud (AWS / Azure / on-prem vs. GCP), TCO modeling, data gravity analysis, vendor lock-in assessment. Conduzida por ex-Google + ex-AWS Solutions Architect — conselho técnico não comprometido com vendor único.
+  </p>
+  <p class="text-sm text-subtle mb-12">4-8 semanas · R$ 40-90k · Cross-cloud comparison + TCO model + data gravity + decision support</p>
+  {% endif %}
+</section>
+{% include "_authority_strip.html" %}
+
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<!-- STEP 1 — Interactive diagnostic -->
+<section class="max-w-3xl mx-auto px-6 py-16" id="signup">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-3 text-center">Interactive diagnostic</p>
+  <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Answer 5 questions. See your preliminary read in 30 seconds.</h2>
+  <p class="text-center text-ink/60 mb-12">No signup. You decide whether you want the report by email afterward.</p>
+
+  <form id="diag-business-form" data-diag-base="/api/gcp-migration" class="space-y-6 card p-8 md:p-10">
+    <div>
+      <label class="eyebrow block mb-2">Role / function</label>
+      <select name="role" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option>CTO / VP Engineering</option>
+        <option>Head of Data / Analytics</option>
+        <option>Head of ML / AI</option>
+        <option>Head of Platform / Infrastructure</option>
+        <option>Cloud Architect / Solutions Architect</option>
+        <option>CFO / Finance Leader</option>
+        <option>Founder / CEO</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Primary GCP interest</label>
+      <select name="gcp_interest" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="bigquery_analytics">BigQuery — analytics / warehouse</option>
+        <option value="vertex_ai_ml">Vertex AI / ML platform</option>
+        <option value="kubernetes_gke">GKE / Kubernetes platform</option>
+        <option value="full_workload_migration">Full workload migration to GCP</option>
+        <option value="multi_cloud_strategy">Multi-cloud strategy</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Current cloud environment</label>
+      <select name="current_cloud" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="aws_primary">AWS — primary cloud</option>
+        <option value="azure_primary">Azure — primary cloud</option>
+        <option value="multi_cloud">Multi-cloud already</option>
+        <option value="on_prem_only">On-prem only</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Decision stage</label>
+      <select name="decision_stage" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="exploring">Exploring — early curiosity</option>
+        <option value="evaluating">Evaluating — comparing options seriously</option>
+        <option value="committed">Committed — decision made, need plan</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Target timeline</label>
+      <select name="timeline" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Select…</option>
+        <option value="under_3m">Under 3 months</option>
+        <option value="3_6m">3-6 months</option>
+        <option value="6_12m">6-12 months</option>
+        <option value="exploratory">Exploratory — no fixed timeline</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Additional context (optional)</label>
+      <textarea name="context" rows="3" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Specific use cases, data volumes, regulatory drivers, M&A context?"></textarea>
+    </div>
+    <button type="submit" class="btn-primary w-full text-base">See my analysis</button>
+    <p class="text-xs text-subtle text-center">No signup at this step. The analysis appears immediately below.</p>
+  </form>
+  {% else %}
+  <p class="eyebrow mb-3 text-center">Diagnóstico interativo</p>
+  <h2 class="h-serif text-4xl text-center mb-4 leading-tight">Responda 5 perguntas. Veja sua leitura preliminar em 30 segundos.</h2>
+  <p class="text-center text-ink/60 mb-12">Sem cadastro. Você decide se quer receber o relatório por email depois.</p>
+
+  <form id="diag-business-form" data-diag-base="/api/gcp-migration" class="space-y-6 card p-8 md:p-10">
+    <div>
+      <label class="eyebrow block mb-2">Cargo / função</label>
+      <select name="role" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option>CTO / VP Engineering</option>
+        <option>Head of Data / Analytics</option>
+        <option>Head of ML / AI</option>
+        <option>Head of Platform / Infrastructure</option>
+        <option>Cloud Architect / Solutions Architect</option>
+        <option>CFO / Finance Leader</option>
+        <option>Founder / CEO</option>
+        <option>Outro</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Interesse principal em GCP</label>
+      <select name="gcp_interest" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="bigquery_analytics">BigQuery — analytics / warehouse</option>
+        <option value="vertex_ai_ml">Vertex AI / ML platform</option>
+        <option value="kubernetes_gke">GKE / Kubernetes platform</option>
+        <option value="full_workload_migration">Migração completa de workload pra GCP</option>
+        <option value="multi_cloud_strategy">Estratégia multi-cloud</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Cloud atual</label>
+      <select name="current_cloud" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="aws_primary">AWS — cloud primário</option>
+        <option value="azure_primary">Azure — cloud primário</option>
+        <option value="multi_cloud">Multi-cloud já</option>
+        <option value="on_prem_only">Apenas on-prem</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Estágio da decisão</label>
+      <select name="decision_stage" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="exploring">Exploring — curiosidade inicial</option>
+        <option value="evaluating">Evaluating — comparando seriamente</option>
+        <option value="committed">Committed — decisão tomada, precisa de plano</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Timeline alvo</label>
+      <select name="timeline" required class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink">
+        <option value="">Selecione…</option>
+        <option value="under_3m">Menos de 3 meses</option>
+        <option value="3_6m">3-6 meses</option>
+        <option value="6_12m">6-12 meses</option>
+        <option value="exploratory">Exploratório — sem timeline fixo</option>
+      </select>
+    </div>
+    <div>
+      <label class="eyebrow block mb-2">Contexto adicional (opcional)</label>
+      <textarea name="context" rows="3" class="w-full border border-rule px-4 py-3 bg-paper focus:outline-none focus:border-ink" placeholder="Use cases específicos, volumes de dado, drivers regulatórios, contexto M&A?"></textarea>
+    </div>
+    <button type="submit" class="btn-primary w-full text-base">Ver minha análise</button>
+    <p class="text-xs text-subtle text-center">Sem cadastro nessa etapa. A análise aparece imediatamente abaixo.</p>
+  </form>
+  {% endif %}
+</section>
+
+{% include "_diag_flow_steps.html" %}
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<!-- METHODOLOGY -->
+<section class="max-w-5xl mx-auto px-6 py-20">
+  {% if lang == 'en' %}
+  <p class="eyebrow mb-4">Methodology</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight">From hypothesis to executable decision.</h2>
+
+  <div class="space-y-10">
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">01</p><p class="eyebrow mt-2">Weeks 1-2</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Workload &amp; Data Gravity Map</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Workloads inventoried. Data sources catalogued (origin, volume, growth rate, sensitivity). Data gravity mapped — where the data is born, where it lives, where it goes. The single most decisive factor for cross-cloud calls.</p>
+        <p class="text-sm text-subtle"><strong>Deliverable:</strong> workload inventory + data gravity diagram</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">02</p><p class="eyebrow mt-2">Weeks 3-4</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Cross-Cloud TCO Model</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">TCO modeled across scenarios: stay on current cloud (optimized), partial GCP adoption (BigQuery or Vertex specific), full migration, multi-cloud. Egress costs explicit. Reserved Capacity / Committed Use Discounts modeled.</p>
+        <p class="text-sm text-subtle"><strong>Deliverable:</strong> 3-year TCO matrix across scenarios</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">03</p><p class="eyebrow mt-2">Weeks 5-6</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Vendor Lock-In &amp; Operational Overhead</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Each scenario assessed for vendor lock-in (proprietary service dependency, talent market, exit cost). Operational overhead of multi-cloud quantified (tooling, skills, incident response, contract management).</p>
+        <p class="text-sm text-subtle"><strong>Deliverable:</strong> lock-in scoring + operational overhead estimate</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">04</p><p class="eyebrow mt-2">Weeks 7-8</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Recommendation &amp; Migration Sketch</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Final recommendation with rationale. If GCP adoption recommended, migration sketch (wave plan, pattern selection, account/project structure, network connectivity, identity federation). Executive presentation for board / leadership.</p>
+        <p class="text-sm text-subtle"><strong>Deliverable:</strong> recommendation + migration sketch + exec pack</p>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <p class="eyebrow mb-4">Metodologia</p>
+  <h2 class="h-serif text-4xl md:text-5xl mb-12 leading-tight">Da hipótese à decisão executável.</h2>
+
+  <div class="space-y-10">
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">01</p><p class="eyebrow mt-2">Semanas 1-2</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Workload &amp; Data Gravity Map</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Workloads inventariados. Data sources catalogadas (origem, volume, taxa de crescimento, sensitivity). Data gravity mapeada — onde o dado nasce, onde mora, pra onde vai. Fator único mais decisivo pra decisões cross-cloud.</p>
+        <p class="text-sm text-subtle"><strong>Entregável:</strong> inventário de workloads + diagrama de data gravity</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">02</p><p class="eyebrow mt-2">Semanas 3-4</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Cross-Cloud TCO Model</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">TCO modelado em cenários: ficar no cloud atual (otimizado), adoção parcial de GCP (BigQuery ou Vertex específico), migração completa, multi-cloud. Egress costs explícitos. Reserved Capacity / Committed Use Discounts modelados.</p>
+        <p class="text-sm text-subtle"><strong>Entregável:</strong> matrix TCO de 3 anos entre cenários</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">03</p><p class="eyebrow mt-2">Semanas 5-6</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Vendor Lock-In &amp; Operational Overhead</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Cada cenário avaliado por vendor lock-in (dependência de serviço proprietário, mercado de talento, custo de saída). Overhead operacional de multi-cloud quantificado (tooling, skills, incident response, gestão de contrato).</p>
+        <p class="text-sm text-subtle"><strong>Entregável:</strong> scoring de lock-in + estimativa de overhead operacional</p>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-6 gap-6">
+      <div><p class="h-serif text-5xl text-accent">04</p><p class="eyebrow mt-2">Semanas 7-8</p></div>
+      <div class="md:col-span-5">
+        <h3 class="h-serif text-2xl mb-3">Recomendação &amp; Migration Sketch</h3>
+        <p class="text-ink/70 leading-relaxed mb-3">Recomendação final com racional. Se adoção de GCP recomendada, migration sketch (wave plan, pattern selection, estrutura de account/project, network connectivity, identity federation). Apresentação executiva pra board / liderança.</p>
+        <p class="text-sm text-subtle"><strong>Entregável:</strong> recomendação + migration sketch + exec pack</p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</section>
+
+<div class="rule max-w-5xl mx-auto px-6"></div>
+
+<!-- FINAL CTA -->
+<section class="max-w-4xl mx-auto px-6 py-24 text-center">
+  {% if lang == 'en' %}
+  <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Make the GCP call with full information.</h2>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Take the interactive diagnostic above. No signup up front — you decide afterward whether you want the report.</p>
+  {% if has_booked %}
+  <a href="/cases" class="btn-primary text-base inline-block">Read our cases</a>
+  {% else %}
+  <a href="/contact" class="btn-primary text-base inline-block">Book a discovery call (30 min)</a>
+  {% endif %}
+  {% else %}
+  <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Decida sobre GCP com informação completa.</h2>
+  <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Faz o diagnóstico interativo acima. Sem cadastro inicial — só decide se quer receber o relatório depois.</p>
+  {% if has_booked %}
+  <a href="/cases" class="btn-primary text-base inline-block">Ler nossos cases</a>
+  {% else %}
+  <a href="/contact" class="btn-primary text-base inline-block">Agendar discovery (30 min)</a>
+  {% endif %}
+  {% endif %}
+</section>
+
+{% endblock %}

@@ -162,11 +162,19 @@
   {% if lang == 'en' %}
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Let's talk</h2>
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Thirty minutes with an Anuvia Solutions Architect to understand your team's technical context and point to concrete next steps.</p>
+  {% if has_booked %}
+  <a href="/cases" class="btn-primary text-base inline-block">Read our cases</a>
+  {% else %}
   <a href="/contact" class="btn-primary text-base inline-block">Pick a slot</a>
+  {% endif %}
   {% else %}
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Vamos conversar</h2>
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Trinta minutos com um Solutions Architect da Anuvia para entender o contexto técnico do seu time e indicar próximos passos concretos.</p>
+  {% if has_booked %}
+  <a href="/cases" class="btn-primary text-base inline-block">Ler nossos cases</a>
+  {% else %}
   <a href="/contact" class="btn-primary text-base inline-block">Escolha um horário</a>
+  {% endif %}
   {% endif %}
 </section>
 

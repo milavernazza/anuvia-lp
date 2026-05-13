@@ -11,7 +11,11 @@
   </p>
   <div class="flex flex-col sm:flex-row gap-4">
     <a href="/industry/diagnostic" class="btn-primary text-base inline-block">Take the Industry Assessment</a>
+    {% if has_booked %}
+    <a href="/cases" class="btn-ghost text-base inline-block">Read our cases</a>
+    {% else %}
     <a href="/contact" class="btn-ghost text-base inline-block">Talk to a Solutions Architect</a>
+    {% endif %}
   </div>
   {% else %}
   <p class="eyebrow mb-6">Anuvia · Práticas · 05</p>
@@ -21,7 +25,11 @@
   </p>
   <div class="flex flex-col sm:flex-row gap-4">
     <a href="/industry/diagnostic" class="btn-primary text-base inline-block">Fazer o Industry Assessment</a>
+    {% if has_booked %}
+    <a href="/cases" class="btn-ghost text-base inline-block">Ler nossos cases</a>
+    {% else %}
     <a href="/contact" class="btn-ghost text-base inline-block">Falar com Solutions Architect</a>
+    {% endif %}
   </div>
   {% endif %}
 </section>
@@ -181,14 +189,22 @@
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Take the 90-second Industry Assessment to find out which vertical playbook applies, what depth it has accumulated, and whether your context is a credible ROI fit. If you'd rather skip the form, a 30-minute exploratory call works too.</p>
   <div class="flex flex-col sm:flex-row gap-4 justify-center">
     <a href="/industry/diagnostic" class="btn-primary text-base inline-block">Industry Assessment</a>
+    {% if has_booked %}
+    <a href="/cases" class="btn-ghost text-base inline-block">Read our cases</a>
+    {% else %}
     <a href="/contact" class="btn-ghost text-base inline-block">Talk to a Solutions Architect</a>
+    {% endif %}
   </div>
   {% else %}
   <h2 class="h-serif text-4xl md:text-5xl leading-tight mb-6">Próximo passo.</h2>
   <p class="text-lg text-ink/70 mb-10 max-w-2xl mx-auto leading-relaxed">Faça o Industry Assessment de 90 segundos pra descobrir qual playbook vertical se aplica, qual profundidade ele acumulou e se seu contexto é fit de ROI crível. Se preferir pular o formulário, conversa exploratória de 30 minutos também funciona.</p>
   <div class="flex flex-col sm:flex-row gap-4 justify-center">
     <a href="/industry/diagnostic" class="btn-primary text-base inline-block">Industry Assessment</a>
+    {% if has_booked %}
+    <a href="/cases" class="btn-ghost text-base inline-block">Ler nossos cases</a>
+    {% else %}
     <a href="/contact" class="btn-ghost text-base inline-block">Falar com Solutions Architect</a>
+    {% endif %}
   </div>
   {% endif %}
 </section>

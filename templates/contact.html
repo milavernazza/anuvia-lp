@@ -3,22 +3,44 @@
 {% block content %}
 
 <section class="max-w-5xl mx-auto px-6 pt-20 pb-12">
-  {% if lang == 'en' %}
-  <p class="eyebrow mb-6">Anuvia · Contact</p>
-  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8">
-    Thirty minutes. No sales deck.
-  </h1>
-  <p class="text-xl text-ink/70 leading-relaxed max-w-3xl">
-    A discovery call with one of Anuvia's Solutions Architects. We'll understand your team's technical context, point you to the practice most relevant to the problem, and propose a realistic next step — without a deck and without a proposal at the end.
-  </p>
+  {% if has_booked %}
+    {% if lang == 'en' %}
+    <p class="eyebrow mb-6 text-accent">Anuvia · Already booked</p>
+    <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8">
+      You're on the calendar.
+    </h1>
+    <p class="text-xl text-ink/70 leading-relaxed max-w-3xl mb-8">
+      We have your slot. If you need to pick a different one — or book an additional conversation for a colleague — feel free to use the calendar below. Otherwise, read our cases while you wait.
+    </p>
+    <a href="/cases" class="btn-primary text-base inline-block">Read our cases</a>
+    {% else %}
+    <p class="eyebrow mb-6 text-accent">Anuvia · Já agendado</p>
+    <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8">
+      Você já está no calendário.
+    </h1>
+    <p class="text-xl text-ink/70 leading-relaxed max-w-3xl mb-8">
+      Já temos seu horário. Se precisar trocar — ou agendar uma conversa adicional para um colega — use o calendário abaixo. Caso contrário, leia nossos cases enquanto aguarda.
+    </p>
+    <a href="/cases" class="btn-primary text-base inline-block">Ler nossos cases</a>
+    {% endif %}
   {% else %}
-  <p class="eyebrow mb-6">Anuvia · Contato</p>
-  <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8">
-    Trinta minutos. Sem apresentação comercial.
-  </h1>
-  <p class="text-xl text-ink/70 leading-relaxed max-w-3xl">
-    Uma conversa de descoberta com um dos Solutions Architects da Anuvia. Vamos entender o contexto técnico do seu time, indicar a prática mais aderente ao problema e propor um próximo passo realista — sem deck e sem proposta no encerramento.
-  </p>
+    {% if lang == 'en' %}
+    <p class="eyebrow mb-6">Anuvia · Contact</p>
+    <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8">
+      Thirty minutes. No sales deck.
+    </h1>
+    <p class="text-xl text-ink/70 leading-relaxed max-w-3xl">
+      A discovery call with one of Anuvia's Solutions Architects. We'll understand your team's technical context, point you to the practice most relevant to the problem, and propose a realistic next step — without a deck and without a proposal at the end.
+    </p>
+    {% else %}
+    <p class="eyebrow mb-6">Anuvia · Contato</p>
+    <h1 class="h-serif text-5xl md:text-7xl leading-[1.05] tracking-tight mb-8">
+      Trinta minutos. Sem apresentação comercial.
+    </h1>
+    <p class="text-xl text-ink/70 leading-relaxed max-w-3xl">
+      Uma conversa de descoberta com um dos Solutions Architects da Anuvia. Vamos entender o contexto técnico do seu time, indicar a prática mais aderente ao problema e propor um próximo passo realista — sem deck e sem proposta no encerramento.
+    </p>
+    {% endif %}
   {% endif %}
 </section>
 {% include "_authority_strip.html" %}
