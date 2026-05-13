@@ -1142,7 +1142,9 @@ async def admin_gcal_connect(request: Request, email: str):
         "client_id": GOOGLE_CLIENT_ID,
         "redirect_uri": GCAL_REDIRECT_URI,
         "response_type": "code",
-        "scope": "https://www.googleapis.com/auth/calendar.readonly",
+        # Need full calendar scope: readonly works for freebusy (events.list)
+        # but events.insert (creating Discovery events + Brief events) needs write.
+        "scope": "https://www.googleapis.com/auth/calendar.events",
         "access_type": "offline",
         "prompt": "consent",  # Force refresh_token return even if previously consented
         "login_hint": email,
