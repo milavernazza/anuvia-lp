@@ -30,6 +30,7 @@ import frontmatter
 import markdown as md_lib
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
@@ -38,6 +39,30 @@ log = logging.getLogger("anuvia-lp")
 
 app = FastAPI(title="Anuvia Landing Pages", version="0.1.0")
 templates = Jinja2Templates(directory="templates")
+
+# Serve /static/* (compiled Tailwind CSS, sample PDFs, etc.) from the local ./static folder.
+_STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+if os.path.isdir(_STATIC_DIR):
+    app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
+
+# ---------------------------------------------------------------------------
+# Autonomous funnel v1 — unified lead memory + orchestrator + Track B handlers
+# (see ARCHITECTURE_AUTONOMOUS_v1.md). Each module exposes an APIRouter.
+# Importing lib.track_b triggers handler registration via @register decorators.
+# ---------------------------------------------------------------------------
+try:
+    from lib.sessions import router as _sessions_router, session_update, session_set_next  # noqa: E402
+    from lib.orchestrator import router as _orchestrator_router  # noqa: E402
+    from lib.track_b import router as _track_b_router  # noqa: E402,F401
+    import lib.track_b  # noqa: E402,F401 — registers handlers as side-effect
+    app.include_router(_sessions_router)
+    app.include_router(_orchestrator_router)
+    app.include_router(_track_b_router)
+    _AUTONOMOUS_FUNNEL_ENABLED = True
+    log.info("Autonomous funnel v1 mounted: /api/session, /api/orchestrator, /api/track-b")
+except Exception as _e:  # pragma: no cover — defensive boot
+    _AUTONOMOUS_FUNNEL_ENABLED = False
+    log.warning("Autonomous funnel v1 NOT mounted (%s). Site still serves OK.", _e)
 
 SUPA_URL = os.environ.get("SUPABASE_URL", "https://api.anuvia.com.br/rest/v1").rstrip("/")
 SUPA_KEY = os.environ.get("SUPABASE_KEY", "")
@@ -2190,6 +2215,21 @@ async def _upgrade_lead_with_contact(
         if pr.status_code not in (200, 204):
             log.warning("upgrade_lead non-200: %s %s", pr.status_code, pr.text[:200])
             return False
+
+        # Autonomous funnel v1: enqueue the lead for classify_track.
+        # The orchestrator's next tick picks it up and routes to Track A (discovery)
+        # or Track B (autonomous close). Failures here NEVER block the upgrade —
+        # the lead is fully saved and the discovery flow still works.
+        if _AUTONOMOUS_FUNNEL_ENABLED:
+            try:
+                await session_set_next(
+                    lead_id,
+                    next_action="classify_track",
+                    next_action_at=datetime.now(timezone.utc),
+                )
+            except Exception:
+                log.exception("enqueue_classify_track_failed lead_id=%s", lead_id)
+
         return True
     except Exception:
         log.exception("upgrade_lead_failed")
