@@ -1808,6 +1808,7 @@ async def _persist_gcal_on_lead(
             "meet_url": gcal_result.get("meet_url"),
             "html_link": gcal_result.get("html_link"),
             "calendar_id": gcal_result.get("calendar_id"),
+            "error": gcal_result.get("error"),  # diagnostic — exposes which step failed
         }
         qd["gcal"] = gcal_payload
         if gcal_result.get("meet_url"):
