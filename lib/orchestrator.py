@@ -241,21 +241,21 @@ async def _process_lead(lead: Dict[str, Any]) -> str:
         next_action_at = result.get("next_action_at")
         status = result.get("status")
 
-        # Only touch scheduling fields if the handler explicitly returned
-        # something for them. `None` means "leave alone" per the contract;
-        # to *clear* a field a handler must omit the key... but the spec
-        # says None means "do not change". So we treat missing-key and
-        # None identically: do not update.
+        # Scheduling semantics:
+        #   - key MISSING from result  -> leave the column alone
+        #   - key PRESENT with None    -> CLEAR the column (lead stops here)
+        #   - key PRESENT with value   -> set the column
+        # Handlers that hit a terminal state (e.g. close_ghosted_d10, h_classify_track
+        # for discovery track) return explicit None to drop the lead from the queue.
         if "next_action" in result or "next_action_at" in result:
-            if next_action is not None or next_action_at is not None:
-                try:
-                    await session_set_next(lead_id, next_action, next_action_at)
-                except Exception as exc:  # noqa: BLE001
-                    log.error(
-                        "orchestrator: session_set_next failed lead=%s: %s",
-                        lead_id,
-                        exc,
-                    )
+            try:
+                await session_set_next(lead_id, next_action, next_action_at)
+            except Exception as exc:  # noqa: BLE001
+                log.error(
+                    "orchestrator: session_set_next failed lead=%s: %s",
+                    lead_id,
+                    exc,
+                )
 
         if status is not None:
             try:
