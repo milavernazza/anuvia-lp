@@ -146,8 +146,10 @@ RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 RESEND_FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "onboarding@resend.dev")
 RESEND_FROM_NAME = os.environ.get("RESEND_FROM_NAME", "Anuvia · Mila Vernazza")
 
-# Easyappointments (cal.anuvia.com.br) — uses public booking endpoints
-# (no API token needed; same flow that the public booking page uses).
+# Easyappointments (cal.anuvia.com.br) — DEPRECATED.
+# The booking flow no longer calls Easyappointments. Supabase + Google Calendar
+# are the single source of truth. These env vars are kept defined (informational)
+# so deployment configs don't break; remove them from Coolify when convenient.
 EASY_BASE = os.environ.get(
     "EASYAPPOINTMENTS_BASE_URL", "https://cal.anuvia.com.br"
 ).rstrip("/")
@@ -273,6 +275,8 @@ ANTHROPIC_HEADERS = {
 }
 
 
+# DEPRECATED — Easyappointments form headers, kept for parity with EASY_BASE.
+# Not referenced after the cal.anuvia.com.br migration to Supabase + Gcal.
 EASY_FORM_HEADERS = {
     "Content-Type": "application/x-www-form-urlencoded",
     "Accept": "application/json, text/javascript, */*; q=0.01",
@@ -1404,14 +1408,174 @@ async def admin_gcal_delete(account_id: str, request: Request):
     return JSONResponse({"ok": True})
 
 
+# ---------------------------------------------------------------------------
+# Admin bookings view — replaces the cal.anuvia.com.br dashboard.
+# Mila uses these two endpoints to scan upcoming/recent discoveries.
+#   GET /api/admin/bookings           -> JSON, last 100 qualified+scheduled+done leads
+#   GET /api/admin/bookings/view      -> minimal HTML table for scanning
+# ---------------------------------------------------------------------------
+
+_BOOKING_STAGES = ("qualified", "discovery_scheduled", "discovery_done")
+_BOOKING_SELECT = (
+    "id,name,email,phone_e164,company,funnel_id,current_stage,"
+    "qualification_data,created_at"
+)
+
+
+async def _fetch_admin_bookings(client: httpx.AsyncClient) -> list[dict]:
+    """Query Supabase for leads sitting in the booking stages, newest first."""
+    stages_csv = ",".join(_BOOKING_STAGES)
+    url = (
+        f"{SUPA_URL}/leads"
+        f"?current_stage=in.({stages_csv})"
+        f"&select={_BOOKING_SELECT}"
+        f"&order=created_at.desc&limit=100"
+    )
+    r = await client.get(url, headers=SUPA_HEADERS)
+    if r.status_code != 200:
+        log.warning("admin_bookings supabase non-200: %s %s", r.status_code, r.text[:200])
+        raise HTTPException(status_code=502, detail="Failed to fetch bookings")
+    rows = r.json() or []
+    out: list[dict] = []
+    for row in rows:
+        out.append({
+            "lead_id": row.get("id"),
+            "name": row.get("name"),
+            "email": row.get("email"),
+            "phone_e164": row.get("phone_e164"),
+            "company": row.get("company"),
+            "funnel_id": row.get("funnel_id"),
+            "current_stage": row.get("current_stage"),
+            "qualification_data": row.get("qualification_data") or {},
+            "created_at": row.get("created_at"),
+        })
+    return out
+
+
+@app.get("/api/admin/bookings")
+async def admin_bookings(request: Request) -> JSONResponse:
+    """JSON list of leads in qualified / discovery_scheduled / discovery_done.
+    Sorted by created_at DESC, capped at 100. Each row includes
+    qualification_data so Gcal event/Meet metadata is available."""
+    _admin_auth(request)
+    async with httpx.AsyncClient(timeout=15) as client:
+        bookings = await _fetch_admin_bookings(client)
+    return JSONResponse({"bookings": bookings, "count": len(bookings)})
+
+
+@app.get("/api/admin/bookings/view", response_class=HTMLResponse)
+async def admin_bookings_view(request: Request) -> HTMLResponse:
+    """Minimal HTML table — Mila's at-a-glance replacement for
+    cal.anuvia.com.br. Same auth as the JSON endpoint (?key= or Bearer)."""
+    _admin_auth(request)
+    async with httpx.AsyncClient(timeout=15) as client:
+        bookings = await _fetch_admin_bookings(client)
+
+    def _esc(s) -> str:
+        if s is None:
+            return ""
+        return (
+            str(s)
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace('"', "&quot;")
+        )
+
+    rows_html: list[str] = []
+    for b in bookings:
+        qd = b.get("qualification_data") or {}
+        gcal = qd.get("gcal") or {}
+        meet_url = (
+            gcal.get("meet_url")
+            or qd.get("meet_url")
+            or qd.get("meeting_url")
+            or ""
+        )
+        html_link = gcal.get("html_link") or ""
+        public_event_id = gcal.get("public_event_id") or ""
+        links: list[str] = []
+        if meet_url:
+            links.append(f'<a href="{_esc(meet_url)}" target="_blank">Meet</a>')
+        if html_link:
+            links.append(f'<a href="{_esc(html_link)}" target="_blank">Gcal</a>')
+        links_html = " · ".join(links) if links else '<span style="color:#a8a29e">—</span>'
+        rows_html.append(
+            "<tr>"
+            f"<td>{_esc(b.get('created_at') or '')[:19].replace('T', ' ')}</td>"
+            f"<td><strong>{_esc(b.get('name'))}</strong><br><span style='color:#78716c;font-size:12px'>{_esc(b.get('company') or '')}</span></td>"
+            f"<td>{_esc(b.get('email'))}<br><span style='color:#78716c;font-size:12px'>{_esc(b.get('phone_e164') or '')}</span></td>"
+            f"<td>{_esc(b.get('funnel_id') or '')}</td>"
+            f"<td>{_esc(b.get('current_stage') or '')}</td>"
+            f"<td>{links_html}</td>"
+            f"<td style='font-family:ui-monospace,monospace;font-size:11px;color:#78716c'>{_esc(public_event_id)[:18]}</td>"
+            f"<td style='font-family:ui-monospace,monospace;font-size:11px;color:#78716c'>{_esc(b.get('lead_id') or '')[:8]}</td>"
+            "</tr>"
+        )
+    table_body = "\n".join(rows_html) or (
+        '<tr><td colspan="8" style="text-align:center;color:#78716c;padding:32px">'
+        "Sem bookings nos estágios qualified / discovery_scheduled / discovery_done."
+        "</td></tr>"
+    )
+
+    html = (
+        "<!DOCTYPE html><html lang='pt-BR'><head><meta charset='utf-8'>"
+        "<title>Anuvia · Bookings</title>"
+        "<style>"
+        "body{font-family:-apple-system,Inter,sans-serif;background:#fafaf9;color:#1a1a1a;margin:0;padding:32px 24px;}"
+        ".wrap{max-width:1200px;margin:0 auto;}"
+        "h1{font-family:Georgia,'Times New Roman',serif;font-size:28px;font-weight:400;margin:0 0 8px 0;}"
+        ".sub{color:#78716c;font-size:13px;margin:0 0 24px 0;letter-spacing:0.05em;text-transform:uppercase;}"
+        "table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e7e5e4;}"
+        "th,td{text-align:left;padding:10px 12px;border-bottom:1px solid #f0eee9;font-size:13px;vertical-align:top;}"
+        "th{background:#f5f5f4;font-weight:500;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#57534e;}"
+        "tr:hover td{background:#fafaf9;}"
+        "a{color:#1a1a1a;}"
+        "</style></head><body><div class='wrap'>"
+        "<h1>Bookings</h1>"
+        f"<p class='sub'>{len(bookings)} lead(s) · qualified · discovery_scheduled · discovery_done</p>"
+        "<table><thead><tr>"
+        "<th>Created</th><th>Lead</th><th>Contato</th><th>Funnel</th>"
+        "<th>Stage</th><th>Links</th><th>Event ID</th><th>Lead ID</th>"
+        "</tr></thead><tbody>"
+        f"{table_body}"
+        "</tbody></table></div></body></html>"
+    )
+    return HTMLResponse(html)
+
+
+def _generate_working_day_slots(d: datetime, market: str = "BR") -> list[str]:
+    """Generate the standard daily slot list (30-min steps, 09:00–17:30 BRT).
+    Returns [] for weekends or public holidays. The Gcal busy filter and
+    `_coarse_slots` downstream handle conflict/cap logic — this function is
+    purely the raw 'business hours' template, replacing the call to
+    Easyappointments' get_available_hours."""
+    if d.weekday() >= 5:  # Sat/Sun
+        return []
+    if is_public_holiday(d.strftime("%Y-%m-%d"), market):
+        return []
+    slots: list[str] = []
+    hour = 9
+    minute = 0
+    # 09:00 .. 17:30 inclusive (last slot starts 17:30, ends 18:00).
+    while hour < 17 or (hour == 17 and minute <= 30):
+        slots.append(f"{hour:02d}:{minute:02d}")
+        minute += 30
+        if minute == 60:
+            minute = 0
+            hour += 1
+    return slots
+
+
 @app.get("/api/slots")
 async def api_slots(request: Request, days: int = 5) -> JSONResponse:
-    """Return available slots for the next `days` working days using
-    Easyappointments' public booking endpoint (no auth). Funnel detected
-    from Host header to pick the right service_id (BR_SMB=2, BR_ENG=3)."""
+    """Return available slots for the next `days` working days.
+    Slots are generated locally (Mon–Fri, 09:00–17:30 BRT, 30-min steps),
+    then filtered against aggregated Google Calendar busy ranges and the
+    market's public-holiday list. Easyappointments has been removed; the
+    single source of truth is Supabase + Gcal."""
     funnel = detect_funnel(request)
     cfg = FUNNEL_CONFIG[funnel]
-    service_id = cfg["easy_service_id"]
     days = max(1, min(days, 10))
 
     today_sp = datetime.now(TZ_SP).date()
@@ -1427,42 +1591,19 @@ async def api_slots(request: Request, days: int = 5) -> JSONResponse:
 
     out = []
     duration_min = cfg.get("easy_duration_min", 30)
+    # Determine market for holiday filter — from locale
+    market = get_locale(request).get("market", "BR")
     async with httpx.AsyncClient(timeout=20) as client:
-        async def fetch(d: datetime) -> list[str]:
-            ymd = d.strftime("%Y-%m-%d")
-            try:
-                r = await client.post(
-                    f"{EASY_BASE}/index.php/booking/get_available_hours",
-                    headers=EASY_FORM_HEADERS,
-                    data={
-                        "service_id": service_id,
-                        "provider_id": EASY_PROVIDER_ID,
-                        "selected_date": ymd,
-                        "manage_mode": "false",
-                        "csrfToken": "",
-                    },
-                )
-                r.raise_for_status()
-                slots = r.json()
-                return slots if isinstance(slots, list) else []
-            except Exception:
-                log.exception("get_available_hours failed for %s", ymd)
-                return []
-
-        # Query Easyappointments AND Google freeBusy in parallel
-        easy_task = asyncio.gather(*(fetch(d) for d in targets))
         # freebusy spans the full window (first target start → last target end-of-day)
         time_min = datetime.combine(targets[0].date(), datetime.min.time(), tzinfo=TZ_SP)
         time_max = datetime.combine(targets[-1].date(), datetime.max.time(), tzinfo=TZ_SP)
-        busy_task = fetch_all_busy_ranges(client, time_min, time_max)
-        all_slots, busy_ranges = await asyncio.gather(easy_task, busy_task)
+        busy_ranges = await fetch_all_busy_ranges(client, time_min, time_max)
 
-        # Determine market for holiday filter — from locale
-        market = get_locale(request).get("market", "BR")
-        for d, raw_slots in zip(targets, all_slots):
+        for d in targets:
             date_str = d.strftime("%Y-%m-%d")
-            # Public holiday: skip the whole day
-            if is_public_holiday(date_str, market):
+            # Public holiday / weekend: skip the whole day (helper returns [])
+            raw_slots = _generate_working_day_slots(d, market=market)
+            if not raw_slots:
                 continue
             slots = _coarse_slots(raw_slots, step_min=30, max_per_day=8)
             # Filter slots that conflict with Google Calendar busy ranges
@@ -1835,11 +1976,10 @@ class BookingRequest(BaseModel):
 @app.post("/api/book")
 async def api_book(payload: BookingRequest, request: Request) -> JSONResponse:
     """Book a discovery using the lead's existing data (no re-asking).
-    Uses Easyappointments public booking endpoint (no auth required).
-    Funnel detected from Host header to pick the right service_id."""
+    Single source of truth: Supabase + Google Calendar. The appointment_id
+    is generated locally so the frontend response shape is preserved."""
     funnel = detect_funnel(request)
     cfg = FUNNEL_CONFIG[funnel]
-    service_id = cfg["easy_service_id"]
     duration_min = cfg["easy_duration_min"]
     async with httpx.AsyncClient(timeout=30) as client:
         # 1. Fetch lead
@@ -1854,66 +1994,17 @@ async def api_book(payload: BookingRequest, request: Request) -> JSONResponse:
             raise HTTPException(status_code=404, detail="Lead não encontrado")
         lead = rows[0]
 
-        # 2. Build appointment times in SP local (Easyappointments wants local)
+        # 2. Build appointment times in SP local
         start_dt = datetime.strptime(
             f"{payload.date} {payload.time}", "%Y-%m-%d %H:%M"
         ).replace(tzinfo=TZ_SP)
         end_dt = start_dt + timedelta(minutes=duration_min)
         start_str = start_dt.strftime("%Y-%m-%d %H:%M:%S")
-        end_str = end_dt.strftime("%Y-%m-%d %H:%M:%S")
 
-        # Easyappointments requires firstName + lastName non-empty.
-        name_parts = (lead.get("name") or "Lead").strip().split(maxsplit=1)
-        first_name = name_parts[0]
-        last_name = name_parts[1] if len(name_parts) > 1 else "."
-
-        # NOTE: the `notes` field below feeds Easyappointments' own Gcal sync
-        # (when enabled at the provider level), so it ends up in the client-
-        # visible synced event description. Keep it free of PII/internal data —
-        # the rich pre-call brief is created on Mila's calendar as private
-        # Event B via _create_gcal_event_pair_for_booking below.
-        notes = "Discovery agendada via LP. Brief completo no Google Calendar do organizador."
-
-        # 3. Submit to Easyappointments public booking endpoint.
-        # Uses nested form fields: post_data[appointment][...], post_data[customer][...]
-        form = {
-            "post_data[appointment][start_datetime]": start_str,
-            "post_data[appointment][end_datetime]": end_str,
-            "post_data[appointment][id_users_provider]": str(EASY_PROVIDER_ID),
-            "post_data[appointment][id_services]": str(service_id),
-            "post_data[appointment][notes]": notes,
-            "post_data[appointment][is_unavailability]": "false",
-            "post_data[customer][first_name]": first_name,
-            "post_data[customer][last_name]": last_name,
-            "post_data[customer][email]": lead.get("email") or "",
-            "post_data[customer][phone_number]": lead.get("phone_e164") or "",
-            "post_data[customer][timezone]": "America/Sao_Paulo",
-            "post_data[manage_mode]": "false",
-            "csrfToken": "",
-        }
-        try:
-            br = await client.post(
-                f"{EASY_BASE}/index.php/booking/register",
-                headers=EASY_FORM_HEADERS,
-                data=form,
-            )
-            body_text = br.text[:400]
-            if br.status_code >= 400:
-                log.error("easy register failed: %s %s", br.status_code, body_text)
-                raise HTTPException(
-                    status_code=502, detail="Falha ao agendar no calendário."
-                )
-            booking = br.json()
-            if not isinstance(booking, dict) or "appointment_id" not in booking:
-                log.error("easy register unexpected response: %s", body_text)
-                raise HTTPException(
-                    status_code=502, detail="Resposta do calendário inválida."
-                )
-        except HTTPException:
-            raise
-        except Exception:
-            log.exception("easy register exception")
-            raise HTTPException(status_code=502, detail="Erro ao agendar.")
+        # 3. Local appointment id — replaces the Easyappointments response.
+        # Stable per (lead_id, start) so retries/duplicates don't churn the value.
+        appointment_id = abs(hash(f"{payload.lead_id}-{start_str}")) % (10**12)
+        booking = {"appointment_id": appointment_id}
 
         # 4. Update lead stage to meeting_booked
         try:
@@ -1956,7 +2047,7 @@ async def api_book(payload: BookingRequest, request: Request) -> JSONResponse:
                             f"*{lead.get('name')}* — {lead.get('company') or '(sem empresa)'}\n"
                             f"📅 {payload.date} {payload.time} (SP)\n"
                             f"📞 {lead.get('phone_e164')}  ✉️ {lead.get('email')}\n"
-                            f"Easyappointments id: {booking.get('appointment_id')}"
+                            f"Booking id: {booking.get('appointment_id')}"
                         )
                     },
                     timeout=10,
@@ -2009,7 +2100,7 @@ class ContactBookForm(BaseModel):
 
 @app.post("/api/contact-book")
 async def api_contact_book(form: ContactBookForm, request: Request) -> JSONResponse:
-    """Cria lead em Supabase + agenda discovery em Easyappointments.
+    """Cria lead em Supabase + agenda discovery direto no Google Calendar.
     Usado pelo widget de booking embedded no site brand (sem funnel-specific LP).
 
     Cookie-aware: if `anuvia_lead_id` cookie is set and resolves to an existing
@@ -2147,57 +2238,17 @@ async def api_contact_book(form: ContactBookForm, request: Request) -> JSONRespo
             raise HTTPException(status_code=400, detail="Data ou hora inválidas.")
         end_dt = start_dt + timedelta(minutes=duration_min)
         start_str = start_dt.strftime("%Y-%m-%d %H:%M:%S")
-        end_str = end_dt.strftime("%Y-%m-%d %H:%M:%S")
 
-        # Easyappointments requires firstName + lastName non-empty
+        # Used by the confirmation email below ("Olá, {first_name}").
         name_parts = form.name.strip().split(maxsplit=1)
         first_name = name_parts[0]
-        last_name = name_parts[1] if len(name_parts) > 1 else "."
 
-        # NOTE: this `notes` field is the appointment.notes value in
-        # Easyappointments. If the provider has Google Calendar sync enabled
-        # at the server level, Easyappointments mirrors it into the synced
-        # Gcal event's description — which is visible to the client. We
-        # therefore keep this field free of any PII/internal data (no lead_id,
-        # no email, no WhatsApp, no full context). The rich pre-call brief
-        # lives only in our own private Gcal Event B, on Mila's calendar.
-        notes = "Discovery agendada via anuvia.com.br/contact. Brief completo no Google Calendar do organizador."
-
-        # 3. Book in Easyappointments
-        booking_form = {
-            "post_data[appointment][start_datetime]": start_str,
-            "post_data[appointment][end_datetime]": end_str,
-            "post_data[appointment][id_users_provider]": str(EASY_PROVIDER_ID),
-            "post_data[appointment][id_services]": str(service_id),
-            "post_data[appointment][notes]": notes,
-            "post_data[appointment][is_unavailability]": "false",
-            "post_data[customer][first_name]": first_name,
-            "post_data[customer][last_name]": last_name,
-            "post_data[customer][email]": form.email,
-            "post_data[customer][phone_number]": form.whatsapp,
-            "post_data[customer][timezone]": "America/Sao_Paulo",
-            "post_data[manage_mode]": "false",
-            "csrfToken": "",
-        }
-        try:
-            br = await client.post(
-                f"{EASY_BASE}/index.php/booking/register",
-                headers=EASY_FORM_HEADERS,
-                data=booking_form,
-            )
-            body_text = br.text[:400]
-            if br.status_code >= 400:
-                log.error("contact_book easy register failed: %s %s", br.status_code, body_text)
-                raise HTTPException(status_code=502, detail="Não foi possível confirmar o agendamento. Tente outro horário.")
-            booking = br.json()
-            if not isinstance(booking, dict) or "appointment_id" not in booking:
-                log.error("contact_book easy register unexpected: %s", body_text)
-                raise HTTPException(status_code=502, detail="Resposta do calendário inválida.")
-        except HTTPException:
-            raise
-        except Exception:
-            log.exception("contact_book easy register exception")
-            raise HTTPException(status_code=502, detail="Erro ao agendar.")
+        # 3. Local appointment id — Easyappointments has been removed; the
+        # Google Calendar event pair (Section 4b) is the canonical record.
+        # We still return appointment_id so the frontend response shape is
+        # preserved. Stable per (lead_id|email, start) so retries don't churn.
+        appointment_id = abs(hash(f"{lead_id or form.email}-{start_str}")) % (10**12)
+        booking = {"appointment_id": appointment_id}
 
         # 4. Update lead stage to discovery_scheduled (best-effort)
         if lead_id:
@@ -2279,7 +2330,7 @@ async def api_contact_book(form: ContactBookForm, request: Request) -> JSONRespo
                             f"📞 {form.whatsapp}  ✉️ {form.email}\n"
                             f"Oferta: {form.offering or '(n/a)'} · Prática: {form.practice or '(n/a)'}\n"
                             f"Source: {form.source}\n"
-                            f"Easyappointments id: {booking.get('appointment_id')}"
+                            f"Booking id: {booking.get('appointment_id')}"
                         )
                     },
                     timeout=10,
