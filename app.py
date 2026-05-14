@@ -1867,7 +1867,12 @@ async def api_book(payload: BookingRequest, request: Request) -> JSONResponse:
         first_name = name_parts[0]
         last_name = name_parts[1] if len(name_parts) > 1 else "."
 
-        notes = build_pre_call_brief(lead)
+        # NOTE: the `notes` field below feeds Easyappointments' own Gcal sync
+        # (when enabled at the provider level), so it ends up in the client-
+        # visible synced event description. Keep it free of PII/internal data —
+        # the rich pre-call brief is created on Mila's calendar as private
+        # Event B via _create_gcal_event_pair_for_booking below.
+        notes = "Discovery agendada via LP. Brief completo no Google Calendar do organizador."
 
         # 3. Submit to Easyappointments public booking endpoint.
         # Uses nested form fields: post_data[appointment][...], post_data[customer][...]
@@ -2149,24 +2154,14 @@ async def api_contact_book(form: ContactBookForm, request: Request) -> JSONRespo
         first_name = name_parts[0]
         last_name = name_parts[1] if len(name_parts) > 1 else "."
 
-        # Build brief from form context for the appointment notes
-        notes_lines = [
-            f"Lead via /contact (brand site)",
-            f"Empresa: {form.company or '(não informada)'}",
-            f"Email: {form.email}",
-            f"WhatsApp: {form.whatsapp}",
-        ]
-        if form.offering or form.practice:
-            notes_lines.append("")
-            notes_lines.append(f"Oferta de interesse: {form.offering or '(n/a)'} (prática: {form.practice or '(n/a)'})")
-        if form.context:
-            notes_lines.append("")
-            notes_lines.append("Contexto compartilhado:")
-            notes_lines.append(form.context)
-        if lead_id:
-            notes_lines.append("")
-            notes_lines.append(f"Supabase lead_id: {lead_id}")
-        notes = "\n".join(notes_lines)
+        # NOTE: this `notes` field is the appointment.notes value in
+        # Easyappointments. If the provider has Google Calendar sync enabled
+        # at the server level, Easyappointments mirrors it into the synced
+        # Gcal event's description — which is visible to the client. We
+        # therefore keep this field free of any PII/internal data (no lead_id,
+        # no email, no WhatsApp, no full context). The rich pre-call brief
+        # lives only in our own private Gcal Event B, on Mila's calendar.
+        notes = "Discovery agendada via anuvia.com.br/contact. Brief completo no Google Calendar do organizador."
 
         # 3. Book in Easyappointments
         booking_form = {
@@ -2795,8 +2790,45 @@ async def cases(request: Request):
     return templates.TemplateResponse("cases.html", tpl_ctx(request))
 
 
+_UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+
+
 @app.get("/contact", response_class=HTMLResponse)
 async def contact(request: Request):
+    """Render the contact + booking page.
+
+    If a `?lead_id=<uuid>` query param is present and resolves to a real lead
+    row in Supabase, we set the `anuvia_lead_id` cookie (last-write-wins, so
+    clicking a friend's link replaces a stale cookie) and 302-redirect back to
+    `/contact` without the query string. The next request reads the freshly
+    set cookie via `tpl_ctx`, which exposes `lead_known=True` plus the
+    pre-fill name/email so the booking widget skips the PII step. Cookies set
+    on the SAME response are not visible in `request.cookies` of that request,
+    which is why we redirect rather than try to inject context inline.
+
+    Invalid / non-existent lead_ids are silently ignored — the anonymous flow
+    still renders normally."""
+    qs_lead_id = (request.query_params.get("lead_id") or "").strip()
+    if qs_lead_id and _UUID_RE.match(qs_lead_id):
+        existing_cookie = request.cookies.get(LEAD_ID_COOKIE) or ""
+        # Only do the Supabase round-trip if the cookie is missing OR points
+        # at a DIFFERENT lead — avoids a useless hop on every reload.
+        if existing_cookie != qs_lead_id:
+            try:
+                async with httpx.AsyncClient(timeout=5) as client:
+                    rr = await client.get(
+                        f"{SUPA_URL}/leads?id=eq.{qs_lead_id}&select=id",
+                        headers=SUPA_HEADERS,
+                    )
+                    if rr.status_code == 200 and (rr.json() or []):
+                        redirect = RedirectResponse(url="/contact", status_code=302)
+                        set_lead_id_cookie(redirect, qs_lead_id)
+                        return redirect
+            except Exception:
+                log.exception("contact GET lead_id validation failed (non-fatal)")
+        else:
+            # Cookie already matches — just strip the query param for cleanliness.
+            return RedirectResponse(url="/contact", status_code=302)
     return templates.TemplateResponse("contact.html", tpl_ctx(request))
 
 
@@ -3203,10 +3235,20 @@ async def _send_diag_report_email(
     subject: str,
     deliverable_html: str,
     cta_url: str = "https://anuvia.com.br/contact",
+    lead_id: Optional[str] = None,
 ) -> bool:
-    """Send the diagnostic report email after the user provides contact info."""
+    """Send the diagnostic report email after the user provides contact info.
+
+    If `lead_id` is provided, it is appended as `?lead_id=...` (or `&lead_id=...`
+    if the URL already carries a query string) so that the /contact GET handler
+    can re-hydrate the `anuvia_lead_id` cookie when the recipient returns from
+    a different browser session (the cookie-only path silently breaks across
+    devices, private windows, and after cookie expiry)."""
     if not RESEND_API_KEY:
         return False
+    if lead_id:
+        sep = "&" if "?" in cta_url else "?"
+        cta_url = f"{cta_url}{sep}lead_id={lead_id}"
     first = name.split()[0] if name else "Olá"
     inner = deliverable_html.replace('class="card p-8 md:p-10"', '')
     # Adapt Tailwind classes inside the deliverable to inline styles so the
@@ -3532,7 +3574,8 @@ async def api_finops_audit_contact(form: DiagContactForm, request: Request):
                 f"Obrigada, {first} — alternativas pro seu caso"
             )
         email_sent = await _send_diag_report_email(
-            client, form.name, form.email, "FinOps", subject, deliverable_html
+            client, form.name, form.email, "FinOps", subject, deliverable_html,
+            lead_id=form.lead_id,
         )
         await _notify_slack_diag(
             client, "FinOps Audit", form.name, form.email, form.whatsapp, form.company,
@@ -3704,7 +3747,8 @@ async def api_aws_wa_contact(form: DiagContactForm, request: Request):
         else:
             subject = f"AWS Well-Architected Review — pré-análise pra {first}"
         email_sent = await _send_diag_report_email(
-            client, form.name, form.email, "AWS", subject, deliverable_html
+            client, form.name, form.email, "AWS", subject, deliverable_html,
+            lead_id=form.lead_id,
         )
         await _notify_slack_diag(
             client, "AWS Well-Architected", form.name, form.email, form.whatsapp, form.company,
@@ -3950,7 +3994,8 @@ async def api_aws_migration_contact(form: DiagContactForm, request: Request):
         else:
             subject = f"AWS Migration Planning — pré-análise pra {first}"
         email_sent = await _send_diag_report_email(
-            client, form.name, form.email, "AWS Migration", subject, deliverable_html
+            client, form.name, form.email, "AWS Migration", subject, deliverable_html,
+            lead_id=form.lead_id,
         )
         await _notify_slack_diag(
             client, "AWS Migration Planning", form.name, form.email, form.whatsapp, form.company,
@@ -4202,7 +4247,8 @@ async def api_aws_landing_zone_contact(form: DiagContactForm, request: Request):
         else:
             subject = f"AWS Landing Zone — pré-análise pra {first}"
         email_sent = await _send_diag_report_email(
-            client, form.name, form.email, "AWS Landing Zone", subject, deliverable_html
+            client, form.name, form.email, "AWS Landing Zone", subject, deliverable_html,
+            lead_id=form.lead_id,
         )
         await _notify_slack_diag(
             client, "AWS Landing Zone", form.name, form.email, form.whatsapp, form.company,
@@ -4457,7 +4503,8 @@ async def api_aws_security_contact(form: DiagContactForm, request: Request):
         else:
             subject = f"AWS Security Posture — pré-análise pra {first}"
         email_sent = await _send_diag_report_email(
-            client, form.name, form.email, "AWS Security", subject, deliverable_html
+            client, form.name, form.email, "AWS Security", subject, deliverable_html,
+            lead_id=form.lead_id,
         )
         await _notify_slack_diag(
             client, "AWS Security Posture", form.name, form.email, form.whatsapp, form.company,
@@ -4707,7 +4754,8 @@ async def api_gcp_migration_contact(form: DiagContactForm, request: Request):
         else:
             subject = f"GCP Migration Strategy — pré-análise pra {first}"
         email_sent = await _send_diag_report_email(
-            client, form.name, form.email, "GCP Migration", subject, deliverable_html
+            client, form.name, form.email, "GCP Migration", subject, deliverable_html,
+            lead_id=form.lead_id,
         )
         await _notify_slack_diag(
             client, "GCP Migration Strategy", form.name, form.email, form.whatsapp, form.company,
@@ -4883,7 +4931,8 @@ async def api_devops_contact(form: DiagContactForm, request: Request):
         else:
             subject = f"DevOps Maturity — pré-análise pra {first}"
         email_sent = await _send_diag_report_email(
-            client, form.name, form.email, "DevOps", subject, deliverable_html
+            client, form.name, form.email, "DevOps", subject, deliverable_html,
+            lead_id=form.lead_id,
         )
         await _notify_slack_diag(
             client, "DevOps Maturity", form.name, form.email, form.whatsapp, form.company,
@@ -5106,7 +5155,8 @@ async def api_ai_readiness_contact(form: DiagContactForm, request: Request):
         else:
             subject = f"AI Readiness Sprint — pré-análise pra {first}" if is_fit else f"Obrigada, {first} — alternativas pro seu caso"
         email_sent = await _send_diag_report_email(
-            client, form.name, form.email, "AI", subject, deliverable_html
+            client, form.name, form.email, "AI", subject, deliverable_html,
+            lead_id=form.lead_id,
         )
         await _notify_slack_diag(
             client, "AI Readiness", form.name, form.email, form.whatsapp, form.company,
@@ -5320,7 +5370,8 @@ async def api_growth_contact(form: DiagContactForm, request: Request):
         else:
             subject = f"Sales Ops Diagnostic — pré-análise pra {first}" if is_fit else f"Obrigada, {first} — alternativas pro seu caso"
         email_sent = await _send_diag_report_email(
-            client, form.name, form.email, "Growth", subject, deliverable_html
+            client, form.name, form.email, "Growth", subject, deliverable_html,
+            lead_id=form.lead_id,
         )
         await _notify_slack_diag(
             client, "Sales Ops Diagnostic", form.name, form.email, form.whatsapp, form.company,
@@ -5707,7 +5758,8 @@ async def api_industry_contact(form: DiagContactForm, request: Request):
         else:
             subject = f"Industry Assessment — pré-análise pra {first}"
         email_sent = await _send_diag_report_email(
-            client, form.name, form.email, "Industry", subject, deliverable_html
+            client, form.name, form.email, "Industry", subject, deliverable_html,
+            lead_id=form.lead_id,
         )
         await _notify_slack_diag(
             client, "Industry Assessment", form.name, form.email, form.whatsapp, form.company,
@@ -6298,6 +6350,7 @@ async def api_ai_readiness(form: AIReadinessForm):
 """.strip()
 
     async with httpx.AsyncClient(timeout=15) as client:
+        new_lead_id: Optional[str] = None
         try:
             lead_payload = {
                 "funnel_id": "BR_AI",
@@ -6319,6 +6372,13 @@ async def api_ai_readiness(form: AIReadinessForm):
             r = await client.post(f"{SUPA_URL}/leads", headers=SUPA_HEADERS, json=lead_payload)
             if r.status_code not in (200, 201):
                 log.warning("supabase_lead_insert non-200: %s", r.status_code)
+            else:
+                try:
+                    rows = r.json() or []
+                    if rows and isinstance(rows, list):
+                        new_lead_id = rows[0].get("id")
+                except Exception:
+                    pass
         except Exception:
             log.exception("ai_readiness lead_insert failed")
 
@@ -6327,7 +6387,10 @@ async def api_ai_readiness(form: AIReadinessForm):
                 first = form.name.split()[0]
                 subject = f"AI Readiness Sprint — pré-análise pra {first}"
                 _footer_html = _anuvia_email_footer("pt")
-                email_html = f"""<!DOCTYPE html><html><body style="background:#fafaf9;font-family:Inter,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;"><div style="max-width:640px;margin:0 auto;"><p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;">Anuvia · AI</p><p style="font-family:Georgia,serif;font-size:32px;margin:0 0 16px 0;">Olá, {first}</p><p style="color:#475569;line-height:1.65;">{stage_insight}</p><p style="color:#475569;line-height:1.65;">{pain_insight}</p><p style="margin:24px 0;"><a href="https://anuvia.com.br/contact?offering=ai-readiness&practice=ai" style="background:#1a1a1a;color:#fafaf9;padding:12px 22px;text-decoration:none;">Agendar Discovery Call</a></p>{_footer_html}</div></body></html>"""
+                _cta_href = "https://anuvia.com.br/contact?offering=ai-readiness&practice=ai"
+                if new_lead_id:
+                    _cta_href = f"{_cta_href}&lead_id={new_lead_id}"
+                email_html = f"""<!DOCTYPE html><html><body style="background:#fafaf9;font-family:Inter,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;"><div style="max-width:640px;margin:0 auto;"><p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;">Anuvia · AI</p><p style="font-family:Georgia,serif;font-size:32px;margin:0 0 16px 0;">Olá, {first}</p><p style="color:#475569;line-height:1.65;">{stage_insight}</p><p style="color:#475569;line-height:1.65;">{pain_insight}</p><p style="margin:24px 0;"><a href="{_cta_href}" style="background:#1a1a1a;color:#fafaf9;padding:12px 22px;text-decoration:none;">Agendar Discovery Call</a></p>{_footer_html}</div></body></html>"""
                 await client.post(
                     "https://api.resend.com/emails",
                     headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
@@ -6437,6 +6500,7 @@ async def api_growth_sales_ops(form: GrowthSalesOpsForm):
 """.strip()
 
     async with httpx.AsyncClient(timeout=15) as client:
+        new_lead_id: Optional[str] = None
         try:
             lead_payload = {
                 "funnel_id": "BR_GROWTH",
@@ -6458,6 +6522,13 @@ async def api_growth_sales_ops(form: GrowthSalesOpsForm):
             r = await client.post(f"{SUPA_URL}/leads", headers=SUPA_HEADERS, json=lead_payload)
             if r.status_code not in (200, 201):
                 log.warning("supabase_lead_insert non-200: %s", r.status_code)
+            else:
+                try:
+                    rows = r.json() or []
+                    if rows and isinstance(rows, list):
+                        new_lead_id = rows[0].get("id")
+                except Exception:
+                    pass
         except Exception:
             log.exception("growth_sales_ops lead_insert failed")
 
@@ -6466,7 +6537,10 @@ async def api_growth_sales_ops(form: GrowthSalesOpsForm):
                 first = form.name.split()[0]
                 subject = f"Sales Ops Diagnostic — pré-análise pra {first}"
                 _footer_html = _anuvia_email_footer("pt")
-                email_html = f"""<!DOCTYPE html><html><body style="background:#fafaf9;font-family:Inter,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;"><div style="max-width:640px;margin:0 auto;"><p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;">Anuvia · Growth</p><p style="font-family:Georgia,serif;font-size:32px;margin:0 0 16px 0;">Olá, {first}</p><p style="color:#475569;line-height:1.65;">{pain_insight}</p><p style="margin:24px 0;"><a href="https://anuvia.com.br/contact?offering=sales-ops-audit&practice=growth" style="background:#1a1a1a;color:#fafaf9;padding:12px 22px;text-decoration:none;">Agendar Discovery Call</a></p>{_footer_html}</div></body></html>"""
+                _cta_href = "https://anuvia.com.br/contact?offering=sales-ops-audit&practice=growth"
+                if new_lead_id:
+                    _cta_href = f"{_cta_href}&lead_id={new_lead_id}"
+                email_html = f"""<!DOCTYPE html><html><body style="background:#fafaf9;font-family:Inter,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;"><div style="max-width:640px;margin:0 auto;"><p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;">Anuvia · Growth</p><p style="font-family:Georgia,serif;font-size:32px;margin:0 0 16px 0;">Olá, {first}</p><p style="color:#475569;line-height:1.65;">{pain_insight}</p><p style="margin:24px 0;"><a href="{_cta_href}" style="background:#1a1a1a;color:#fafaf9;padding:12px 22px;text-decoration:none;">Agendar Discovery Call</a></p>{_footer_html}</div></body></html>"""
                 await client.post(
                     "https://api.resend.com/emails",
                     headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
