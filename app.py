@@ -2238,6 +2238,37 @@ async def api_contact_book(form: ContactBookForm, request: Request) -> JSONRespo
             raise HTTPException(status_code=400, detail="Data ou hora inválidas.")
         end_dt = start_dt + timedelta(minutes=duration_min)
         start_str = start_dt.strftime("%Y-%m-%d %H:%M:%S")
+        start_iso_utc = start_dt.astimezone(timezone.utc).isoformat()
+
+        # 2b. Slot lock — anti-race: Google freeBusy can lag a few seconds
+        # behind newly inserted events. Without this check, two clients hitting
+        # the same slot in quick succession would both succeed (we saw this
+        # happen during dogfooding: 2 bookings at 12:00 21 May within 6 min).
+        # We query Supabase for any other lead already claiming this exact
+        # start_dt (qualification_data.booking_start_dt) with discovery_scheduled
+        # stage — if found, reject with 409 so the caller picks a different slot.
+        try:
+            conflict = await client.get(
+                f"{SUPA_URL}/leads"
+                f"?qualification_data->>booking_start_dt=eq.{start_iso_utc}"
+                f"&current_stage=eq.discovery_scheduled"
+                f"&id=neq.{lead_id or '00000000-0000-0000-0000-000000000000'}"
+                f"&select=id,name,email&limit=1",
+                headers=SUPA_HEADERS,
+            )
+            if conflict.status_code == 200 and (conflict.json() or []):
+                log.warning(
+                    "contact_book slot collision: %s already booked at %s by lead %s",
+                    form.email, start_iso_utc, (conflict.json() or [{}])[0].get("id"),
+                )
+                raise HTTPException(
+                    status_code=409,
+                    detail="Esse horário acabou de ser reservado por outro cliente. Escolha outro slot, por favor.",
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            log.exception("contact_book slot lock check failed (non-fatal — booking continues)")
 
         # Used by the confirmation email below ("Olá, {first_name}").
         name_parts = form.name.strip().split(maxsplit=1)
@@ -2250,13 +2281,22 @@ async def api_contact_book(form: ContactBookForm, request: Request) -> JSONRespo
         appointment_id = abs(hash(f"{lead_id or form.email}-{start_str}")) % (10**12)
         booking = {"appointment_id": appointment_id}
 
-        # 4. Update lead stage to discovery_scheduled (best-effort)
+        # 4. Update lead stage to discovery_scheduled + persist booking_start_dt
+        # (the latter is what the slot-lock check reads on subsequent bookings)
         if lead_id:
             try:
+                # Read existing qd, add booking_start_dt, write back
+                lr = await client.get(
+                    f"{SUPA_URL}/leads?id=eq.{lead_id}&select=qualification_data",
+                    headers=SUPA_HEADERS,
+                )
+                qd_now = (lr.json() or [{}])[0].get("qualification_data") or {} if lr.status_code == 200 else {}
+                qd_now["booking_start_dt"] = start_iso_utc
+                qd_now["booking_duration_min"] = duration_min
                 await client.patch(
                     f"{SUPA_URL}/leads?id=eq.{lead_id}",
                     headers=SUPA_HEADERS,
-                    json={"current_stage": "discovery_scheduled"},
+                    json={"current_stage": "discovery_scheduled", "qualification_data": qd_now},
                 )
             except Exception:
                 log.exception("contact_book lead stage update failed")
