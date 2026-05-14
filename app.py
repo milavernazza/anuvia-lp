@@ -3374,7 +3374,7 @@ async def _send_diag_report_email(
             json={
                 "from": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
                 "to": [email],
-                "reply_to": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
+                "reply_to": f"{RESEND_REPLY_TO_NAME} <{RESEND_REPLY_TO_EMAIL}>",
                 "subject": subject,
                 "html": email_html,
                 "tags": [{"name": "category", "value": "diagnostic_report"}],
@@ -6718,7 +6718,7 @@ async def send_diagnostic_email(
     body = {
         "from": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
         "to": [form.email],
-        "reply_to": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
+        "reply_to": f"{RESEND_REPLY_TO_NAME} <{RESEND_REPLY_TO_EMAIL}>",
         "subject": subject,
         "html": full_html,
         "tags": [
