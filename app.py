@@ -145,6 +145,12 @@ SLACK_WEBHOOK = os.environ.get("SLACK_NEW_LEAD_WEBHOOK", "")  # optional, fallba
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 RESEND_FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "onboarding@resend.dev")
 RESEND_FROM_NAME = os.environ.get("RESEND_FROM_NAME", "Anuvia · Mila Vernazza")
+# Reply-To is critical: emails are sent from send.anuvia.com.br (no MX records),
+# so without this header, replies bounce silently into the void. The recipient's
+# email client routes Reply to whatever this address says. Default to the real
+# anuvia.com.br inbox so clients reach Mila directly.
+RESEND_REPLY_TO_EMAIL = os.environ.get("RESEND_REPLY_TO_EMAIL", "mila@anuvia.com.br")
+RESEND_REPLY_TO_NAME = os.environ.get("RESEND_REPLY_TO_NAME", "Anuvia · Mila Vernazza")
 
 # Easyappointments (cal.anuvia.com.br) — DEPRECATED.
 # The booking flow no longer calls Easyappointments. Supabase + Google Calendar
@@ -2481,7 +2487,7 @@ async def api_contact_book(form: ContactBookForm, request: Request) -> JSONRespo
                     json={
                         "from": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
                         "to": [form.email],
-                        "reply_to": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
+                        "reply_to": f"{RESEND_REPLY_TO_NAME} <{RESEND_REPLY_TO_EMAIL}>",
                         "subject": f"Conversa Anuvia confirmada — {pretty}",
                         "html": email_html,
                         "attachments": [
@@ -6044,7 +6050,7 @@ async def api_finops_audit(form: FinOpsAuditForm):
                     json={
                         "from": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
                         "to": [form.email],
-                        "reply_to": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
+                        "reply_to": f"{RESEND_REPLY_TO_NAME} <{RESEND_REPLY_TO_EMAIL}>",
                         "subject": subject,
                         "html": email_html,
                         "tags": [
@@ -6170,7 +6176,7 @@ async def api_aws_well_architected(form: WellArchitectedForm):
                     json={
                         "from": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
                         "to": [form.email],
-                        "reply_to": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
+                        "reply_to": f"{RESEND_REPLY_TO_NAME} <{RESEND_REPLY_TO_EMAIL}>",
                         "subject": subject,
                         "html": email_html,
                         "tags": [{"name": "category", "value": "aws_wa_signup"}],
@@ -6317,7 +6323,7 @@ async def api_devops_maturity(form: DevOpsMaturityForm):
                     json={
                         "from": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
                         "to": [form.email],
-                        "reply_to": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
+                        "reply_to": f"{RESEND_REPLY_TO_NAME} <{RESEND_REPLY_TO_EMAIL}>",
                         "subject": subject,
                         "html": email_html,
                         "tags": [{"name": "category", "value": "devops_maturity_signup"}],
@@ -6488,7 +6494,7 @@ async def api_ai_readiness(form: AIReadinessForm):
                     json={
                         "from": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
                         "to": [form.email],
-                        "reply_to": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
+                        "reply_to": f"{RESEND_REPLY_TO_NAME} <{RESEND_REPLY_TO_EMAIL}>",
                         "subject": subject,
                         "html": email_html,
                         "tags": [{"name": "category", "value": "ai_readiness_signup"}],
@@ -6638,7 +6644,7 @@ async def api_growth_sales_ops(form: GrowthSalesOpsForm):
                     json={
                         "from": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
                         "to": [form.email],
-                        "reply_to": f"{RESEND_FROM_NAME} <{RESEND_FROM_EMAIL}>",
+                        "reply_to": f"{RESEND_REPLY_TO_NAME} <{RESEND_REPLY_TO_EMAIL}>",
                         "subject": subject,
                         "html": email_html,
                         "tags": [{"name": "category", "value": "growth_sales_ops_signup"}],
