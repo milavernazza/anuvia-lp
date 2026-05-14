@@ -876,9 +876,12 @@ async def _find_lead_id_for_email_event(payload: dict) -> Optional[str]:
 
     try:
         from lib.sessions import SUPA_URL, SUPA_HEADERS  # local import to avoid cycle in dev
+        from urllib.parse import quote as _q
+        # PostgREST: `+` in email (gmail aliasing) becomes space when not URL-encoded.
+        target_enc = _q(target, safe="@.")
         async with httpx.AsyncClient(timeout=10.0) as client:
             r = await client.get(
-                f"{SUPA_URL}/leads?email=eq.{target}&select=id&limit=1",
+                f"{SUPA_URL}/leads?email=eq.{target_enc}&select=id&limit=1",
                 headers=SUPA_HEADERS,
             )
         if r.status_code == 200:
