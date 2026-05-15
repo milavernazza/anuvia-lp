@@ -38,7 +38,7 @@ import logging
 import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request
@@ -88,43 +88,176 @@ def _now() -> datetime:
 
 
 # ---------------------------------------------------------------------------
+# Practice config — single source of truth for ticket bands & autonomy flag
+# ---------------------------------------------------------------------------
+
+#: Maps internal practice keys to a small bundle of facts the handlers need:
+#: pricing band, whether the autonomous-close autopilot is enabled (vs.
+#: discovery-led), the human-readable deliverable name, and rough duration.
+#:
+#: This is the **only** place to flip a practice from discovery-led to
+#: autonomous-close — every handler reads ``autonomous_enabled`` here.
+PRACTICE_CONFIG: Dict[str, Dict[str, Any]] = {
+    "growth": {
+        "ticket_min_brl": 4000,
+        "ticket_max_brl": 8000,
+        "autonomous_enabled": True,
+        "deliverable_name": "Growth Sales Ops Setup",
+        "duration_weeks": "2-3",
+        # Copy seeds — short enough to live inline, used by the generic
+        # proposal renderer when the practice is not 'growth' (growth keeps
+        # its own bespoke renderer for backwards compatibility).
+        "scope_pt": [
+            "Solutions Architect sênior (ex-AWS, ex-Google) em retainer",
+            "Até 20 horas / mês de execução e revisão hands-on",
+            "Entregáveis escritos: arquitetura, FinOps e prontidão para IA",
+            "Atendimento via Slack + async em até 24h úteis",
+        ],
+        "scope_en": [
+            "Senior Solutions Architect (ex-AWS, ex-Google) on retainer",
+            "Up to 20 hours / month of hands-on engineering and review",
+            "Architecture, FinOps and AI-readiness deliverables in writing",
+            "Slack + async response within 24h business hours",
+        ],
+    },
+    "cloud_finops": {
+        "ticket_min_brl": 45000,
+        "ticket_max_brl": 60000,
+        "autonomous_enabled": False,  # discovery-led for now (bigger tickets)
+        "deliverable_name": "FinOps Audit",
+        "duration_weeks": "4",
+        "scope_pt": [
+            "Diagnóstico completo de gastos AWS (CUR + Cost Explorer)",
+            "Identificação de waste, rightsizing e Reserved/Savings Plans",
+            "Roadmap de otimização priorizado por payback (semana-a-semana)",
+            "Relatório executivo escrito + handoff técnico para o time",
+        ],
+        "scope_en": [
+            "Full AWS spend diagnostic (CUR + Cost Explorer)",
+            "Waste, rightsizing and Reserved/Savings Plans opportunities",
+            "Optimization roadmap prioritized by payback (week-by-week)",
+            "Written executive report + technical handoff to your team",
+        ],
+    },
+    "devops": {
+        "ticket_min_brl": 30000,
+        "ticket_max_brl": 50000,
+        "autonomous_enabled": False,
+        "deliverable_name": "DevOps Maturity Assessment",
+        "duration_weeks": "3-4",
+        "scope_pt": [
+            "Avaliação DORA (deploy freq, lead time, MTTR, change fail rate)",
+            "Auditoria de CI/CD, infra-as-code e observabilidade",
+            "Roadmap de maturidade em 3 horizontes (30 / 90 / 180 dias)",
+            "Relatório executivo + plano de ação para o time de engenharia",
+        ],
+        "scope_en": [
+            "DORA assessment (deploy freq, lead time, MTTR, change fail rate)",
+            "CI/CD, infra-as-code and observability audit",
+            "Maturity roadmap on 3 horizons (30 / 90 / 180 days)",
+            "Executive report + action plan for the engineering team",
+        ],
+    },
+    "ai": {
+        "ticket_min_brl": 25000,
+        "ticket_max_brl": 40000,
+        "autonomous_enabled": False,
+        "deliverable_name": "AI Readiness & PoV",
+        "duration_weeks": "3",
+        "scope_pt": [
+            "Inventário de casos de uso de IA priorizados por ROI",
+            "Avaliação de prontidão técnica (dados, infra, segurança)",
+            "Proof-of-value de 1 caso (escopo fechado, métrica clara)",
+            "Roadmap de adoção + governança em 90 dias",
+        ],
+        "scope_en": [
+            "Inventory of AI use-cases prioritized by ROI",
+            "Technical readiness assessment (data, infra, security)",
+            "Proof-of-value on 1 use-case (closed scope, clear metric)",
+            "Adoption roadmap + governance over 90 days",
+        ],
+    },
+    "industry": {
+        "ticket_min_brl": 35000,
+        "ticket_max_brl": 55000,
+        "autonomous_enabled": False,
+        "deliverable_name": "Industry Vertical Assessment",
+        "duration_weeks": "4",
+        "scope_pt": [
+            "Diagnóstico setorial (regulação, compliance, benchmarks)",
+            "Mapa de capacidades vs. concorrência no vertical",
+            "Roadmap de modernização alinhado às pressões regulatórias",
+            "Plano de execução com marcos trimestrais",
+        ],
+        "scope_en": [
+            "Vertical diagnostic (regulation, compliance, benchmarks)",
+            "Capability map vs. competition in the vertical",
+            "Modernization roadmap aligned to regulatory pressures",
+            "Execution plan with quarterly milestones",
+        ],
+    },
+}
+
+
+#: Maps funnel_id (uppercase) prefix → practice key. Anything not listed here
+#: falls through to ``None`` and the lead is parked in 'discovery'.
+_FUNNEL_TO_PRACTICE: Dict[str, str] = {
+    "BR_GROWTH": "growth",
+    "US_GROWTH": "growth",
+    "BR_FINOPS": "cloud_finops",
+    "US_FINOPS": "cloud_finops",
+    "BR_AWS_WA": "cloud_finops",
+    "BR_AWS_MIG": "cloud_finops",
+    "BR_AWS_LZ": "cloud_finops",
+    "BR_AWS_SP": "cloud_finops",
+    "BR_GCP_MIG": "cloud_finops",
+    "BR_DEVOPS": "devops",
+    "US_DEVOPS": "devops",
+    "BR_AI": "ai",
+    "US_AI": "ai",
+    "BR_INDUSTRY": "industry",
+    "US_INDUSTRY": "industry",
+}
+
+
+def _funnel_to_practice(funnel_id: Optional[str]) -> Optional[str]:
+    """Map a raw funnel_id string to our internal practice key.
+
+    Tolerates ``None``, mixed case and trailing variants (e.g. ``BR_GROWTH_LP``).
+    Returns ``None`` when the funnel doesn't match any known practice — the
+    caller should treat that as 'discovery' (human in the loop).
+    """
+    if not funnel_id:
+        return None
+    fid = str(funnel_id).upper().strip()
+    # Exact match first, then prefix scan (handles BR_GROWTH_LP, etc).
+    if fid in _FUNNEL_TO_PRACTICE:
+        return _FUNNEL_TO_PRACTICE[fid]
+    for prefix, practice in _FUNNEL_TO_PRACTICE.items():
+        if fid.startswith(prefix):
+            return practice
+    return None
+
+
+def _qd(lead: dict) -> dict:
+    """Pull `qualification_data` out as a plain dict, tolerating jsonb-as-str."""
+    qd = lead.get("qualification_data") or {}
+    if isinstance(qd, dict):
+        return qd
+    try:
+        loaded = json.loads(qd) if isinstance(qd, str) else {}
+        return loaded if isinstance(loaded, dict) else {}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+# ---------------------------------------------------------------------------
 # classify_track — pure function, no I/O
 # ---------------------------------------------------------------------------
 
 
-def classify_track(lead: dict) -> str:
-    """Decide whether this lead goes through the autonomous-close path.
-
-    Returns ``'autonomous'`` if and only if:
-      * ``funnel_id`` starts with ``BR_GROWTH`` or ``US_GROWTH`` (case-insens.), AND
-      * at least 2 of these qualification signals are true:
-          - budget signal: ``budget_declared == True`` OR a numeric ``budget_amount``
-          - urgency signal: ``urgency in {'high', 'urgent', 'this_quarter'}``
-          - size signal:   ``team_size`` is a number <= 10, OR
-                           ``company_size`` is one of {'SMB','small','1-10','11-50'}
-
-    Otherwise returns ``'discovery'``. Never raises — type errors / missing
-    keys silently fall through to ``'discovery'`` so a malformed row can't
-    crash the dispatcher.
-    """
-    try:
-        funnel_id = (lead.get("funnel_id") or "").upper().strip()
-    except Exception:  # noqa: BLE001
-        return "discovery"
-
-    if not (funnel_id.startswith("BR_GROWTH") or funnel_id.startswith("US_GROWTH")):
-        return "discovery"
-
-    qd = lead.get("qualification_data") or {}
-    if not isinstance(qd, dict):
-        # Some Supabase clients hand jsonb back as a string.
-        try:
-            qd = json.loads(qd) if isinstance(qd, str) else {}
-            if not isinstance(qd, dict):
-                qd = {}
-        except Exception:  # noqa: BLE001
-            qd = {}
-
+def _signals_growth(qd: dict) -> int:
+    """Existing Growth qualification heuristic. >=2 of 3 signals = autonomous."""
     signals = 0
 
     # Budget signal -----------------------------------------------------------
@@ -159,7 +292,150 @@ def classify_track(lead: dict) -> str:
     if size_hit:
         signals += 1
 
+    return signals
+
+
+def _signals_cloud_finops(qd: dict) -> int:
+    """FinOps autonomous signals.
+
+    Need AWS spend band >= 25k/mo AND a real decision maker (CTO/VP/Head)
+    that is NOT a solo 'owner'. Ticket size is R$ 45-60k so the bar is high
+    even if autopilot is later enabled.
+    """
+    signals = 0
+
+    # Spend signal ------------------------------------------------------------
+    spend_hit = False
+    aws_spend = qd.get("aws_spend")
+    try:
+        if aws_spend is not None and float(aws_spend) >= 25000:
+            spend_hit = True
+    except (TypeError, ValueError):
+        # Spend may come as a band string like '25k-50k' / '>50k'.
+        s = str(aws_spend or "").lower().replace("$", "").replace(" ", "")
+        if any(tag in s for tag in ("25k-50k", "50k-100k", ">25k", ">50k", "100k+")):
+            spend_hit = True
+    if spend_hit:
+        signals += 1
+
+    # Decision maker ----------------------------------------------------------
+    dm = str(qd.get("decision_maker") or qd.get("role") or qd.get("title") or "").lower()
+    if dm and "owner" not in dm:
+        if any(tag in dm for tag in ("cto", "vp", "head", "director", "diretor")):
+            signals += 1
+
+    return signals
+
+
+def _signals_devops(qd: dict) -> int:
+    """DevOps maturity autonomous signals."""
+    signals = 0
+
+    team_size = qd.get("team_size") or qd.get("eng_team_size")
+    try:
+        if team_size is not None and float(team_size) >= 5:
+            signals += 1
+    except (TypeError, ValueError):
+        pass
+
+    cicd = str(qd.get("ci_cd") or qd.get("cicd_status") or "").lower()
+    if cicd in ("yes", "true", "present", "wants_setup", "setup") or "yes" in cicd:
+        signals += 1
+
+    obs = str(qd.get("observability_pain") or qd.get("observability") or "").lower()
+    if obs in ("true", "yes", "high", "pain") or "pain" in obs:
+        signals += 1
+
+    return signals
+
+
+def _signals_ai(qd: dict) -> int:
+    """AI readiness autonomous signals."""
+    signals = 0
+
+    stage = str(qd.get("ai_stage") or qd.get("stage") or qd.get("notes") or "").lower()
+    if "pov" in stage or "proof" in stage or "exploring" in stage or "explorando" in stage:
+        signals += 1
+
+    readiness = str(qd.get("technical_readiness") or qd.get("data_ready") or "").lower()
+    if readiness in ("true", "yes", "high", "ready", "pronto"):
+        signals += 1
+
+    return signals
+
+
+def _signals_industry(qd: dict) -> int:
+    """Industry vertical autonomous signals."""
+    signals = 0
+
+    vertical = str(qd.get("vertical") or "").lower().strip()
+    if vertical and vertical not in ("other", "n/a", "none"):
+        signals += 1
+
+    compliance = str(qd.get("compliance_pressure") or qd.get("regulation") or "").lower()
+    if compliance in ("true", "yes", "high", "urgent") or "lgpd" in compliance or "soc" in compliance or "iso" in compliance:
+        signals += 1
+
+    return signals
+
+
+#: Per-practice signal counter. Each returns an int — the dispatcher decides
+#: how many signals are needed to flip the lead to autonomous. Default
+#: threshold is 2; growth uses the historical 2-of-3 rule.
+_PRACTICE_SIGNALS: Dict[str, Callable[[dict], int]] = {
+    "growth": _signals_growth,
+    "cloud_finops": _signals_cloud_finops,
+    "devops": _signals_devops,
+    "ai": _signals_ai,
+    "industry": _signals_industry,
+}
+
+
+def classify_track(lead: dict) -> str:
+    """Decide whether this lead goes through the autonomous-close path.
+
+    Practice-aware. Returns ``'autonomous'`` only when:
+      * ``funnel_id`` maps to a known practice,
+      * that practice has ``autonomous_enabled=True`` in ``PRACTICE_CONFIG``, and
+      * the practice-specific signal counter returns >= 2.
+
+    Otherwise returns ``'discovery'``. Never raises — type errors / missing
+    keys silently fall through to ``'discovery'`` so a malformed row can't
+    crash the dispatcher.
+    """
+    try:
+        practice = _funnel_to_practice(lead.get("funnel_id"))
+    except Exception:  # noqa: BLE001
+        return "discovery"
+
+    if not practice:
+        return "discovery"
+
+    cfg = PRACTICE_CONFIG.get(practice) or {}
+    if not cfg.get("autonomous_enabled"):
+        return "discovery"
+
+    counter = _PRACTICE_SIGNALS.get(practice)
+    if counter is None:
+        return "discovery"
+
+    try:
+        signals = counter(_qd(lead))
+    except Exception:  # noqa: BLE001
+        return "discovery"
+
     return "autonomous" if signals >= 2 else "discovery"
+
+
+def classify_practice_and_track(lead: dict) -> tuple:
+    """Companion to ``classify_track`` — also returns the resolved practice.
+
+    Used by handlers that need to know which practice-specific next-action
+    string to schedule. Returns ``(practice_or_None, 'autonomous'|'discovery')``.
+    """
+    practice = _funnel_to_practice(lead.get("funnel_id"))
+    track = classify_track(lead)
+    return practice, track
 
 
 # ---------------------------------------------------------------------------
@@ -496,13 +772,23 @@ def _proposal_html(lead: dict) -> str:
 
 @register("classify_track")
 async def h_classify_track(lead: Dict[str, Any]) -> Dict[str, Any]:
-    """Decide the lead's track and schedule the next step.
+    """Decide the lead's practice + track and schedule the next step.
 
     Autonomous leads get a 15-minute breather before the proposal lands —
     enough for the LP confirmation page to settle and any human review to
     bail out. Discovery leads simply wait for the booking widget.
+
+    Dispatch logic:
+      * Map ``funnel_id`` → practice via ``_funnel_to_practice``.
+      * Look up ``PRACTICE_CONFIG[practice]['autonomous_enabled']``.
+      * If False (or practice unknown) → track='discovery', no autopilot.
+      * If True → run the practice's signal counter; >=2 signals flips
+        the lead to 'autonomous' and schedules the practice-specific
+        ``{practice}_generate_proposal_v1`` (or ``generate_proposal_v1``
+        for growth, for back-compat with the existing handler name).
     """
     lead_id = str(lead.get("id") or "")
+    practice = _funnel_to_practice(lead.get("funnel_id"))
     track = classify_track(lead)
 
     try:
@@ -511,19 +797,31 @@ async def h_classify_track(lead: Dict[str, Any]) -> Dict[str, Any]:
         log.exception("track_b.classify_track: session_update failed lead=%s", lead_id)
         raise
 
-    if track == "autonomous":
+    if track == "autonomous" and practice:
+        # Growth retains the historical un-prefixed handler name so existing
+        # in-flight leads keep dispatching cleanly.
+        next_action = (
+            "generate_proposal_v1"
+            if practice == "growth"
+            else f"{practice}_generate_proposal_v1"
+        )
         return {
-            "next_action": "generate_proposal_v1",
+            "next_action": next_action,
             "next_action_at": _now() + timedelta(minutes=15),
             "status": "qualified",
-            "detail": "autonomous track",
+            "detail": f"autonomous track ({practice})",
         }
 
+    detail = (
+        f"discovery track ({practice}) — human in the loop"
+        if practice
+        else "discovery track — unmapped funnel_id"
+    )
     return {
         "next_action": None,
         "next_action_at": None,
         "status": "in_discovery",
-        "detail": "discovery track — waiting on booking",
+        "detail": detail,
     }
 
 
@@ -789,6 +1087,539 @@ async def h_close_ghosted_d10(lead: Dict[str, Any]) -> Dict[str, Any]:
         "status": "ghosted",
         "detail": "closed as ghosted after 10 days no response",
     }
+
+
+# ---------------------------------------------------------------------------
+# Practice-aware handlers (cloud_finops, devops, ai, industry)
+# ---------------------------------------------------------------------------
+#
+# These mirror the Growth handlers above 1:1 but pull their copy and
+# scheduling targets from PRACTICE_CONFIG. They are registered under
+# practice-prefixed names so the orchestrator can dispatch by funnel:
+#
+#     {practice}_classify_track
+#     {practice}_generate_proposal_v1
+#     {practice}_followup_proposal_d2
+#     {practice}_followup_proposal_d5
+#     {practice}_close_ghosted_d10
+#
+# `autonomous_enabled` is currently False for all four practices — Mila
+# wants a human in the loop at these ticket sizes — so in practice the
+# `_classify_track` handlers will route to discovery and the proposal/
+# followup handlers will not be invoked until that flag is flipped. The
+# code exists so flipping the flag is a one-line change.
+
+
+def _practice_pricing(lead: dict, lang: str, practice: str) -> dict:
+    """Per-practice pricing line.
+
+    Uses PRACTICE_CONFIG ticket bands as the default; honours
+    `qualification_data.budget_amount` when the LP captured an explicit value.
+    Returns the same shape as ``_pricing`` for the Growth path.
+    """
+    cfg = PRACTICE_CONFIG.get(practice) or {}
+    qd = _qd(lead)
+
+    if lang == "en":
+        # Rough BRL→USD divisor (5x). Defensive: we'd rather show a clean
+        # number than nothing.
+        lo = int((cfg.get("ticket_min_brl") or 0) / 5)
+        hi = int((cfg.get("ticket_max_brl") or 0) / 5)
+        pricing = {
+            "currency_symbol": "US$",
+            "retainer": f"{lo:,}–{hi:,}",
+            "setup": f"{int(lo/2):,}",
+            "period_label": "/project",
+        }
+    else:
+        lo = cfg.get("ticket_min_brl") or 0
+        hi = cfg.get("ticket_max_brl") or 0
+        pricing = {
+            "currency_symbol": "R$",
+            "retainer": f"{lo:,}–{hi:,}".replace(",", "."),
+            "setup": f"{int(lo/2):,}".replace(",", "."),
+            "period_label": "/projeto",
+        }
+
+    # Explicit budget override (still respect lead self-declaration).
+    amt = qd.get("budget_amount")
+    try:
+        if amt is not None and float(amt) > 0:
+            n = float(amt)
+            if lang == "en":
+                pricing["retainer"] = f"{int(n):,}"
+                pricing["setup"] = f"{int(n / 2):,}"
+            else:
+                pricing["retainer"] = f"{int(n):,}".replace(",", ".")
+                pricing["setup"] = f"{int(n / 2):,}".replace(",", ".")
+    except (TypeError, ValueError):
+        pass
+
+    return pricing
+
+
+def _practice_proposal_html(lead: dict, practice: str) -> str:
+    """Render a bilingual practice-specific proposal one-pager."""
+    cfg = PRACTICE_CONFIG.get(practice) or {}
+    lang = _lang(lead)
+    pricing = _practice_pricing(lead, lang, practice)
+    name = (lead.get("name") or "").split(" ")[0] or ("there" if lang == "en" else "olá")
+    company = lead.get("company") or ""
+
+    deliverable = cfg.get("deliverable_name") or practice.title()
+    duration = cfg.get("duration_weeks") or "—"
+
+    if lang == "en":
+        title = f"Anuvia · {deliverable} proposal"
+        intro = (
+            f"Hi {name}, here's the {deliverable} proposal we discussed. "
+            f"Closed scope, ~{duration} weeks end-to-end, senior team."
+        )
+        scope_hdr = "What you get"
+        scope = cfg.get("scope_en") or []
+        price_hdr = "Investment"
+        price_line = (
+            f"{pricing['currency_symbol']} {pricing['retainer']}{pricing['period_label']} · "
+            f"{duration} weeks delivery"
+        )
+        terms = "50% upfront, 50% on delivery. Includes one revision round."
+        cta = "Accept proposal"
+        sig = "Mila Vernazza · Founder Anuvia"
+        footer = "Ex-AWS Solutions Architect · Ex-Google · 15+ AWS certifications"
+        headline = deliverable
+    else:
+        title = f"Anuvia · Proposta {deliverable}"
+        intro = (
+            f"Olá {name}, segue a proposta de {deliverable} que conversamos. "
+            f"Escopo fechado, ~{duration} semanas ponta a ponta, time sênior."
+        )
+        scope_hdr = "O que está incluso"
+        scope = cfg.get("scope_pt") or []
+        price_hdr = "Investimento"
+        price_line = (
+            f"{pricing['currency_symbol']} {pricing['retainer']}{pricing['period_label']} · "
+            f"entrega em {duration} semanas"
+        )
+        terms = "50% na assinatura, 50% na entrega. Inclui uma rodada de revisão."
+        cta = "Aceitar proposta"
+        sig = "Mila Vernazza · Founder Anuvia"
+        footer = "Ex-Solutions Architect AWS · Ex-Google · 15+ certificações AWS"
+        headline = deliverable
+
+    company_line = (
+        f'<p style="color:#78716c;font-size:13px;margin:0 0 8px 0;">'
+        f'{("Prepared for" if lang == "en" else "Preparada para")}: {company}</p>'
+        if company
+        else ""
+    )
+
+    lead_id = str(lead.get("id") or "")
+    token = _accept_token(lead_id)
+    accept_url = f"{PROPOSAL_HOST_PT}/api/track-b/accept?lead_id={lead_id}&token={token}"
+
+    bullets = "".join(
+        f'<li style="margin:6px 0;color:#1a1a1a;line-height:1.5;">{item}</li>'
+        for item in scope
+    )
+
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>{title}</title></head>
+<body style="background:#fafaf9;font-family:Inter,-apple-system,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;">
+<div style="max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #e7e5e4;border-radius:12px;padding:40px 36px;">
+<p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;margin:0 0 4px 0;">{title}</p>
+{company_line}
+<h1 style="font-family:Georgia,serif;font-size:30px;margin:0 0 18px 0;color:#0f172a;">{headline}</h1>
+<p style="color:#475569;line-height:1.65;margin:0 0 24px 0;">{intro}</p>
+<h2 style="font-size:14px;letter-spacing:0.08em;text-transform:uppercase;color:#0f172a;margin:24px 0 8px 0;">{scope_hdr}</h2>
+<ul style="padding-left:20px;margin:0 0 24px 0;">{bullets}</ul>
+<h2 style="font-size:14px;letter-spacing:0.08em;text-transform:uppercase;color:#0f172a;margin:24px 0 8px 0;">{price_hdr}</h2>
+<p style="font-family:Georgia,serif;font-size:20px;color:#0f172a;margin:0 0 6px 0;">{price_line}</p>
+<p style="color:#78716c;font-size:13px;margin:0 0 28px 0;">{terms}</p>
+<p style="margin:32px 0;"><a href="{accept_url}" style="display:inline-block;background:#0f172a;color:#ffffff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;">{cta} -></a></p>
+<hr style="border:none;border-top:1px solid #e7e5e4;margin:32px 0 16px 0;">
+<p style="color:#78716c;font-size:13px;margin:0;">{sig}<br><span style="color:#a8a29e;">{footer}</span></p>
+</div></body></html>"""
+
+
+def _practice_has_proposal_v1(lead: dict, practice: str) -> bool:
+    """Same as ``_has_proposal_v1`` but scoped to artifacts tagged with this practice."""
+    artifacts = lead.get("artifacts") or []
+    if not isinstance(artifacts, list):
+        return False
+    for a in artifacts:
+        if not isinstance(a, dict):
+            continue
+        if a.get("type") != "proposal_pdf":
+            continue
+        meta = a.get("meta") or {}
+        if isinstance(meta, dict) and meta.get("version") == 1 and meta.get("practice") == practice:
+            return True
+    return False
+
+
+def _practice_proposal_sent_ts(lead: dict, practice: str) -> Optional[datetime]:
+    """Return the ts of this practice's first proposal_pdf artifact, or None."""
+    for a in lead.get("artifacts") or []:
+        if not isinstance(a, dict):
+            continue
+        if a.get("type") != "proposal_pdf":
+            continue
+        meta = a.get("meta") or {}
+        if not (isinstance(meta, dict) and meta.get("practice") == practice):
+            continue
+        ts = a.get("ts")
+        if not ts:
+            continue
+        try:
+            return datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+        except ValueError:
+            continue
+    return None
+
+
+async def _practice_generate_proposal(lead: Dict[str, Any], practice: str) -> Dict[str, Any]:
+    """Render HTML/PDF, send email, file artifact — generic per-practice variant.
+
+    Returns the standard handler contract so callers can return it directly.
+    Idempotent: re-checks artifacts before sending.
+    """
+    lead_id = str(lead.get("id") or "")
+    lang = _lang(lead)
+    cfg = PRACTICE_CONFIG.get(practice) or {}
+    deliverable = cfg.get("deliverable_name") or practice.title()
+
+    fresh = await session_get(lead_id) or lead
+    if _practice_has_proposal_v1(fresh, practice):
+        log.info(
+            "track_b.%s_generate_proposal_v1: already sent lead=%s; skipping",
+            practice, lead_id,
+        )
+        return {
+            "next_action": f"{practice}_followup_proposal_d2",
+            "next_action_at": _now() + timedelta(days=2),
+            "status": "proposal_sent",
+            "detail": f"{practice} proposal v1 already on file (idempotent skip)",
+        }
+
+    html = _practice_proposal_html(fresh, practice)
+
+    html_path = _PROPOSALS_DIR / f"{lead_id}_{practice}_v1.html"
+    pdf_path = _PROPOSALS_DIR / f"{lead_id}_{practice}_v1.pdf"
+    try:
+        html_path.parent.mkdir(parents=True, exist_ok=True)
+        html_path.write_text(html, encoding="utf-8")
+    except Exception:
+        log.exception(
+            "track_b.%s_generate_proposal_v1: html write failed lead=%s",
+            practice, lead_id,
+        )
+        raise
+
+    pdf_ok = await _render_pdf_via_gotenberg(html, pdf_path)
+
+    host = _proposal_host(lang)
+    if pdf_ok:
+        hosted_url = f"{host}/static/proposals/{lead_id}_{practice}_v1.pdf"
+    else:
+        hosted_url = f"{host}/static/proposals/{lead_id}_{practice}_v1.html"
+
+    # Email copy ---------------------------------------------------------------
+    token = _accept_token(lead_id)
+    accept_url = f"{PROPOSAL_HOST_PT}/api/track-b/accept?lead_id={lead_id}&token={token}"
+    name = (fresh.get("name") or "").split(" ")[0]
+
+    if lang == "en":
+        subject = f"Your Anuvia {deliverable} proposal"
+        body_html = f"""<!DOCTYPE html><html><body style="background:#fafaf9;font-family:Inter,-apple-system,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;">
+<div style="max-width:600px;margin:0 auto;">
+<p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;">Anuvia · Proposal</p>
+<p style="font-family:Georgia,serif;font-size:28px;margin:0 0 16px 0;">Hi {name or 'there'},</p>
+<p style="color:#475569;line-height:1.65;">Your {deliverable} proposal is ready. Closed scope, written, no slide deck.</p>
+<p style="margin:24px 0;"><a href="{hosted_url}" style="display:inline-block;background:#0f172a;color:#ffffff;padding:14px 26px;border-radius:8px;text-decoration:none;font-weight:600;">Read the proposal -></a></p>
+<p style="color:#475569;line-height:1.65;">Ready to start? One click below and we kick off this week.</p>
+<p style="margin:24px 0;"><a href="{accept_url}" style="display:inline-block;background:#16a34a;color:#ffffff;padding:14px 26px;border-radius:8px;text-decoration:none;font-weight:600;">Accept proposal -></a></p>
+<p style="color:#78716c;font-size:13px;margin-top:32px;">Mila Vernazza · Founder Anuvia<br>Reply to this email if anything is unclear — I read every one.</p>
+</div></body></html>"""
+    else:
+        subject = f"Sua proposta Anuvia {deliverable}"
+        body_html = f"""<!DOCTYPE html><html><body style="background:#fafaf9;font-family:Inter,-apple-system,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;">
+<div style="max-width:600px;margin:0 auto;">
+<p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;">Anuvia · Proposta</p>
+<p style="font-family:Georgia,serif;font-size:28px;margin:0 0 16px 0;">Olá {name or 'tudo bem'},</p>
+<p style="color:#475569;line-height:1.65;">Sua proposta de {deliverable} está pronta. Escopo fechado, escrita, sem slide.</p>
+<p style="margin:24px 0;"><a href="{hosted_url}" style="display:inline-block;background:#0f172a;color:#ffffff;padding:14px 26px;border-radius:8px;text-decoration:none;font-weight:600;">Ler a proposta -></a></p>
+<p style="color:#475569;line-height:1.65;">Topa começar? Um clique abaixo e a gente arranca essa semana.</p>
+<p style="margin:24px 0;"><a href="{accept_url}" style="display:inline-block;background:#16a34a;color:#ffffff;padding:14px 26px;border-radius:8px;text-decoration:none;font-weight:600;">Aceitar proposta -></a></p>
+<p style="color:#78716c;font-size:13px;margin-top:32px;">Mila Vernazza · Founder Anuvia<br>Responde esse email se algo estiver confuso — leio todos.</p>
+</div></body></html>"""
+
+    to = fresh.get("email")
+    if not to:
+        raise RuntimeError(
+            f"track_b.{practice}_generate_proposal_v1: lead {lead_id} has no email"
+        )
+
+    msg_id = await _send_email(
+        to=to,
+        subject=subject,
+        html=body_html,
+        lead_id=lead_id,
+        kind=f"{practice}_proposal_v1",
+    )
+
+    try:
+        await session_append_artifact(
+            lead_id,
+            type="proposal_pdf",
+            url=hosted_url,
+            meta={
+                "version": 1,
+                "practice": practice,
+                "pdf_rendered": pdf_ok,
+                "lang": lang,
+                "resend_message_id": msg_id,
+            },
+        )
+        await session_append_artifact(
+            lead_id,
+            type="email_sent",
+            url=None,
+            meta={
+                "kind": f"{practice}_proposal_v1",
+                "practice": practice,
+                "resend_message_id": msg_id,
+                "lang": lang,
+            },
+        )
+    except Exception:
+        log.exception(
+            "track_b.%s_generate_proposal_v1: artifact append failed lead=%s",
+            practice, lead_id,
+        )
+        raise
+
+    return {
+        "next_action": f"{practice}_followup_proposal_d2",
+        "next_action_at": _now() + timedelta(days=2),
+        "status": "proposal_sent",
+        "detail": f"{practice} proposal v1 sent",
+    }
+
+
+async def _practice_send_nudge(
+    lead: Dict[str, Any],
+    *,
+    practice: str,
+    kind: str,            # 'nudge_d2' | 'nudge_d5'
+    next_action: Optional[str],
+    next_delay: timedelta,
+    next_status: Optional[str],
+    detail: str,
+) -> Dict[str, Any]:
+    """Shared body for practice-prefixed d2/d5 nudges. Mirrors `_send_nudge_and_schedule`."""
+    lead_id = str(lead.get("id") or "")
+    lang = _lang(lead)
+    cfg = PRACTICE_CONFIG.get(practice) or {}
+    deliverable = cfg.get("deliverable_name") or practice.title()
+
+    fresh = await session_get(lead_id) or lead
+    sent_ts = _practice_proposal_sent_ts(fresh, practice)
+    if _has_engagement_since(fresh, sent_ts):
+        log.info(
+            "track_b.%s_%s: engagement detected lead=%s; pausing autopilot",
+            practice, kind, lead_id,
+        )
+        return {
+            "next_action": None,
+            "next_action_at": None,
+            "status": "proposal_opened",
+            "detail": "engagement detected, pausing autopilot",
+        }
+
+    name = (fresh.get("name") or "").split(" ")[0]
+    host = _proposal_host(lang)
+    pdf_path = _PROPOSALS_DIR / f"{lead_id}_{practice}_v1.pdf"
+    if pdf_path.exists():
+        hosted_url = f"{host}/static/proposals/{lead_id}_{practice}_v1.pdf"
+    else:
+        hosted_url = f"{host}/static/proposals/{lead_id}_{practice}_v1.html"
+
+    if kind == "nudge_d2":
+        if lang == "en":
+            subject = f"Quick nudge on the {deliverable} proposal"
+            body = (
+                f"Hi {name or 'there'} — just bubbling the {deliverable} proposal back up. "
+                "If now isn't the right week, tell me when is and I'll hold the slot."
+            )
+        else:
+            subject = f"Voltando aqui sobre a proposta {deliverable}"
+            body = (
+                f"Oi {name or 'tudo bem'} — só subindo a proposta de {deliverable}. "
+                "Se essa semana não é a hora, me diz quando é e eu seguro a vaga."
+            )
+    else:  # nudge_d5
+        if lang == "en":
+            subject = f"Last check-in on the {deliverable} proposal"
+            body = (
+                f"Hi {name or 'there'} — last check-in on the {deliverable} proposal. "
+                "If the timing is off, no worries; I'll close the file and you can ping me when ready."
+            )
+        else:
+            subject = f"Último toque na proposta {deliverable}"
+            body = (
+                f"Oi {name or 'tudo bem'} — último contato sobre a proposta de {deliverable}. "
+                "Se o timing não bate, sem problema — fecho o arquivo e tu me chama quando fizer sentido."
+            )
+
+    body_html = f"""<!DOCTYPE html><html><body style="background:#fafaf9;font-family:Inter,-apple-system,sans-serif;color:#1a1a1a;margin:0;padding:32px 24px;">
+<div style="max-width:560px;margin:0 auto;">
+<p style="color:#475569;line-height:1.65;font-size:16px;">{body}</p>
+<p style="margin:24px 0;"><a href="{hosted_url}" style="display:inline-block;background:#0f172a;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">
+{("Re-open the proposal" if lang == "en" else "Reabrir a proposta")} -></a></p>
+<p style="color:#78716c;font-size:13px;margin-top:24px;">Mila Vernazza · Anuvia</p>
+</div></body></html>"""
+
+    to = fresh.get("email")
+    if not to:
+        raise RuntimeError(f"track_b.{practice}_{kind}: lead {lead_id} has no email")
+
+    msg_id = await _send_email(
+        to=to,
+        subject=subject,
+        html=body_html,
+        lead_id=lead_id,
+        kind=f"{practice}_{kind}",
+    )
+
+    try:
+        await session_append_artifact(
+            lead_id,
+            type="email_sent",
+            url=None,
+            meta={
+                "kind": f"{practice}_{kind}",
+                "practice": practice,
+                "resend_message_id": msg_id,
+                "lang": lang,
+            },
+        )
+    except Exception:
+        log.exception(
+            "track_b.%s_%s: artifact append failed lead=%s",
+            practice, kind, lead_id,
+        )
+        raise
+
+    return {
+        "next_action": next_action,
+        "next_action_at": (_now() + next_delay) if next_action else None,
+        "status": next_status,
+        "detail": detail,
+    }
+
+
+def _make_practice_handlers(practice: str) -> None:
+    """Register the 5 standard handlers for a non-growth practice.
+
+    Called once per practice at module import time. Each handler is a thin
+    closure over ``_practice_*`` helpers above so the lifecycle stays
+    identical to Growth's flow.
+    """
+
+    @register(f"{practice}_classify_track")
+    async def _classify(lead: Dict[str, Any]) -> Dict[str, Any]:
+        """Practice-specific classify entry point.
+
+        Useful when a future LP wants to schedule the practice classifier
+        directly (skipping the generic ``classify_track``). Behaviour is
+        identical: read PRACTICE_CONFIG, route to autonomous or discovery.
+        """
+        lead_id = str(lead.get("id") or "")
+        cfg = PRACTICE_CONFIG.get(practice) or {}
+        if not cfg.get("autonomous_enabled"):
+            try:
+                await session_update(lead_id, track="discovery")
+            except Exception:
+                log.exception(
+                    "track_b.%s_classify_track: session_update failed lead=%s",
+                    practice, lead_id,
+                )
+                raise
+            return {
+                "next_action": None,
+                "next_action_at": None,
+                "status": "in_discovery",
+                "detail": f"{practice} is discovery-led (autonomous_enabled=False)",
+            }
+
+        counter = _PRACTICE_SIGNALS.get(practice)
+        signals = counter(_qd(lead)) if counter else 0
+        track = "autonomous" if signals >= 2 else "discovery"
+        try:
+            await session_update(lead_id, track=track)
+        except Exception:
+            log.exception(
+                "track_b.%s_classify_track: session_update failed lead=%s",
+                practice, lead_id,
+            )
+            raise
+
+        if track == "autonomous":
+            return {
+                "next_action": f"{practice}_generate_proposal_v1",
+                "next_action_at": _now() + timedelta(minutes=15),
+                "status": "qualified",
+                "detail": f"autonomous track ({practice})",
+            }
+        return {
+            "next_action": None,
+            "next_action_at": None,
+            "status": "in_discovery",
+            "detail": f"discovery track ({practice}, signals<2)",
+        }
+
+    @register(f"{practice}_generate_proposal_v1")
+    async def _gen_proposal(lead: Dict[str, Any]) -> Dict[str, Any]:
+        return await _practice_generate_proposal(lead, practice)
+
+    @register(f"{practice}_followup_proposal_d2")
+    async def _fwup_d2(lead: Dict[str, Any]) -> Dict[str, Any]:
+        return await _practice_send_nudge(
+            lead,
+            practice=practice,
+            kind="nudge_d2",
+            next_action=f"{practice}_followup_proposal_d5",
+            next_delay=timedelta(days=3),
+            next_status=None,
+            detail=f"{practice} d2 nudge sent",
+        )
+
+    @register(f"{practice}_followup_proposal_d5")
+    async def _fwup_d5(lead: Dict[str, Any]) -> Dict[str, Any]:
+        return await _practice_send_nudge(
+            lead,
+            practice=practice,
+            kind="nudge_d5",
+            next_action=f"{practice}_close_ghosted_d10",
+            next_delay=timedelta(days=5),
+            next_status=None,
+            detail=f"{practice} d5 final nudge sent",
+        )
+
+    @register(f"{practice}_close_ghosted_d10")
+    async def _close_ghosted(lead: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "next_action": None,
+            "next_action_at": None,
+            "status": "ghosted",
+            "detail": f"{practice} closed as ghosted after 10 days no response",
+        }
+
+
+# Register handlers for every non-growth practice. Growth keeps its own
+# bespoke set above (back-compat with leads already in flight).
+for _practice in ("cloud_finops", "devops", "ai", "industry"):
+    _make_practice_handlers(_practice)
 
 
 # ---------------------------------------------------------------------------
