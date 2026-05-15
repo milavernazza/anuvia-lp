@@ -137,15 +137,32 @@ _HTTP_TIMEOUT = 30.0
 # from SPRINT_INPUTS_MILA.md section 1.
 _BRAND_SYSTEM_PROMPT = (
     "Você está escrevendo em nome de Mila Vernazza, founder da Anuvia "
-    "(consultoria sênior de cloud + IA). Voz: seca, direta, anti-hype, "
-    "primeiro os números, depois a narrativa. Frases curtas declarativas "
-    "misturadas com cadeias causa-efeito mais longas. Use o léxico: "
-    "vazamento, clareza, diagnóstico, processo, padrão, sobreviver em "
-    "produção. Evite: sinergia, transformação, leverage, magia, mágico, "
-    "IA generativa que muda o jogo. Nunca prometa o que não pode ser "
-    "medido. Sempre cite números concretos (R$, %, dias, horas) quando "
-    "tiver dados — quando não tiver, marque explicitamente como "
-    "'estimativa baseada em padrões setoriais'. Português do Brasil."
+    "(consultoria sênior de cloud + IA, ex-AWS Solutions Architect, ex-Google, "
+    "ex-MongoDB). Voz: seca, direta, anti-hype, primeiro os números, depois a "
+    "narrativa. Frases curtas declarativas misturadas com cadeias causa-efeito "
+    "mais longas. Léxico que usa: vazamento, clareza, diagnóstico, processo, "
+    "padrão, sobreviver em produção. Léxico que evita: sinergia, transformação, "
+    "leverage, magia, mágico, IA generativa que muda o jogo.\n\n"
+    "REGRAS DE PROFUNDIDADE TÉCNICA (não negociáveis):\n"
+    "1. Cite instance types específicos (db.m5.2xlarge, m7g.xlarge, t4g.large). "
+    "Nunca diga genericamente 'instâncias'.\n"
+    "2. Cite serviços AWS exatos com seu nome de produto (AWS Compute Optimizer, "
+    "Cost Explorer, Trusted Advisor, S3 Intelligent-Tiering, Aurora I/O-Optimized).\n"
+    "3. Cite métricas CloudWatch concretas (CPUUtilization, VolumeReadOps, "
+    "DBIOPS) e thresholds reais (CPU <15% por 14d).\n"
+    "4. Cite comandos AWS CLI/API quando relevante (modify-db-instance, "
+    "AbortIncompleteMultipartUpload, AbortIncompleteMultipartUpload lifecycle rule).\n"
+    "5. Use números DO INTAKE do cliente sempre que possível. Se intake diz "
+    "R$ 95k/mês AWS spend, todos os números derivam disso, não de fantasia.\n"
+    "6. Math explícita: 'gp2 ~US$ 0,10/GB/mês vs gp3 ~US$ 0,08/GB/mês × 8TB × "
+    "12 = US$ 1.920/ano = R$ 9.600/ano (USD/BRL 5,0)'. Mostre a conta.\n"
+    "7. Quando estimar, use 'estimativa' uma vez só. NÃO repita 'padrão setorial' "
+    "como muleta — isso é tique de junior. Diga o número, justifique com a math.\n"
+    "8. Para CADA finding, inclua: validation criteria (como confirmar), rollback "
+    "plan (como reverter), janela de execução (quando).\n"
+    "9. ADRs em formato ADR-XX: ADR-01 (RI 1-year vs 3-year), ADR-02 (Graviton "
+    "blue/green migration), etc.\n"
+    "10. Nunca prometa o que não pode ser medido. Português do Brasil."
 )
 
 #: Sentinel prefix for narrative that Claude could not generate (env var
@@ -383,15 +400,15 @@ async def _html_to_pdf(html: str) -> Optional[bytes]:
 async def _call_claude(
     prompt: str,
     *,
-    max_tokens: int = 2400,
+    max_tokens: int = 6000,
     system: str = _BRAND_SYSTEM_PROMPT,
+    max_retries: int = 3,
 ) -> str:
-    """One-shot call to the Anthropic Messages API.
+    """Call the Anthropic Messages API with retry + exponential backoff.
 
-    Returns the model's text. On any failure (missing key, HTTP error,
-    network drop) returns a sentinel string prefixed with
-    ``_CLAUDE_FALLBACK_TAG`` so the caller can ship a degraded but
-    obviously-flagged deliverable.
+    Returns the model's text. Only falls back to ``_CLAUDE_FALLBACK_TAG`` after
+    ``max_retries`` consecutive failures. Each retry waits 2^attempt seconds.
+    Timeout per attempt is 90 seconds (Claude can take 30-60s on big prompts).
     """
     if not ANTHROPIC_API_KEY:
         return f"{_CLAUDE_FALLBACK_TAG} (no ANTHROPIC_API_KEY)\n\n{prompt[:800]}"
@@ -402,36 +419,57 @@ async def _call_claude(
         "system": system,
         "messages": [{"role": "user", "content": prompt}],
     }
-    try:
-        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT * 3) as client:
-            r = await client.post(
-                ANTHROPIC_API_URL,
-                headers={
-                    "x-api-key": ANTHROPIC_API_KEY,
-                    "anthropic-version": "2023-06-01",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
+    last_err: str = ""
+    for attempt in range(max_retries):
+        try:
+            async with httpx.AsyncClient(timeout=90.0) as client:
+                r = await client.post(
+                    ANTHROPIC_API_URL,
+                    headers={
+                        "x-api-key": ANTHROPIC_API_KEY,
+                        "anthropic-version": "2023-06-01",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                )
+        except Exception as exc:  # noqa: BLE001
+            last_err = f"network attempt {attempt + 1}: {exc}"
+            log.warning("finops: anthropic %s", last_err)
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2 ** attempt)
+                continue
+            return f"{_CLAUDE_FALLBACK_TAG} ({last_err})"
+
+        if r.status_code == 200:
+            body = r.json() if r.text else {}
+            blocks = body.get("content") or []
+            parts: List[str] = []
+            for blk in blocks:
+                if isinstance(blk, dict) and blk.get("type") == "text":
+                    parts.append(blk.get("text") or "")
+            out = "\n".join(parts).strip()
+            if out:
+                return out
+            last_err = "empty response"
+        elif r.status_code in (429, 500, 502, 503, 504, 529):
+            # Retryable: rate limit or transient server error
+            last_err = f"status {r.status_code} (attempt {attempt + 1})"
+            log.warning(
+                "finops: anthropic retryable %s body=%s",
+                last_err, r.text[:300],
             )
-    except Exception as exc:  # noqa: BLE001
-        log.warning("finops: anthropic network failed: %s", exc)
-        return f"{_CLAUDE_FALLBACK_TAG} (network: {exc})"
+        else:
+            # Non-retryable error (400/401/403)
+            log.warning(
+                "finops: anthropic non-retryable status=%s body=%s",
+                r.status_code, r.text[:300],
+            )
+            return f"{_CLAUDE_FALLBACK_TAG} (status {r.status_code})"
 
-    if r.status_code >= 400:
-        log.warning(
-            "finops: anthropic non-2xx status=%s body=%s",
-            r.status_code, r.text[:300],
-        )
-        return f"{_CLAUDE_FALLBACK_TAG} (status {r.status_code})"
+        if attempt < max_retries - 1:
+            await asyncio.sleep(2 ** attempt)
 
-    body = r.json() if r.text else {}
-    blocks = body.get("content") or []
-    parts: List[str] = []
-    for blk in blocks:
-        if isinstance(blk, dict) and blk.get("type") == "text":
-            parts.append(blk.get("text") or "")
-    out = "\n".join(parts).strip()
-    return out or f"{_CLAUDE_FALLBACK_TAG} (empty response)"
+    return f"{_CLAUDE_FALLBACK_TAG} ({last_err})"
 
 
 # ---------------------------------------------------------------------------
@@ -1086,7 +1124,7 @@ Cadência mensal de revisão (template incluso), métricas que importam (cost pe
 
 Voz Anuvia: seca, direta, numbers-first.
 """
-    return await _call_claude(prompt, max_tokens=3500)
+    return await _call_claude(prompt, max_tokens=6000)
 
 
 async def _compose_deck_narrative(engagement: dict, findings: dict) -> str:
@@ -1130,7 +1168,7 @@ Estrutura:
 
 Voz Anuvia: seca, direta. Sem hype. Bullets curtos."""
 
-    return await _call_claude(prompt, max_tokens=3500)
+    return await _call_claude(prompt, max_tokens=8000)
 
 
 # ---------------------------------------------------------------------------
