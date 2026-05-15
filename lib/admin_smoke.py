@@ -300,6 +300,9 @@ async def _smoke_engagement_impl(request: Request):
             "name": "Mila Vernazza (smoke)",
             "company": f"Smoke {practice} {now.strftime('%H%M%S')}",
             "funnel_id": cfg["funnel_id"],
+            "market": "BR",  # NOT NULL constraint
+            "language": "pt",
+            "brand": "anuvia",
             "qualification_data": {
                 "smoke_test": True,
                 "smoke_practice": practice,
