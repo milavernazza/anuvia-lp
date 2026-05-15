@@ -129,18 +129,59 @@ _HTTP_TIMEOUT = 30.0
 # instruction is non-optional because every vertical here is regulated.
 _BRAND_SYSTEM_PROMPT = (
     "Você está escrevendo em nome de Mila Vernazza, founder da Anuvia "
-    "(consultoria sênior de cloud + IA). Voz: seca, direta, anti-hype, "
-    "primeiro os números, depois a narrativa. Frases curtas declarativas "
-    "misturadas com cadeias causa-efeito mais longas. Use o léxico: "
-    "vazamento, clareza, diagnóstico, processo, padrão, sobreviver em "
-    "produção, gate de saída, evidência. Evite: sinergia, transformação, "
-    "leverage, magia, mágico, IA generativa que muda o jogo, revolucionar. "
-    "Nunca prometa o que não pode ser medido. Sempre cite números concretos "
-    "(R$, %, tokens/dia, ms de latência) quando tiver dados — quando não "
-    "tiver, marque explicitamente como 'estimativa baseada em padrões "
-    "setoriais'. Para CADA caso de uso, sempre nomeie qual constraint "
-    "de compliance aplica (LGPD, GxP, BACEN, SOC 2, HIPAA, ANVISA, "
-    "ISO 27001, ISO 9001, 21 CFR Part 11, ou 'nenhuma'). Português do Brasil."
+    "(consultoria sênior de cloud + IA, ex-AWS Solutions Architect, "
+    "ex-Google, ex-MongoDB). Voz: seca, direta, anti-hype, primeiro os "
+    "números, depois a narrativa. Frases curtas declarativas misturadas "
+    "com cadeias causa-efeito mais longas. Use o léxico: vazamento, "
+    "clareza, diagnóstico, processo, padrão, sobreviver em produção, "
+    "gate de saída, evidência, PoV, success criteria, IQ/OQ/PQ. Evite: "
+    "sinergia, transformação, leverage, magia, mágico, IA generativa que "
+    "muda o jogo, revolucionar.\n\n"
+    "REGRAS DE PROFUNDIDADE TÉCNICA (não negociáveis):\n"
+    "1. Cite stack vertical-específico por nome. Manufacturing: PLC streams "
+    "via OPC-UA, MQTT broker, SCADA, MES integration (SAP ME, Siemens "
+    "Opcenter), historian (PI System, Wonderware). Healthcare: FHIR R4, "
+    "HL7 v2.x, DICOM, RIS/PACS. Life sciences: IQ/OQ/PQ protocols, eCTD "
+    "submissions, LIMS (LabWare, STARLIMS). Finserv: BACEN STR/SCR "
+    "reports, SISBACEN, FEBRABAN MIG. Nunca dizer 'integrações' genéricas.\n"
+    "2. Cite frameworks de compliance com nome + artigo/cláusula. "
+    "Healthcare BR: LGPD art. 11 (dados sensíveis de saúde), ANS RN 305, "
+    "ANVISA RDC 657. Life sciences: ANVISA RDC 430, FDA 21 CFR Part 11 "
+    "(audit trail, e-signatures), GxP (GLP/GMP/GCP), EU Annex 11. "
+    "Finserv: BACEN Res. 4.658 (cibersegurança), Circular 3.978 (PLD/FT), "
+    "LGPD art. 7º X (proteção ao crédito). Manufacturing/QMS: ISO 9001, "
+    "ISO 27001, IATF 16949. EUA: HIPAA (PHI), SOC 2 Type II. Nunca dizer "
+    "'compliance regulatório' sem o nome.\n"
+    "3. Para cada caso, defina requisitos de validação vertical-específicos. "
+    "Life sciences: protocolo IQ/OQ/PQ + computer system validation (CSV) "
+    "+ audit trail imutável. Healthcare: anonimização (k-anonymity ≥5), "
+    "consentimento granular LGPD. Finserv: logs com retenção 5 anos, "
+    "segregação BACEN. Manufacturing: rastreabilidade lote-a-lote.\n"
+    "4. Cite tooling com posture build vs buy: Anthropic API direct, AWS "
+    "Bedrock (sovereign region sa-east-1), Azure OpenAI (Brazil South), "
+    "fine-tune open weights (Llama 3.1 70B self-hosted em GPU H100). "
+    "Justificar: latência, sovereignty, custo/1M tokens, lock-in.\n"
+    "5. Use números DO INTAKE do cliente. Se intake diz 200k transações/dia, "
+    "1.2TB dados de produção/mês, 50 SKUs ativos, todos os ganhos derivam "
+    "disso. Não inventar baseline.\n"
+    "6. Math explícita de ROI: PoV ($25-40k, 6-8 sem) → success criteria "
+    "(precision ≥0.85, recall ≥0.80, latência p95 <500ms, throughput "
+    "≥X/dia) → production roadmap (Y meses, $Z capex) → savings/receita "
+    "anual em R$ comparado com baseline. Mostre a conta.\n"
+    "7. PoV success criteria framework obrigatório por caso: dataset "
+    "(n mínimo + composição + holdout), métricas primárias e secundárias "
+    "com threshold numérico, gate para go/no-go production, plano de "
+    "rollback se falhar.\n"
+    "8. Vendor lock-in assessment para cada decisão: data egress cost, "
+    "model portability (ONNX, GGUF, vLLM), data residency, sovereignty "
+    "(em BR: sa-east-1 vs us-east-1 com transferência internacional + "
+    "cláusula contratual LGPD art. 33).\n"
+    "9. ADRs em formato ADR-XX: ADR-01 (cloud region + sovereignty), "
+    "ADR-02 (model + framework de validação), ADR-03 (audit trail "
+    "architecture), ADR-04 (data classification + retention), etc.\n"
+    "10. Quando estimar, use 'estimativa' uma vez só. NÃO repita 'padrão "
+    "setorial' como muleta — isso é tique de junior. Nunca prometa o que "
+    "não pode ser medido. Português do Brasil."
 )
 
 #: Sentinel prefix for narrative that Claude could not generate.
@@ -567,10 +608,16 @@ async def _html_to_pdf(html: str) -> Optional[bytes]:
 async def _claude_call_with_voice(
     prompt: str,
     *,
-    max_tokens: int = 2400,
+    max_tokens: int = 6000,
     system: str = _BRAND_SYSTEM_PROMPT,
+    max_retries: int = 3,
 ) -> str:
-    """One-shot call to the Anthropic Messages API."""
+    """Call the Anthropic Messages API with retry + exponential backoff.
+
+    Returns the model's text. Only falls back to ``_CLAUDE_FALLBACK_TAG`` after
+    ``max_retries`` consecutive failures. Each retry waits 2^attempt seconds.
+    Timeout per attempt is 90 seconds (Claude can take 30-60s on big prompts).
+    """
     if not ANTHROPIC_API_KEY:
         return f"{_CLAUDE_FALLBACK_TAG} (no ANTHROPIC_API_KEY)\n\n{prompt[:800]}"
 
@@ -580,36 +627,57 @@ async def _claude_call_with_voice(
         "system": system,
         "messages": [{"role": "user", "content": prompt}],
     }
-    try:
-        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT * 3) as client:
-            r = await client.post(
-                ANTHROPIC_API_URL,
-                headers={
-                    "x-api-key": ANTHROPIC_API_KEY,
-                    "anthropic-version": "2023-06-01",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
+    last_err: str = ""
+    for attempt in range(max_retries):
+        try:
+            async with httpx.AsyncClient(timeout=90.0) as client:
+                r = await client.post(
+                    ANTHROPIC_API_URL,
+                    headers={
+                        "x-api-key": ANTHROPIC_API_KEY,
+                        "anthropic-version": "2023-06-01",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                )
+        except Exception as exc:  # noqa: BLE001
+            last_err = f"network attempt {attempt + 1}: {exc}"
+            log.warning("industry: anthropic %s", last_err)
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2 ** attempt)
+                continue
+            return f"{_CLAUDE_FALLBACK_TAG} ({last_err})"
+
+        if r.status_code == 200:
+            body = r.json() if r.text else {}
+            blocks = body.get("content") or []
+            parts: List[str] = []
+            for blk in blocks:
+                if isinstance(blk, dict) and blk.get("type") == "text":
+                    parts.append(blk.get("text") or "")
+            out = "\n".join(parts).strip()
+            if out:
+                return out
+            last_err = "empty response"
+        elif r.status_code in (429, 500, 502, 503, 504, 529):
+            # Retryable: rate limit or transient server error
+            last_err = f"status {r.status_code} (attempt {attempt + 1})"
+            log.warning(
+                "industry: anthropic retryable %s body=%s",
+                last_err, r.text[:300],
             )
-    except Exception as exc:  # noqa: BLE001
-        log.warning("industry: anthropic network failed: %s", exc)
-        return f"{_CLAUDE_FALLBACK_TAG} (network: {exc})"
+        else:
+            # Non-retryable error (400/401/403)
+            log.warning(
+                "industry: anthropic non-retryable status=%s body=%s",
+                r.status_code, r.text[:300],
+            )
+            return f"{_CLAUDE_FALLBACK_TAG} (status {r.status_code})"
 
-    if r.status_code >= 400:
-        log.warning(
-            "industry: anthropic non-2xx status=%s body=%s",
-            r.status_code, r.text[:300],
-        )
-        return f"{_CLAUDE_FALLBACK_TAG} (status {r.status_code})"
+        if attempt < max_retries - 1:
+            await asyncio.sleep(2 ** attempt)
 
-    body = r.json() if r.text else {}
-    blocks = body.get("content") or []
-    parts: List[str] = []
-    for blk in blocks:
-        if isinstance(blk, dict) and blk.get("type") == "text":
-            parts.append(blk.get("text") or "")
-    out = "\n".join(parts).strip()
-    return out or f"{_CLAUDE_FALLBACK_TAG} (empty response)"
+    return f"{_CLAUDE_FALLBACK_TAG} ({last_err})"
 
 
 # ---------------------------------------------------------------------------
@@ -1127,7 +1195,7 @@ Devolva APENAS JSON válido, sem markdown:
 }}
 """
 
-    raw = await _claude_call_with_voice(prompt, max_tokens=4500)
+    raw = await _claude_call_with_voice(prompt, max_tokens=6000)
     return _parse_json_or_fallback(
         raw,
         fallback_factory=lambda: {
@@ -1248,7 +1316,7 @@ Devolva APENAS JSON válido, sem markdown:
 }}
 """
 
-    raw = await _claude_call_with_voice(prompt, max_tokens=5000)
+    raw = await _claude_call_with_voice(prompt, max_tokens=6000)
     return _parse_json_or_fallback(
         raw,
         fallback_factory=lambda: {
@@ -1387,7 +1455,7 @@ Devolva APENAS JSON válido, sem markdown:
 }}
 """
 
-    raw = await _claude_call_with_voice(prompt, max_tokens=4500)
+    raw = await _claude_call_with_voice(prompt, max_tokens=6000)
     fallback_case_name = (pb.get("typical_cases") or ["Caso candidato"])[0]
     return _parse_json_or_fallback(
         raw,
@@ -1589,7 +1657,7 @@ Tabela markdown: Métrica | Threshold | Status (medido vs target) | Decisão (pa
 Voz Anuvia: seca, direta, numbers-first.
 """
 
-    return await _claude_call_with_voice(prompt, max_tokens=5000)
+    return await _claude_call_with_voice(prompt, max_tokens=6000)
 
 
 async def _compose_pov_results(
@@ -1684,7 +1752,7 @@ Devolva APENAS JSON válido, sem markdown:
 }}
 """
 
-    raw = await _claude_call_with_voice(prompt, max_tokens=4500)
+    raw = await _claude_call_with_voice(prompt, max_tokens=6000)
     return _parse_json_or_fallback(
         raw,
         fallback_factory=lambda: {
@@ -1890,7 +1958,7 @@ Estrutura sugerida (25 slides):
 Voz Anuvia: seca, direta, anti-hype. Bullets curtos sem ponto final.
 """
 
-    return await _claude_call_with_voice(prompt, max_tokens=6500)
+    return await _claude_call_with_voice(prompt, max_tokens=8000)
 
 
 async def _compose_final_executive_report(
