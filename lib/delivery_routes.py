@@ -518,3 +518,105 @@ async def debug_lead(lead_id: str, token: str):
             "engagements": (r2.json() if r2.status_code == 200 else []),
         }
     )
+
+
+@router.get("/debug/infra")
+async def debug_infra(token: str):
+    """Probe Gotenberg + Supabase Storage to diagnose PDF generation pipeline.
+
+    Returns:
+      gotenberg: {url, reachable, status, error?, html_to_pdf_ok}
+      storage: {bucket, upload_ok, public_url?, error?}
+      slack: {webhook_set, ping_ok}
+    """
+    if not HMAC_SECRET or token != _admin_token():
+        raise HTTPException(401, "bad admin token")
+
+    result = {"gotenberg": {}, "storage": {}, "slack": {}, "env": {}}
+
+    # --- Gotenberg ---
+    gotenberg_url = os.environ.get("GOTENBERG_URL", "http://gotenberg:3000").rstrip("/")
+    result["env"]["GOTENBERG_URL"] = gotenberg_url
+    result["gotenberg"]["url"] = gotenberg_url
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            health = await client.get(f"{gotenberg_url}/health")
+            result["gotenberg"]["reachable"] = True
+            result["gotenberg"]["health_status"] = health.status_code
+    except Exception as e:
+        result["gotenberg"]["reachable"] = False
+        result["gotenberg"]["error"] = f"{type(e).__name__}: {e}"
+
+    # Try HTML→PDF
+    if result["gotenberg"].get("reachable"):
+        try:
+            test_html = "<html><body><h1>Anuvia infra test</h1><p>If you can read this in a PDF, Gotenberg works.</p></body></html>"
+            async with httpx.AsyncClient(timeout=15) as client:
+                r = await client.post(
+                    f"{gotenberg_url}/forms/chromium/convert/html",
+                    files={"files": ("index.html", test_html.encode(), "text/html")},
+                )
+            result["gotenberg"]["html_to_pdf_status"] = r.status_code
+            result["gotenberg"]["html_to_pdf_ok"] = r.status_code == 200
+            result["gotenberg"]["pdf_bytes"] = len(r.content) if r.status_code == 200 else 0
+            if r.status_code != 200:
+                result["gotenberg"]["error"] = r.text[:300]
+        except Exception as e:
+            result["gotenberg"]["html_to_pdf_ok"] = False
+            result["gotenberg"]["error"] = f"{type(e).__name__}: {e}"
+
+    # --- Storage ---
+    bucket = os.environ.get("ANUVIA_DELIVERABLES_BUCKET", "anuvia-deliverables")
+    result["env"]["ANUVIA_DELIVERABLES_BUCKET"] = bucket
+    result["storage"]["bucket"] = bucket
+    if not SUPA_URL or not SUPA_KEY:
+        result["storage"]["error"] = "SUPA_URL or SUPA_KEY missing"
+    else:
+        base = SUPA_URL.replace("/rest/v1", "")
+        test_path = f"_diag/infra_test_{int(datetime.now().timestamp())}.txt"
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                up = await client.post(
+                    f"{base}/storage/v1/object/{bucket}/{test_path}",
+                    headers={
+                        "apikey": SUPA_KEY,
+                        "Authorization": f"Bearer {SUPA_KEY}",
+                        "Content-Type": "text/plain",
+                        "x-upsert": "true",
+                    },
+                    content=b"Anuvia diag test",
+                )
+            result["storage"]["upload_status"] = up.status_code
+            result["storage"]["upload_ok"] = 200 <= up.status_code < 300
+            if up.status_code >= 400:
+                result["storage"]["error"] = up.text[:300]
+            else:
+                result["storage"]["public_url"] = (
+                    f"{base}/storage/v1/object/public/{bucket}/{test_path}"
+                )
+        except Exception as e:
+            result["storage"]["upload_ok"] = False
+            result["storage"]["error"] = f"{type(e).__name__}: {e}"
+
+    # --- Slack ---
+    slack_url = (
+        os.environ.get("SLACK_NEW_LEAD_WEBHOOK", "")
+        or os.environ.get("SLACK_ALERTS_WEBHOOK", "")
+    )
+    result["env"]["SLACK_NEW_LEAD_WEBHOOK"] = "SET" if os.environ.get("SLACK_NEW_LEAD_WEBHOOK") else "UNSET"
+    result["env"]["SLACK_ALERTS_WEBHOOK"] = "SET" if os.environ.get("SLACK_ALERTS_WEBHOOK") else "UNSET"
+    result["slack"]["webhook_set"] = bool(slack_url)
+    if slack_url:
+        try:
+            async with httpx.AsyncClient(timeout=8) as client:
+                sp = await client.post(
+                    slack_url,
+                    json={"text": "Anuvia infra diag ping (ignore)"},
+                )
+            result["slack"]["ping_status"] = sp.status_code
+            result["slack"]["ping_ok"] = sp.status_code == 200
+        except Exception as e:
+            result["slack"]["ping_ok"] = False
+            result["slack"]["error"] = f"{type(e).__name__}: {e}"
+
+    return JSONResponse(result)
