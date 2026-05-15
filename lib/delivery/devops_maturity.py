@@ -502,7 +502,7 @@ async def _html_to_pdf(html: str) -> Optional[bytes]:
 async def _claude_call_with_voice(
     prompt: str,
     *,
-    max_tokens: int = 6000,
+    max_tokens: int = 4000,
     system: str = _BRAND_SYSTEM_PROMPT,
     max_retries: int = 3,
 ) -> str:
@@ -1441,7 +1441,7 @@ Tabela markdown: métrica DORA | valor atual | valor esperado pós quick wins | 
 
 Voz Anuvia: seca, imperativa nos passos, numbers-first nos critérios.
 """
-    return await _claude_call_with_voice(prompt, max_tokens=6000)
+    return await _claude_call_with_voice(prompt, max_tokens=4000)
 
 
 async def _compose_tooling_recommendations(
@@ -1601,7 +1601,7 @@ Estrutura (30 slides):
 
 Voz Anuvia: seca, direta, anti-hype. Bullets curtos sem ponto final. Em ambiente regulado ({regulated}), slides de observability/incident_response têm 1 bullet de compliance callout.
 """
-    return await _claude_call_with_voice(prompt, max_tokens=8000)
+    return await _claude_call_with_voice(prompt, max_tokens=4500)
 
 
 async def _compose_final_executive_report(
@@ -1667,7 +1667,7 @@ Estrutura obrigatória markdown:
 
 Voz Anuvia: seca, direta, numbers-first. Em ambiente regulado ({regulated}), tag compliance explícito em obs+incident; nas demais dimensões NÃO inventar compliance.
 """
-    return await _claude_call_with_voice(prompt, max_tokens=8000)
+    return await _claude_call_with_voice(prompt, max_tokens=4500)
 
 
 async def _compose_kpi_tracking_template(
@@ -1739,7 +1739,7 @@ Texto descrevendo seções do dashboard:
 
 Voz Anuvia: seca, operacional, imperativa. NÃO romantizar dashboards.
 """
-    return await _claude_call_with_voice(prompt, max_tokens=6000)
+    return await _claude_call_with_voice(prompt, max_tokens=4000)
 
 
 # ---------------------------------------------------------------------------
