@@ -302,6 +302,7 @@ async def _smoke_engagement_impl(request: Request):
             "funnel_id": cfg["funnel_id"],
             "market": "BR",  # NOT NULL constraint
             "language": "pt",
+            "track": "autonomous",  # NOT NULL — 'discovery' | 'autonomous'
             "qualification_data": {
                 "smoke_test": True,
                 "smoke_practice": practice,
