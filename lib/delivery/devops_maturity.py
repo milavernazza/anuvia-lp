@@ -130,22 +130,52 @@ _HTTP_TIMEOUT = 30.0
 # for prioritisation.
 _BRAND_SYSTEM_PROMPT = (
     "Você está escrevendo em nome de Mila Vernazza, founder da Anuvia "
-    "(consultoria sênior de cloud + IA + DevOps). Voz: seca, direta, "
-    "anti-hype, primeiro os números, depois a narrativa. Frases curtas "
-    "declarativas misturadas com cadeias causa-efeito mais longas. Use o "
-    "léxico: vazamento, clareza, diagnóstico, processo, padrão, sobreviver "
-    "em produção, gate de saída, evidência, post-mortem blameless, "
-    "regression, runbook, SLI/SLO, eval. Evite: sinergia, transformação, "
-    "leverage, magia, revolução, devops-cultura-mágica, world-class. "
-    "Nunca prometa o que não pode ser medido. Sempre cite números concretos "
-    "(deploys/dia, MTTR em min, lead time em horas, CFR %, cobertura %, "
-    "R$/mês) quando tiver dados — quando não tiver, marque explicitamente "
-    "como 'estimativa baseada em padrões setoriais'. Para clientes em "
-    "ambiente regulado (BACEN fintechs, ANS healthtechs, GxP life "
-    "sciences), tag a constraint de compliance explícita em observability "
-    "e incident response. Para os demais, não inventar compliance. "
-    "Priorização SEMPRE por (impact × confidence) / effort com cada termo "
-    "definido. Português do Brasil."
+    "(consultoria sênior de cloud + IA + DevOps, ex-AWS Solutions Architect, "
+    "ex-Google, ex-MongoDB). Voz: seca, direta, anti-hype, primeiro os "
+    "números, depois a narrativa. Frases curtas declarativas misturadas com "
+    "cadeias causa-efeito mais longas. Use o léxico: vazamento, clareza, "
+    "diagnóstico, processo, padrão, sobreviver em produção, gate de saída, "
+    "evidência, post-mortem blameless, regression, runbook, SLI/SLO, eval. "
+    "Evite: sinergia, transformação, leverage, magia, revolução, "
+    "devops-cultura-mágica, world-class.\n\n"
+    "REGRAS DE PROFUNDIDADE TÉCNICA (não negociáveis):\n"
+    "1. Cite a fonte de cada DORA metric (Jenkins API /job/<name>/api/json, "
+    "GitHub Actions REST /repos/{owner}/{repo}/actions/runs, GitLab CI "
+    "pipelines API, Linear API issue.completedAt, Opsgenie incidents API, "
+    "PagerDuty REST). Nunca dizer 'extrair do CI' genericamente.\n"
+    "2. Cite ferramentas CI/CD por nome e versão quando relevante (Jenkins "
+    "LTS 2.426, GitHub Actions, CircleCI, GitLab CI, Buildkite, Argo CD, "
+    "Flux v2, Spinnaker). Nunca 'a pipeline'.\n"
+    "3. Cite stacks de observability por nome (Datadog APM + Logs, Grafana "
+    "+ Loki + Tempo, New Relic One, Honeycomb, Dynatrace, OpenTelemetry "
+    "collector). Cite SLI/SLO concretos: availability 99.9% (43m budget/mês), "
+    "p95 latency <300ms, error rate <0.1%.\n"
+    "4. Cite feature flag e progressive delivery por nome (LaunchDarkly, "
+    "Unleash, OpenFeature, Flagsmith, Statsig). Cite estratégia de rollout: "
+    "1% canary 24h → 10% → 50% → 100% com auto-rollback em SLO breach.\n"
+    "5. Use números DO INTAKE do cliente. Se intake diz 12 deploys/semana e "
+    "MTTR 4h, todos os targets derivam disso: 'mover de 12/semana → 5/dia "
+    "(35×) ao reduzir lead time de 8h → 30min via trunk-based + automated "
+    "rollback'. Mostre a math.\n"
+    "6. Cite thresholds DORA da Accelerate State of DevOps com exatidão. "
+    "Elite: deploys on-demand (múltiplos/dia), lead time <1h, MTTR <1h, "
+    "CFR 0-15%. High: deploys diários-semanais, lead time 1d-1wk, MTTR <1d, "
+    "CFR 16-30%. Medium: deploys semanais-mensais, lead time 1wk-1mo, MTTR "
+    "1d-1wk, CFR 16-30%. Low: deploys <mensais, lead time >1mo, MTTR >1wk.\n"
+    "7. Priorização SEMPRE por (impact × confidence) / effort com cada "
+    "termo definido em número 1-5 e justificado. Não dizer 'high priority' "
+    "sem mostrar a conta.\n"
+    "8. Para CADA finding, inclua: validation criteria (qual métrica baseline "
+    "vs target, prazo de medição), rollback plan (commit revert + flag off "
+    "+ runbook ref), e janela proposta. Incident response → blameless "
+    "post-mortem template + on-call rotation health (alert fatigue rate, "
+    "ack time p50/p95, false-positive ratio).\n"
+    "9. ADRs em formato ADR-XX: ADR-01 (trunk-based vs gitflow), ADR-02 "
+    "(feature flag tool), ADR-03 (observability stack), ADR-04 (IaC "
+    "framework Terraform vs CDK vs Pulumi), etc.\n"
+    "10. Quando estimar, use 'estimativa' uma vez só. NÃO repita 'padrão "
+    "setorial' como muleta — isso é tique de junior. Nunca prometa o que "
+    "não pode ser medido. Português do Brasil."
 )
 
 #: Sentinel prefix for narrative that Claude could not generate.
@@ -472,14 +502,15 @@ async def _html_to_pdf(html: str) -> Optional[bytes]:
 async def _claude_call_with_voice(
     prompt: str,
     *,
-    max_tokens: int = 2400,
+    max_tokens: int = 6000,
     system: str = _BRAND_SYSTEM_PROMPT,
+    max_retries: int = 3,
 ) -> str:
-    """One-shot call to the Anthropic Messages API.
+    """Call the Anthropic Messages API with retry + exponential backoff.
 
-    Returns the model's text. On any failure returns a sentinel string
-    prefixed with ``_CLAUDE_FALLBACK_TAG`` so the caller can ship a
-    degraded but obviously-flagged deliverable.
+    Returns the model's text. Only falls back to ``_CLAUDE_FALLBACK_TAG`` after
+    ``max_retries`` consecutive failures. Each retry waits 2^attempt seconds.
+    Timeout per attempt is 90 seconds (Claude can take 30-60s on big prompts).
     """
     if not ANTHROPIC_API_KEY:
         return f"{_CLAUDE_FALLBACK_TAG} (no ANTHROPIC_API_KEY)\n\n{prompt[:800]}"
@@ -490,36 +521,57 @@ async def _claude_call_with_voice(
         "system": system,
         "messages": [{"role": "user", "content": prompt}],
     }
-    try:
-        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT * 3) as client:
-            r = await client.post(
-                ANTHROPIC_API_URL,
-                headers={
-                    "x-api-key": ANTHROPIC_API_KEY,
-                    "anthropic-version": "2023-06-01",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
+    last_err: str = ""
+    for attempt in range(max_retries):
+        try:
+            async with httpx.AsyncClient(timeout=90.0) as client:
+                r = await client.post(
+                    ANTHROPIC_API_URL,
+                    headers={
+                        "x-api-key": ANTHROPIC_API_KEY,
+                        "anthropic-version": "2023-06-01",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                )
+        except Exception as exc:  # noqa: BLE001
+            last_err = f"network attempt {attempt + 1}: {exc}"
+            log.warning("devops_maturity: anthropic %s", last_err)
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2 ** attempt)
+                continue
+            return f"{_CLAUDE_FALLBACK_TAG} ({last_err})"
+
+        if r.status_code == 200:
+            body = r.json() if r.text else {}
+            blocks = body.get("content") or []
+            parts: List[str] = []
+            for blk in blocks:
+                if isinstance(blk, dict) and blk.get("type") == "text":
+                    parts.append(blk.get("text") or "")
+            out = "\n".join(parts).strip()
+            if out:
+                return out
+            last_err = "empty response"
+        elif r.status_code in (429, 500, 502, 503, 504, 529):
+            # Retryable: rate limit or transient server error
+            last_err = f"status {r.status_code} (attempt {attempt + 1})"
+            log.warning(
+                "devops_maturity: anthropic retryable %s body=%s",
+                last_err, r.text[:300],
             )
-    except Exception as exc:  # noqa: BLE001
-        log.warning("devops_maturity: anthropic network failed: %s", exc)
-        return f"{_CLAUDE_FALLBACK_TAG} (network: {exc})"
+        else:
+            # Non-retryable error (400/401/403)
+            log.warning(
+                "devops_maturity: anthropic non-retryable status=%s body=%s",
+                r.status_code, r.text[:300],
+            )
+            return f"{_CLAUDE_FALLBACK_TAG} (status {r.status_code})"
 
-    if r.status_code >= 400:
-        log.warning(
-            "devops_maturity: anthropic non-2xx status=%s body=%s",
-            r.status_code, r.text[:300],
-        )
-        return f"{_CLAUDE_FALLBACK_TAG} (status {r.status_code})"
+        if attempt < max_retries - 1:
+            await asyncio.sleep(2 ** attempt)
 
-    body = r.json() if r.text else {}
-    blocks = body.get("content") or []
-    parts: List[str] = []
-    for blk in blocks:
-        if isinstance(blk, dict) and blk.get("type") == "text":
-            parts.append(blk.get("text") or "")
-    out = "\n".join(parts).strip()
-    return out or f"{_CLAUDE_FALLBACK_TAG} (empty response)"
+    return f"{_CLAUDE_FALLBACK_TAG} ({last_err})"
 
 
 # ---------------------------------------------------------------------------
@@ -1549,7 +1601,7 @@ Estrutura (30 slides):
 
 Voz Anuvia: seca, direta, anti-hype. Bullets curtos sem ponto final. Em ambiente regulado ({regulated}), slides de observability/incident_response têm 1 bullet de compliance callout.
 """
-    return await _claude_call_with_voice(prompt, max_tokens=6500)
+    return await _claude_call_with_voice(prompt, max_tokens=8000)
 
 
 async def _compose_final_executive_report(
@@ -1687,7 +1739,7 @@ Texto descrevendo seções do dashboard:
 
 Voz Anuvia: seca, operacional, imperativa. NÃO romantizar dashboards.
 """
-    return await _claude_call_with_voice(prompt, max_tokens=5500)
+    return await _claude_call_with_voice(prompt, max_tokens=6000)
 
 
 # ---------------------------------------------------------------------------
