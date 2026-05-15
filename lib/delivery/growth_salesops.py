@@ -451,7 +451,7 @@ async def _claude_call_with_voice(
     last_err: str = ""
     for attempt in range(max_retries):
         try:
-            async with httpx.AsyncClient(timeout=90.0) as client:
+            async with httpx.AsyncClient(timeout=180.0) as client:
                 r = await client.post(
                     ANTHROPIC_API_URL,
                     headers={
@@ -462,7 +462,7 @@ async def _claude_call_with_voice(
                     json=payload,
                 )
         except Exception as exc:  # noqa: BLE001
-            last_err = f"network attempt {attempt + 1}: {exc}"
+            last_err = f"network attempt {attempt + 1}: {type(exc).__name__} {exc!r}"
             log.warning("growth_salesops: anthropic %s", last_err)
             if attempt < max_retries - 1:
                 await asyncio.sleep(2 ** attempt)
