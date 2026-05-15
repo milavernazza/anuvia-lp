@@ -61,6 +61,12 @@ try:
     from lib.contract import router as _contract_router  # noqa: E402,F401
     from lib.reply_classify import router as _reply_router  # noqa: E402,F401
     from lib.prospecting import router as _prospecting_router  # noqa: E402,F401
+    # Sprint v2 Wave 2: 5 delivery agents (handlers register via @register decorator, no routers)
+    import lib.delivery.finops_audit  # noqa: E402,F401
+    import lib.delivery.ai_readiness  # noqa: E402,F401
+    import lib.delivery.devops_maturity  # noqa: E402,F401
+    import lib.delivery.growth_salesops  # noqa: E402,F401
+    import lib.delivery.industry  # noqa: E402,F401
     app.include_router(_sessions_router)
     app.include_router(_orchestrator_router)
     app.include_router(_track_b_router)
@@ -70,7 +76,7 @@ try:
     _AUTONOMOUS_FUNNEL_ENABLED = True
     log.info(
         "Autonomous funnel v2 mounted: /api/session, /api/orchestrator, /api/track-b, "
-        "/api/contract, /api/reply, /api/prospecting (+outbound handlers)"
+        "/api/contract, /api/reply, /api/prospecting (+outbound +5 delivery agents)"
     )
 
     # In-process scheduler — runs orchestrator.tick() every 10 minutes.
