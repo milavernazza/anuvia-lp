@@ -608,7 +608,7 @@ async def _html_to_pdf(html: str) -> Optional[bytes]:
 async def _claude_call_with_voice(
     prompt: str,
     *,
-    max_tokens: int = 6000,
+    max_tokens: int = 4000,
     system: str = _BRAND_SYSTEM_PROMPT,
     max_retries: int = 3,
 ) -> str:
@@ -1195,7 +1195,7 @@ Devolva APENAS JSON válido, sem markdown:
 }}
 """
 
-    raw = await _claude_call_with_voice(prompt, max_tokens=6000)
+    raw = await _claude_call_with_voice(prompt, max_tokens=4000)
     return _parse_json_or_fallback(
         raw,
         fallback_factory=lambda: {
@@ -1316,7 +1316,7 @@ Devolva APENAS JSON válido, sem markdown:
 }}
 """
 
-    raw = await _claude_call_with_voice(prompt, max_tokens=6000)
+    raw = await _claude_call_with_voice(prompt, max_tokens=4000)
     return _parse_json_or_fallback(
         raw,
         fallback_factory=lambda: {
@@ -1455,7 +1455,7 @@ Devolva APENAS JSON válido, sem markdown:
 }}
 """
 
-    raw = await _claude_call_with_voice(prompt, max_tokens=6000)
+    raw = await _claude_call_with_voice(prompt, max_tokens=4000)
     fallback_case_name = (pb.get("typical_cases") or ["Caso candidato"])[0]
     return _parse_json_or_fallback(
         raw,
@@ -1572,7 +1572,7 @@ Tabela markdown: Risco | Likelihood | Impact | Mitigation | Dono.
 Voz Anuvia: seca, direta, numbers-first. Bullets curtos. Tabelas markdown reais. Nada de fluff.
 """
 
-    return await _claude_call_with_voice(prompt, max_tokens=6000)
+    return await _claude_call_with_voice(prompt, max_tokens=4000)
 
 
 async def _compose_eval_framework(
@@ -1657,7 +1657,7 @@ Tabela markdown: Métrica | Threshold | Status (medido vs target) | Decisão (pa
 Voz Anuvia: seca, direta, numbers-first.
 """
 
-    return await _claude_call_with_voice(prompt, max_tokens=6000)
+    return await _claude_call_with_voice(prompt, max_tokens=4000)
 
 
 async def _compose_pov_results(
@@ -1752,7 +1752,7 @@ Devolva APENAS JSON válido, sem markdown:
 }}
 """
 
-    raw = await _claude_call_with_voice(prompt, max_tokens=6000)
+    raw = await _claude_call_with_voice(prompt, max_tokens=4000)
     return _parse_json_or_fallback(
         raw,
         fallback_factory=lambda: {
@@ -1958,7 +1958,7 @@ Estrutura sugerida (25 slides):
 Voz Anuvia: seca, direta, anti-hype. Bullets curtos sem ponto final.
 """
 
-    return await _claude_call_with_voice(prompt, max_tokens=8000)
+    return await _claude_call_with_voice(prompt, max_tokens=4500)
 
 
 async def _compose_final_executive_report(
@@ -2060,7 +2060,7 @@ Estrutura obrigatória, nesta ordem:
 Voz Anuvia: seca, direta, numbers-first. Cada caso/decisão carrega compliance_tag explícito. Estimativas marcadas como tal.
 """
 
-    return await _claude_call_with_voice(prompt, max_tokens=8000)
+    return await _claude_call_with_voice(prompt, max_tokens=4500)
 
 
 # ---------------------------------------------------------------------------
