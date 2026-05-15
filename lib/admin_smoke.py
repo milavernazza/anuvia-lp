@@ -34,6 +34,9 @@ from typing import Any, Dict, Optional
 import httpx
 from fastapi import APIRouter, HTTPException, Request
 
+# Reuse sessions.py defaults (same SUPA_URL fallback used by track_b + contract).
+from lib.sessions import SUPA_HEADERS, SUPA_URL, SUPA_KEY
+
 log = logging.getLogger("anuvia-admin-smoke")
 
 router = APIRouter(prefix="/api/_admin", tags=["admin-smoke"])
@@ -43,14 +46,6 @@ HMAC_SECRET = (
     os.environ.get("CONTRACT_HMAC_SECRET", "")
     or os.environ.get("TRACK_B_HMAC_SECRET", "")
 )
-SUPA_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
-SUPA_KEY = os.environ.get("SUPABASE_KEY", "")
-SUPA_HEADERS = {
-    "apikey": SUPA_KEY,
-    "Authorization": f"Bearer {SUPA_KEY}",
-    "Content-Type": "application/json",
-    "Prefer": "return=representation",
-}
 
 
 _PRACTICE_CONFIG = {
