@@ -522,6 +522,68 @@ async def smoke_cleanup(request: Request):
     return {"ok": True, "email": email, "deleted_lead_ids": lead_ids, "counts": deleted}
 
 
+@router.post("/smoke/fire_phase_sync_traced")
+async def smoke_fire_phase_sync_traced(request: Request):
+    """Run a handler SYNCHRONOUSLY with full exception trace. Use for debugging.
+
+    Body: {engagement_id, phase_action}
+    Returns timing per Claude call + any exception trace.
+    """
+    import time as _time
+    token = request.query_params.get("token", "")
+    if not _verify_admin_token(token):
+        raise HTTPException(401, "bad admin token")
+
+    body = await request.json()
+    engagement_id = body.get("engagement_id")
+    phase_action = body.get("phase_action")
+
+    timings = []
+    t_start = _time.time()
+    try:
+        async with httpx.AsyncClient() as client:
+            eng = await _supa_get(
+                client, "engagements", f"id=eq.{engagement_id}&select=*"
+            )
+            if not eng:
+                return {"ok": False, "error": "engagement not found"}
+            lead = await _supa_get(client, "leads", f"id=eq.{eng['lead_id']}&select=*")
+            if not lead:
+                return {"ok": False, "error": "lead not found"}
+            past_iso = (datetime.now(timezone.utc) - timedelta(minutes=2)).isoformat()
+            await _supa_patch(
+                client, "leads", f"id=eq.{lead['id']}",
+                {"next_action": phase_action, "next_action_at": past_iso},
+            )
+            lead = await _supa_get(client, "leads", f"id=eq.{lead['id']}&select=*") or lead
+        timings.append({"step": "setup", "elapsed_s": _time.time() - t_start})
+
+        from lib.orchestrator import HANDLERS
+        fn = HANDLERS.get(phase_action)
+        if not fn:
+            return {"ok": False, "error": f"handler {phase_action} not registered"}
+
+        t_handler = _time.time()
+        result = await fn(lead)
+        timings.append({"step": "handler", "elapsed_s": _time.time() - t_handler})
+
+        return {
+            "ok": True,
+            "total_elapsed_s": _time.time() - t_start,
+            "timings": timings,
+            "result": result,
+        }
+    except Exception as e:
+        import traceback
+        return {
+            "ok": False,
+            "total_elapsed_s": _time.time() - t_start,
+            "error": f"{type(e).__name__}: {e}",
+            "trace": traceback.format_exc().splitlines()[-15:],
+            "timings": timings,
+        }
+
+
 @router.get("/smoke/token")
 async def smoke_token():
     """Convenience endpoint to compute the admin token. NO AUTH on purpose so
