@@ -11,3 +11,4 @@ PyYAML==6.0.2
 # Sprint v2 Wave 2 additions
 qrcode[pil]==7.4.2
 cryptography==43.0.1
+python-multipart==0.0.9
