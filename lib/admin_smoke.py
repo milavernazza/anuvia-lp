@@ -531,3 +531,92 @@ async def smoke_token():
         raise HTTPException(500, "CONTRACT_HMAC_SECRET not configured")
     tok = hmac.new(HMAC_SECRET.encode("utf-8"), b"admin_smoke", hashlib.sha256).hexdigest()
     return {"token": tok}
+
+
+@router.post("/smoke/fire_phase")
+async def smoke_fire_phase(request: Request):
+    """Fire one named handler against an existing engagement's lead.
+
+    Body: {engagement_id, phase_action, submit_intake_first?: bool, intake?: dict}
+    Query: ?token=<hex>
+
+    Useful for running phases one-by-one when each phase takes long enough
+    to time out the curl call (Claude + Gotenberg + Storage uploads).
+    """
+    try:
+        token = request.query_params.get("token", "")
+        if not _verify_admin_token(token):
+            raise HTTPException(401, "bad admin token")
+        body = await request.json()
+        engagement_id = body.get("engagement_id")
+        phase_action = body.get("phase_action")
+        if not engagement_id or not phase_action:
+            raise HTTPException(400, "engagement_id + phase_action required")
+
+        async with httpx.AsyncClient() as client:
+            eng = await _supa_get(
+                client, "engagements", f"id=eq.{engagement_id}&select=*"
+            )
+            if not eng:
+                raise HTTPException(404, "engagement not found")
+            lead_id = eng["lead_id"]
+            lead = await _supa_get(client, "leads", f"id=eq.{lead_id}&select=*")
+            if not lead:
+                raise HTTPException(404, "lead not found")
+
+            # Optional: submit fake intake before firing the phase
+            if body.get("submit_intake_first"):
+                practice = eng.get("practice")
+                intake = body.get("intake") or {}
+                # If no intake supplied, use the practice default
+                if not intake:
+                    cfg = _PRACTICE_CONFIG.get(practice) or _PRACTICE_CONFIG.get("cloud_finops")
+                    intake = cfg["intake_sample"]
+                cur_artifacts = eng.get("artifacts") or {}
+                if not isinstance(cur_artifacts, dict):
+                    cur_artifacts = {"_legacy": cur_artifacts}
+                cur_artifacts["intake_submitted_at"] = datetime.now(timezone.utc).isoformat()
+                cur_artifacts["intake"] = intake
+                await _supa_patch(
+                    client,
+                    "engagements",
+                    f"id=eq.{engagement_id}",
+                    {"intake_data": intake, "artifacts": cur_artifacts},
+                )
+
+            # Force lead due NOW for THIS action
+            past_iso = (datetime.now(timezone.utc) - timedelta(minutes=2)).isoformat()
+            await _supa_patch(
+                client,
+                "leads",
+                f"id=eq.{lead_id}",
+                {"next_action": phase_action, "next_action_at": past_iso},
+            )
+            lead = await _supa_get(client, "leads", f"id=eq.{lead_id}&select=*") or lead
+
+        result = await _run_handler_direct(phase_action, lead)
+        # Reload engagement for current state
+        async with httpx.AsyncClient() as client:
+            eng2 = await _supa_get(
+                client, "engagements", f"id=eq.{engagement_id}&select=*"
+            ) or {}
+        art_keys = list((eng2.get("artifacts") or {}).keys()) if isinstance(
+            eng2.get("artifacts"), dict
+        ) else []
+        return {
+            "ok": True,
+            "phase_action": phase_action,
+            "result": result,
+            "engagement_status": eng2.get("status"),
+            "current_phase": eng2.get("current_phase"),
+            "artifact_keys": art_keys,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        return {
+            "ok": False,
+            "error": f"{type(e).__name__}: {e}",
+            "trace": traceback.format_exc().splitlines()[-10:],
+        }
