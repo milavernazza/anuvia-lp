@@ -400,7 +400,7 @@ async def _html_to_pdf(html: str) -> Optional[bytes]:
 async def _call_claude(
     prompt: str,
     *,
-    max_tokens: int = 6000,
+    max_tokens: int = 4000,
     system: str = _BRAND_SYSTEM_PROMPT,
     max_retries: int = 3,
 ) -> str:
@@ -1097,7 +1097,7 @@ Estruture o documento markdown com estas seções, nesta ordem:
 Voz Anuvia: seca, direta, numbers-first. Cada afirmação com número quando possível. Quando estimar, dizer "estimativa".
 """
 
-    return await _call_claude(prompt, max_tokens=6000)
+    return await _call_claude(prompt, max_tokens=4000)
 
 
 async def _compose_roadmap_narrative(engagement: dict, findings: dict) -> str:
@@ -1124,7 +1124,7 @@ Cadência mensal de revisão (template incluso), métricas que importam (cost pe
 
 Voz Anuvia: seca, direta, numbers-first.
 """
-    return await _call_claude(prompt, max_tokens=6000)
+    return await _call_claude(prompt, max_tokens=4000)
 
 
 async def _compose_deck_narrative(engagement: dict, findings: dict) -> str:
@@ -1168,7 +1168,7 @@ Estrutura:
 
 Voz Anuvia: seca, direta. Sem hype. Bullets curtos."""
 
-    return await _call_claude(prompt, max_tokens=8000)
+    return await _call_claude(prompt, max_tokens=4500)
 
 
 # ---------------------------------------------------------------------------
