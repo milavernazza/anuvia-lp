@@ -55,12 +55,23 @@ try:
     from lib.sessions import router as _sessions_router, session_update, session_set_next  # noqa: E402
     from lib.orchestrator import router as _orchestrator_router, tick as _orchestrator_tick  # noqa: E402
     from lib.track_b import router as _track_b_router  # noqa: E402,F401
-    import lib.track_b  # noqa: E402,F401 — registers handlers as side-effect
+    import lib.track_b  # noqa: E402,F401 — registers handlers as side-effect (Growth + 4 practices)
+    # Sprint v2: sales+delivery autonomous stack
+    import lib.outbound  # noqa: E402,F401 — handlers register via @register decorator (no router)
+    from lib.contract import router as _contract_router  # noqa: E402,F401
+    from lib.reply_classify import router as _reply_router  # noqa: E402,F401
+    from lib.prospecting import router as _prospecting_router  # noqa: E402,F401
     app.include_router(_sessions_router)
     app.include_router(_orchestrator_router)
     app.include_router(_track_b_router)
+    app.include_router(_contract_router)
+    app.include_router(_reply_router)
+    app.include_router(_prospecting_router)
     _AUTONOMOUS_FUNNEL_ENABLED = True
-    log.info("Autonomous funnel v1 mounted: /api/session, /api/orchestrator, /api/track-b")
+    log.info(
+        "Autonomous funnel v2 mounted: /api/session, /api/orchestrator, /api/track-b, "
+        "/api/contract, /api/reply, /api/prospecting (+outbound handlers)"
+    )
 
     # In-process scheduler — runs orchestrator.tick() every 10 minutes.
     # Disable by setting ORCHESTRATOR_SCHEDULER_ENABLED=0 (e.g., when running
