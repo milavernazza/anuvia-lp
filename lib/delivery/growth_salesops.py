@@ -124,20 +124,53 @@ _HTTP_TIMEOUT = 30.0
 # instruction since Sales Ops is not compliance-heavy.
 _BRAND_SYSTEM_PROMPT = (
     "Você está escrevendo em nome de Mila Vernazza, founder da Anuvia "
-    "(consultoria sênior de cloud + IA + sales ops). Voz: seca, direta, "
-    "anti-hype, primeiro os números, depois a narrativa. Frases curtas "
-    "declarativas misturadas com cadeias causa-efeito mais longas. Use o "
-    "léxico: vazamento, clareza, diagnóstico, processo, padrão, gate de "
-    "saída, evidência, funil, conversão stage-a-stage, response time, "
-    "ciclo de venda, dwell time, lead leakage. Evite: sinergia, "
-    "transformação, leverage, magia, mágico, IA generativa que muda o "
-    "jogo, revolucionar, growth hack. Nunca prometa o que não pode ser "
-    "medido. Sempre cite números concretos (R$, %, horas, leads/semana, "
-    "deals/mês) quando tiver dados — quando não tiver, marque "
-    "explicitamente como 'estimativa baseada em padrões setoriais'. Para "
-    "CADA automação recomendada, sempre nomeie a posture de build vs buy "
-    "(HubSpot workflows, n8n custom, Make.com, Zapier, custom code) com "
-    "justificativa de 1 linha. Português do Brasil."
+    "(consultoria sênior de cloud + IA + sales ops, ex-AWS Solutions "
+    "Architect, ex-Google, ex-MongoDB). Voz: seca, direta, anti-hype, "
+    "primeiro os números, depois a narrativa. Frases curtas declarativas "
+    "misturadas com cadeias causa-efeito mais longas. Use o léxico: "
+    "vazamento, clareza, diagnóstico, processo, padrão, gate de saída, "
+    "evidência, funil, conversão stage-a-stage, response time, ciclo de "
+    "venda, dwell time, lead leakage. Evite: sinergia, transformação, "
+    "leverage, magia, mágico, IA generativa que muda o jogo, revolucionar, "
+    "growth hack.\n\n"
+    "REGRAS DE PROFUNDIDADE TÉCNICA (não negociáveis):\n"
+    "1. Cite CRMs por nome e edition (HubSpot Sales Hub Professional, "
+    "Salesforce Sales Cloud Enterprise, Pipedrive Power, RD Station CRM "
+    "Pro, Close, Outreach). Nunca dizer 'o CRM' genericamente.\n"
+    "2. Cite stages do funil com a definição operacional exata (Lead → MQL "
+    "= score ≥ X + fit ICP; MQL → SQL = SDR qualified com BANT/MEDDIC; "
+    "SQL → Opportunity = discovery call done + budget confirmed; "
+    "Opportunity → Closed Won = contrato assinado). Não confundir lifecycle "
+    "stage com deal stage.\n"
+    "3. Cite métricas com a math explícita: 'response time 5min → 24h "
+    "derruba conversão MQL→SQL de ~25% para ~5% (Lead Response Management "
+    "Study, Harvard Business Review). Cliente em 8h = perda estimada de "
+    "12pp = 30 SQLs/mês não convertidos'. Mostre a conta.\n"
+    "4. Cite fontes de dados CRM exatas (HubSpot Reports → Sales Analytics "
+    "→ Deal Funnel; HubSpot Workflows → Performance tab; Salesforce Reports "
+    "tipo Opportunity History; Pipeline Analytics). Quando faltar dado, "
+    "marcar como 'a coletar via Reports' e listar o caminho.\n"
+    "5. Use números DO INTAKE do cliente. Se intake diz 800 leads/mês, "
+    "120 MQLs, 30 SQLs, ticket médio R$ 25k, ciclo 60d, todos os ganhos "
+    "derivam disso: 'response time fix levanta MQL→SQL de 25% para 33% = "
+    "+10 SQLs/mês × 20% close rate × R$ 25k = +R$ 50k/mês recorrente'.\n"
+    "6. Math explícita de ICP scoring: critérios firmográficos (porte 50-500 "
+    "FTE = 10pts, setor SaaS = 8pts, ARR R$ 5-50M = 7pts) + comportamentais "
+    "(demo request = 15pts, pricing page 3+ visits = 10pts, abrir email "
+    "<24h = 3pts). Cutoff de MQL = 50pts. Mostre a regra.\n"
+    "7. Para CADA automação, posture build vs buy explícita (HubSpot "
+    "workflows nativos, n8n self-hosted, Make.com cloud, Zapier, custom "
+    "Node.js/Python) com justificativa de 1 linha: custo mensal, "
+    "manutenção, lock-in, latência.\n"
+    "8. Para CADA finding, inclua: validation criteria (qual métrica + "
+    "baseline + target + janela), rollback plan (workflow off + lifecycle "
+    "stage revert + lista de leads afetados), janela proposta.\n"
+    "9. ADRs em formato ADR-XX: ADR-01 (CRM principal: HubSpot vs "
+    "Salesforce), ADR-02 (lifecycle stage taxonomy), ADR-03 (lead scoring "
+    "model), ADR-04 (orquestrador de automação), etc.\n"
+    "10. Quando estimar, use 'estimativa' uma vez só. NÃO repita 'padrão "
+    "setorial' como muleta — isso é tique de junior. Nunca prometa o que "
+    "não pode ser medido. Português do Brasil."
 )
 
 #: Sentinel prefix for narrative that Claude could not generate.
@@ -396,14 +429,15 @@ async def _html_to_pdf(html: str) -> Optional[bytes]:
 async def _claude_call_with_voice(
     prompt: str,
     *,
-    max_tokens: int = 2400,
+    max_tokens: int = 6000,
     system: str = _BRAND_SYSTEM_PROMPT,
+    max_retries: int = 3,
 ) -> str:
-    """One-shot call to the Anthropic Messages API.
+    """Call the Anthropic Messages API with retry + exponential backoff.
 
-    Returns the model's text. On any failure returns a sentinel string
-    prefixed with ``_CLAUDE_FALLBACK_TAG`` so the caller can ship a
-    degraded but obviously-flagged deliverable.
+    Returns the model's text. Only falls back to ``_CLAUDE_FALLBACK_TAG`` after
+    ``max_retries`` consecutive failures. Each retry waits 2^attempt seconds.
+    Timeout per attempt is 90 seconds (Claude can take 30-60s on big prompts).
     """
     if not ANTHROPIC_API_KEY:
         return f"{_CLAUDE_FALLBACK_TAG} (no ANTHROPIC_API_KEY)\n\n{prompt[:800]}"
@@ -414,36 +448,57 @@ async def _claude_call_with_voice(
         "system": system,
         "messages": [{"role": "user", "content": prompt}],
     }
-    try:
-        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT * 3) as client:
-            r = await client.post(
-                ANTHROPIC_API_URL,
-                headers={
-                    "x-api-key": ANTHROPIC_API_KEY,
-                    "anthropic-version": "2023-06-01",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
+    last_err: str = ""
+    for attempt in range(max_retries):
+        try:
+            async with httpx.AsyncClient(timeout=90.0) as client:
+                r = await client.post(
+                    ANTHROPIC_API_URL,
+                    headers={
+                        "x-api-key": ANTHROPIC_API_KEY,
+                        "anthropic-version": "2023-06-01",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                )
+        except Exception as exc:  # noqa: BLE001
+            last_err = f"network attempt {attempt + 1}: {exc}"
+            log.warning("growth_salesops: anthropic %s", last_err)
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2 ** attempt)
+                continue
+            return f"{_CLAUDE_FALLBACK_TAG} ({last_err})"
+
+        if r.status_code == 200:
+            body = r.json() if r.text else {}
+            blocks = body.get("content") or []
+            parts: List[str] = []
+            for blk in blocks:
+                if isinstance(blk, dict) and blk.get("type") == "text":
+                    parts.append(blk.get("text") or "")
+            out = "\n".join(parts).strip()
+            if out:
+                return out
+            last_err = "empty response"
+        elif r.status_code in (429, 500, 502, 503, 504, 529):
+            # Retryable: rate limit or transient server error
+            last_err = f"status {r.status_code} (attempt {attempt + 1})"
+            log.warning(
+                "growth_salesops: anthropic retryable %s body=%s",
+                last_err, r.text[:300],
             )
-    except Exception as exc:  # noqa: BLE001
-        log.warning("growth_salesops: anthropic network failed: %s", exc)
-        return f"{_CLAUDE_FALLBACK_TAG} (network: {exc})"
+        else:
+            # Non-retryable error (400/401/403)
+            log.warning(
+                "growth_salesops: anthropic non-retryable status=%s body=%s",
+                r.status_code, r.text[:300],
+            )
+            return f"{_CLAUDE_FALLBACK_TAG} (status {r.status_code})"
 
-    if r.status_code >= 400:
-        log.warning(
-            "growth_salesops: anthropic non-2xx status=%s body=%s",
-            r.status_code, r.text[:300],
-        )
-        return f"{_CLAUDE_FALLBACK_TAG} (status {r.status_code})"
+        if attempt < max_retries - 1:
+            await asyncio.sleep(2 ** attempt)
 
-    body = r.json() if r.text else {}
-    blocks = body.get("content") or []
-    parts: List[str] = []
-    for blk in blocks:
-        if isinstance(blk, dict) and blk.get("type") == "text":
-            parts.append(blk.get("text") or "")
-    out = "\n".join(parts).strip()
-    return out or f"{_CLAUDE_FALLBACK_TAG} (empty response)"
+    return f"{_CLAUDE_FALLBACK_TAG} ({last_err})"
 
 
 # ---------------------------------------------------------------------------
@@ -885,7 +940,7 @@ Devolva APENAS JSON válido, sem markdown, sem comentários:
 }}
 """
 
-    raw = await _claude_call_with_voice(prompt, max_tokens=3500)
+    raw = await _claude_call_with_voice(prompt, max_tokens=6000)
     return _parse_json_or_fallback(
         raw,
         fallback_factory=lambda: {
@@ -1033,7 +1088,7 @@ Devolva APENAS JSON válido, sem markdown:
 }}
 """
 
-    raw = await _claude_call_with_voice(prompt, max_tokens=3500)
+    raw = await _claude_call_with_voice(prompt, max_tokens=6000)
     return _parse_json_or_fallback(
         raw,
         fallback_factory=lambda: {
@@ -1130,7 +1185,7 @@ Devolva APENAS JSON válido, sem markdown:
 }}
 """
 
-    raw = await _claude_call_with_voice(prompt, max_tokens=3000)
+    raw = await _claude_call_with_voice(prompt, max_tokens=6000)
     return _parse_json_or_fallback(
         raw,
         fallback_factory=lambda: {
@@ -1383,7 +1438,7 @@ Cadência semanal de revisão (template inline): KPIs principais, threshold que 
 
 Voz Anuvia: seca, direta, numbers-first. Cada automação carrega build vs buy nomeado. NUNCA prometa o que não se mede.
 """
-    return await _claude_call_with_voice(prompt, max_tokens=5500)
+    return await _claude_call_with_voice(prompt, max_tokens=6000)
 
 
 async def _compose_tooling_recommendations(
@@ -1452,7 +1507,7 @@ Quais conectores precisam ser feitos (CRM ↔ email, form ↔ CRM, WhatsApp ↔ 
 
 Voz Anuvia: seca, direta, numbers-first. Cada recomendação com posture nomeada e justificativa.
 """
-    return await _claude_call_with_voice(prompt, max_tokens=4500)
+    return await _claude_call_with_voice(prompt, max_tokens=6000)
 
 
 async def _compose_executive_deck(
@@ -1519,7 +1574,7 @@ Estrutura sugerida (20 slides):
 
 Voz Anuvia: seca, direta, anti-hype. Bullets curtos sem ponto final. Cada automação com build vs buy nomeado.
 """
-    return await _claude_call_with_voice(prompt, max_tokens=5500)
+    return await _claude_call_with_voice(prompt, max_tokens=8000)
 
 
 async def _compose_final_executive_report(
@@ -1595,7 +1650,7 @@ Estruture o documento markdown com estas seções, nesta ordem:
 
 Voz Anuvia: seca, direta, numbers-first. Cada automação carrega build vs buy nomeado. Estimativas marcadas como tal. NUNCA prometa o que não se mede.
 """
-    return await _claude_call_with_voice(prompt, max_tokens=7000)
+    return await _claude_call_with_voice(prompt, max_tokens=8000)
 
 
 # ---------------------------------------------------------------------------
