@@ -67,16 +67,19 @@ try:
     import lib.delivery.devops_maturity  # noqa: E402,F401
     import lib.delivery.growth_salesops  # noqa: E402,F401
     import lib.delivery.industry  # noqa: E402,F401
+    # Admin smoke endpoint (E2E delivery simulation)
+    from lib.admin_smoke import router as _admin_smoke_router  # noqa: E402,F401
     app.include_router(_sessions_router)
     app.include_router(_orchestrator_router)
     app.include_router(_track_b_router)
     app.include_router(_contract_router)
     app.include_router(_reply_router)
     app.include_router(_prospecting_router)
+    app.include_router(_admin_smoke_router)
     _AUTONOMOUS_FUNNEL_ENABLED = True
     log.info(
         "Autonomous funnel v2 mounted: /api/session, /api/orchestrator, /api/track-b, "
-        "/api/contract, /api/reply, /api/prospecting (+outbound +5 delivery agents)"
+        "/api/contract, /api/reply, /api/prospecting, /api/_admin/smoke (+outbound +5 delivery agents)"
     )
 
     # In-process scheduler — runs orchestrator.tick() every 10 minutes.
