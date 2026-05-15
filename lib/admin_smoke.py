@@ -32,7 +32,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
 import httpx
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
 # Reuse sessions.py defaults (same SUPA_URL fallback used by track_b + contract).
 from lib.sessions import SUPA_HEADERS, SUPA_URL, SUPA_KEY
@@ -533,15 +533,67 @@ async def smoke_token():
     return {"token": tok}
 
 
-@router.post("/smoke/fire_phase")
-async def smoke_fire_phase(request: Request):
-    """Fire one named handler against an existing engagement's lead.
+async def _smoke_fire_phase_background(
+    engagement_id: str, phase_action: str, submit_intake_first: bool, intake: dict
+) -> None:
+    """Background worker — runs the handler without blocking the HTTP response.
 
-    Body: {engagement_id, phase_action, submit_intake_first?: bool, intake?: dict}
+    Errors are swallowed (logged) so background tasks never raise.
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            eng = await _supa_get(
+                client, "engagements", f"id=eq.{engagement_id}&select=*"
+            )
+            if not eng:
+                log.warning("smoke_bg: engagement %s not found", engagement_id)
+                return
+            lead_id = eng["lead_id"]
+            lead = await _supa_get(client, "leads", f"id=eq.{lead_id}&select=*")
+            if not lead:
+                log.warning("smoke_bg: lead %s not found", lead_id)
+                return
+
+            if submit_intake_first:
+                practice = eng.get("practice")
+                if not intake:
+                    cfg = _PRACTICE_CONFIG.get(practice) or _PRACTICE_CONFIG.get("cloud_finops")
+                    intake = cfg["intake_sample"]
+                cur = eng.get("artifacts") or {}
+                if not isinstance(cur, dict):
+                    cur = {"_legacy": cur}
+                cur["intake_submitted_at"] = datetime.now(timezone.utc).isoformat()
+                cur["intake"] = intake
+                await _supa_patch(
+                    client, "engagements", f"id=eq.{engagement_id}",
+                    {"intake_data": intake, "artifacts": cur},
+                )
+
+            past_iso = (datetime.now(timezone.utc) - timedelta(minutes=2)).isoformat()
+            await _supa_patch(
+                client, "leads", f"id=eq.{lead_id}",
+                {"next_action": phase_action, "next_action_at": past_iso},
+            )
+            lead = await _supa_get(client, "leads", f"id=eq.{lead_id}&select=*") or lead
+
+        result = await _run_handler_direct(phase_action, lead)
+        log.info("smoke_bg: %s done ok=%s", phase_action, result.get("ok"))
+    except Exception as exc:
+        log.exception("smoke_bg: %s crashed: %s", phase_action, exc)
+
+
+@router.post("/smoke/fire_phase")
+async def smoke_fire_phase(request: Request, bg: BackgroundTasks):
+    """Fire one handler against an existing engagement.
+
+    Returns IMMEDIATELY — handler runs as a FastAPI BackgroundTask so curl
+    never gets cancelled mid-flight. Poll the engagement debug endpoint to
+    see progress.
+
+    Body: {engagement_id, phase_action, submit_intake_first?: bool, intake?: dict, wait?: bool}
     Query: ?token=<hex>
 
-    Useful for running phases one-by-one when each phase takes long enough
-    to time out the curl call (Claude + Gotenberg + Storage uploads).
+    Pass ``wait: true`` to fall back to synchronous behavior (legacy mode).
     """
     try:
         token = request.query_params.get("token", "")
@@ -553,6 +605,27 @@ async def smoke_fire_phase(request: Request):
         if not engagement_id or not phase_action:
             raise HTTPException(400, "engagement_id + phase_action required")
 
+        submit_first = bool(body.get("submit_intake_first"))
+        intake_override = body.get("intake") or {}
+
+        # Default mode: dispatch to background, return immediately.
+        if not body.get("wait"):
+            bg.add_task(
+                _smoke_fire_phase_background,
+                engagement_id,
+                phase_action,
+                submit_first,
+                intake_override,
+            )
+            return {
+                "ok": True,
+                "mode": "background",
+                "phase_action": phase_action,
+                "engagement_id": engagement_id,
+                "note": "Poll /api/delivery/debug/engagement/{id} for progress",
+            }
+
+        # Legacy synchronous mode
         async with httpx.AsyncClient() as client:
             eng = await _supa_get(
                 client, "engagements", f"id=eq.{engagement_id}&select=*"
