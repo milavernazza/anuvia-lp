@@ -1856,13 +1856,31 @@ async def _run_phase_3(engagement: dict) -> dict:
 
 
 async def _run_phase_4(engagement: dict) -> dict:
-    """Phase 4 — generate final deliverables, fire invoice, close engagement."""
+    """Phase 4 — generate final deliverables, fire invoice, close engagement.
+
+    Idempotent: if ``phase_4_email_sent_at`` is set, skip re-send. If any
+    of the 3 Claude deliverables fall back, DO NOT send email and DO NOT
+    mark engagement delivered — Slack-escalate to Mila and exit early.
+    """
     engagement_id = str(engagement.get("id") or "")
     lead, email, first_name = await _lead_for_engagement(engagement)
 
     artifacts = engagement.get("artifacts") or {}
     if not isinstance(artifacts, dict):
         artifacts = {}
+
+    # Hard idempotency: if this engagement already finalized + emailed, skip.
+    if artifacts.get("phase_4_email_sent_at"):
+        log.info(
+            "finops.phase_4: skipping — already delivered eng=%s at %s",
+            engagement_id, artifacts.get("phase_4_email_sent_at"),
+        )
+        return {
+            "ok": True,
+            "skipped_already_delivered": True,
+            "delivered": True,
+        }
+
     findings = artifacts.get("phase_2_findings") or {}
     change_log_md = artifacts.get("phase_3_change_log_md") or ""
 
@@ -1872,6 +1890,37 @@ async def _run_phase_4(engagement: dict) -> dict:
     )
     roadmap_md = await _compose_roadmap_narrative(engagement, findings)
     deck_md = await _compose_deck_narrative(engagement, findings)
+
+    # SAFETY: if any deliverable came back as fallback, do NOT email the client.
+    # Stash artifacts (so operator has the partial work) + Slack-escalate.
+    any_fallback = any(
+        _CLAUDE_FALLBACK_TAG in (md or "")
+        for md in (report_md, roadmap_md, deck_md)
+    )
+    if any_fallback:
+        await _engagement_merge_artifacts(
+            engagement_id,
+            {
+                "phase_4_partial_at": _now_iso(),
+                "phase_4_partial_report_md": report_md,
+                "phase_4_partial_roadmap_md": roadmap_md,
+                "phase_4_partial_deck_md": deck_md,
+            },
+        )
+        await _send_slack_alert(
+            f":warning: *FinOps phase 4 produziu fallback* — engagement "
+            f"`{engagement_id}` precisa intervenção manual antes do email final. "
+            f"Anthropic API instável (3 retries falharam em pelo menos 1 dos 3 "
+            f"deliverables). Markdown parcial salvo em "
+            f"`engagement.artifacts.phase_4_partial_*`."
+        )
+        return {
+            "ok": False,
+            "reason": "claude_fallback_detected",
+            "next_action": "finops_send_progress_update",
+            "next_action_at": _now() + timedelta(minutes=15),
+            "delivered": False,
+        }
 
     report_url = await _render_and_upload(
         engagement_id,
@@ -1917,6 +1966,7 @@ async def _run_phase_4(engagement: dict) -> dict:
         f"{BASE_URL}/api/delivery/finops/nps"
         f"?engagement_id={engagement_id}&token={_hmac_token(engagement_id, 'nps')}"
     )
+    email_sent = False
     if email:
         html = _phase4_email_html(
             first_name=first_name,
@@ -1935,10 +1985,18 @@ async def _run_phase_4(engagement: dict) -> dict:
                 kind="finops_phase_4_delivery",
                 cc=[RESEND_REPLY_TO_EMAIL] if RESEND_REPLY_TO_EMAIL else None,
             )
+            email_sent = True
         except Exception:  # noqa: BLE001
             log.exception(
                 "finops.phase_4: email failed eng=%s", engagement_id
             )
+
+    # Stamp idempotency marker AFTER successful email (or if email skipped).
+    if email_sent:
+        await _engagement_merge_artifacts(
+            engagement_id,
+            {"phase_4_email_sent_at": _now_iso()},
+        )
 
     # Trigger invoice generation. ``lib.contract.issue_invoice`` works on
     # contract_id, so we look that up from the engagement row.
