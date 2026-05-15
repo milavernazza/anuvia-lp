@@ -8,3 +8,6 @@ email-validator==2.2.0
 markdown==3.7
 python-frontmatter==1.1.0
 PyYAML==6.0.2
+# Sprint v2 Wave 2 additions
+qrcode[pil]==7.4.2
+cryptography==43.0.1
