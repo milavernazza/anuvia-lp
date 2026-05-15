@@ -291,10 +291,13 @@ async def _smoke_engagement_impl(request: Request):
     now_iso = now.isoformat()
 
     async with httpx.AsyncClient() as client:
-        # 1) Create lead row
+        # 1) Create lead row. Schema: leads has `email`, `name`, `company`,
+        # `funnel_id`, `qualification_data` (jsonb), `lifecycle_status`, plus
+        # the append-only jsonb columns (signals/artifacts/agent_history) which
+        # we don't seed at insert time.
         lead_row = {
             "email": email,
-            "full_name": "Mila Vernazza (smoke)",
+            "name": "Mila Vernazza (smoke)",
             "company": f"Smoke {practice} {now.strftime('%H%M%S')}",
             "funnel_id": cfg["funnel_id"],
             "qualification_data": {
@@ -302,18 +305,15 @@ async def _smoke_engagement_impl(request: Request):
                 "smoke_practice": practice,
                 "smoke_started_at": now_iso,
             },
-            "signals": [
-                {
-                    "type": "smoke_test_start",
-                    "at": now_iso,
-                    "detail": f"E2E smoke for {practice}",
-                }
-            ],
+            "lifecycle_status": "proposal_signed",
             "next_action": None,
             "next_action_at": None,
-            "status": "smoke_test_active",
         }
-        lead = await _supa_insert(client, "leads", lead_row)
+        try:
+            lead = await _supa_insert(client, "leads", lead_row)
+        except RuntimeError as e:
+            # Schema mismatch likely. Surface concrete column hint.
+            return {"ok": False, "stage": "create_lead", "error": str(e), "row_keys": list(lead_row.keys())}
         lead_id = lead["id"]
         steps.append({"step": "create_lead", "lead_id": lead_id})
 
