@@ -275,10 +275,18 @@ async def _smoke_engagement_impl(request: Request):
     except Exception:
         raise HTTPException(400, "invalid json body")
 
-    email = (body.get("email") or "").strip().lower()
+    base_email = (body.get("email") or "").strip().lower()
     practice = (body.get("practice") or "cloud_finops").strip().lower()
     max_phase = int(body.get("max_phase", 4))
     skip_phases = bool(body.get("skip_phases", False))
+    # Gmail-style + alias so repeated smokes don't collide on
+    # (funnel_id, email) unique. Real inbox still receives.
+    if "+smoke-" not in base_email and "@" in base_email:
+        local, dom = base_email.split("@", 1)
+        suffix = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+        email = f"{local}+smoke-{practice}-{suffix}@{dom}"
+    else:
+        email = base_email
 
     if practice not in _PRACTICE_CONFIG:
         raise HTTPException(400, f"unknown practice; choose from {list(_PRACTICE_CONFIG)}")
