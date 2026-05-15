@@ -414,7 +414,7 @@ async def _html_to_pdf(html: str) -> Optional[bytes]:
 async def _claude_call_with_voice(
     prompt: str,
     *,
-    max_tokens: int = 6000,
+    max_tokens: int = 4000,
     system: str = _BRAND_SYSTEM_PROMPT,
     max_retries: int = 3,
 ) -> str:
@@ -1020,7 +1020,7 @@ Devolva APENAS JSON válido, sem markdown:
 Regra para short_list: todos os must_do + completar até 8 com os melhores consider. Mínimo 5, máximo 8.
 """
 
-    raw = await _claude_call_with_voice(prompt, max_tokens=8000)
+    raw = await _claude_call_with_voice(prompt, max_tokens=4500)
     return _parse_json_or_fallback(
         raw,
         fallback_factory=lambda: {
@@ -1143,7 +1143,7 @@ Devolva APENAS JSON válido, sem markdown:
 }}
 """
 
-    raw = await _claude_call_with_voice(prompt, max_tokens=6000)
+    raw = await _claude_call_with_voice(prompt, max_tokens=4000)
     return _parse_json_or_fallback(
         raw,
         fallback_factory=lambda: {
@@ -1249,7 +1249,7 @@ Lista dos PoCs/iniciativas existentes (vindas do bucket "kill" do scoring) com j
 
 Voz Anuvia: seca, direta, numbers-first. NUNCA prometa o que não se mede.
 """
-    return await _claude_call_with_voice(prompt, max_tokens=6000)
+    return await _claude_call_with_voice(prompt, max_tokens=4000)
 
 
 async def _compose_executive_deck(
@@ -1320,7 +1320,7 @@ Estrutura sugerida (30 slides):
 
 Voz Anuvia: seca, direta, anti-hype. Bullets curtos sem ponto final.
 """
-    return await _claude_call_with_voice(prompt, max_tokens=8000)
+    return await _claude_call_with_voice(prompt, max_tokens=4500)
 
 
 async def _compose_final_executive_report(
@@ -1381,7 +1381,7 @@ Estruture o documento markdown com estas seções, nesta ordem:
 
 Voz Anuvia: seca, direta, numbers-first. Cada caso carrega compliance_tag explícito. Estimativas marcadas como tal.
 """
-    return await _claude_call_with_voice(prompt, max_tokens=8000)
+    return await _claude_call_with_voice(prompt, max_tokens=4500)
 
 
 # ---------------------------------------------------------------------------
