@@ -120,18 +120,46 @@ _HTTP_TIMEOUT = 30.0
 # AI Readiness is compliance-heavy.
 _BRAND_SYSTEM_PROMPT = (
     "Você está escrevendo em nome de Mila Vernazza, founder da Anuvia "
-    "(consultoria sênior de cloud + IA). Voz: seca, direta, anti-hype, "
-    "primeiro os números, depois a narrativa. Frases curtas declarativas "
-    "misturadas com cadeias causa-efeito mais longas. Use o léxico: "
-    "vazamento, clareza, diagnóstico, processo, padrão, sobreviver em "
-    "produção, gate de saída, evidência. Evite: sinergia, transformação, "
-    "leverage, magia, mágico, IA generativa que muda o jogo, revolucionar. "
-    "Nunca prometa o que não pode ser medido. Sempre cite números concretos "
-    "(R$, %, tokens/dia, ms de latência) quando tiver dados — quando não "
-    "tiver, marque explicitamente como 'estimativa baseada em padrões "
-    "setoriais'. Para CADA caso de uso de IA, sempre nomeie qual constraint "
-    "de compliance aplica (LGPD, GxP, BACEN, SOC 2, HIPAA, ANVISA, ou "
-    "'nenhuma'). Português do Brasil."
+    "(consultoria sênior de cloud + IA, ex-AWS Solutions Architect, ex-Google, "
+    "ex-MongoDB). Voz: seca, direta, anti-hype, primeiro os números, depois a "
+    "narrativa. Frases curtas declarativas misturadas com cadeias causa-efeito "
+    "mais longas. Use o léxico: vazamento, clareza, diagnóstico, processo, "
+    "padrão, sobreviver em produção, gate de saída, evidência, eval. Evite: "
+    "sinergia, transformação, leverage, magia, mágico, IA generativa que muda "
+    "o jogo, revolucionar.\n\n"
+    "REGRAS DE PROFUNDIDADE TÉCNICA (não negociáveis):\n"
+    "1. Cite modelos por nome exato e versão (Claude Sonnet 4.5, Claude Haiku "
+    "3.5, GPT-4o, GPT-4.1, Llama 3.1 70B, Mistral Large 2, Gemini 1.5 Pro). "
+    "Nunca diga genericamente 'LLM' ou 'um modelo de linguagem'.\n"
+    "2. Cite preço por 1M tokens com input/output separado quando relevante "
+    "(Claude Sonnet 4.5 ~US$ 3 input / US$ 15 output por 1M tokens). Mostre "
+    "a fonte do número se citar.\n"
+    "3. Cite latency budgets concretos por caso (real-time chat <2s p95, "
+    "batch overnight <8h, async <30s) e qual modelo cabe em cada budget.\n"
+    "4. Cite compliance frames por nome (LGPD art. 7º/11/46, GxP, ANVISA RDC "
+    "430, BACEN 4.658, SOC 2 Type II, HIPAA, ISO 27001, EU AI Act). Nunca "
+    "'compliance regulatório' genérico — sempre o nome da norma e o artigo "
+    "quando aplicável.\n"
+    "5. Use números DO INTAKE do cliente. Se intake diz 50k chamadas/mês com "
+    "média 800 tokens input + 400 output, todos os custos derivam disso: "
+    "(50.000 × 800 × $3 + 50.000 × 400 × $15) / 1.000.000 = $420/mês. "
+    "Mostre a conta.\n"
+    "6. Math explícita de cost-per-inference em R$: '50k chamadas × R$ 0,02/"
+    "chamada = R$ 1.000/mês × 12 = R$ 12.000/ano (USD/BRL 5,0)'. Compare "
+    "build vs buy com payback em meses.\n"
+    "7. Para CADA caso de uso, posture build vs buy explícita (Anthropic API "
+    "direct, OpenAI direct, AWS Bedrock, Azure OpenAI, fine-tune open weights "
+    "self-hosted) com justificativa de 1 linha.\n"
+    "8. Para CADA caso, eval framework concreto: dataset size mínimo (n=100 "
+    "para regressão simples, n=500 para classificação multi-label), métrica "
+    "primária (exact match, BLEU, LLM-as-judge com critério escrito), gate "
+    "para promoção a produção.\n"
+    "9. ADRs em formato ADR-XX: ADR-01 (modelo escolhido + alternativas "
+    "rejeitadas), ADR-02 (vector DB: pgvector vs Pinecone vs Weaviate vs "
+    "Qdrant), ADR-03 (RAG architecture: naive vs hybrid vs agentic), etc.\n"
+    "10. Quando estimar, use 'estimativa' uma vez só. NÃO repita 'padrão "
+    "setorial' como muleta — isso é tique de junior. Nunca prometa o que "
+    "não pode ser medido. Português do Brasil."
 )
 
 #: Sentinel prefix for narrative that Claude could not generate.
@@ -386,14 +414,15 @@ async def _html_to_pdf(html: str) -> Optional[bytes]:
 async def _claude_call_with_voice(
     prompt: str,
     *,
-    max_tokens: int = 2400,
+    max_tokens: int = 6000,
     system: str = _BRAND_SYSTEM_PROMPT,
+    max_retries: int = 3,
 ) -> str:
-    """One-shot call to the Anthropic Messages API.
+    """Call the Anthropic Messages API with retry + exponential backoff.
 
-    Returns the model's text. On any failure returns a sentinel string
-    prefixed with ``_CLAUDE_FALLBACK_TAG`` so the caller can ship a
-    degraded but obviously-flagged deliverable.
+    Returns the model's text. Only falls back to ``_CLAUDE_FALLBACK_TAG`` after
+    ``max_retries`` consecutive failures. Each retry waits 2^attempt seconds.
+    Timeout per attempt is 90 seconds (Claude can take 30-60s on big prompts).
     """
     if not ANTHROPIC_API_KEY:
         return f"{_CLAUDE_FALLBACK_TAG} (no ANTHROPIC_API_KEY)\n\n{prompt[:800]}"
@@ -404,36 +433,57 @@ async def _claude_call_with_voice(
         "system": system,
         "messages": [{"role": "user", "content": prompt}],
     }
-    try:
-        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT * 3) as client:
-            r = await client.post(
-                ANTHROPIC_API_URL,
-                headers={
-                    "x-api-key": ANTHROPIC_API_KEY,
-                    "anthropic-version": "2023-06-01",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
+    last_err: str = ""
+    for attempt in range(max_retries):
+        try:
+            async with httpx.AsyncClient(timeout=90.0) as client:
+                r = await client.post(
+                    ANTHROPIC_API_URL,
+                    headers={
+                        "x-api-key": ANTHROPIC_API_KEY,
+                        "anthropic-version": "2023-06-01",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                )
+        except Exception as exc:  # noqa: BLE001
+            last_err = f"network attempt {attempt + 1}: {exc}"
+            log.warning("ai_readiness: anthropic %s", last_err)
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2 ** attempt)
+                continue
+            return f"{_CLAUDE_FALLBACK_TAG} ({last_err})"
+
+        if r.status_code == 200:
+            body = r.json() if r.text else {}
+            blocks = body.get("content") or []
+            parts: List[str] = []
+            for blk in blocks:
+                if isinstance(blk, dict) and blk.get("type") == "text":
+                    parts.append(blk.get("text") or "")
+            out = "\n".join(parts).strip()
+            if out:
+                return out
+            last_err = "empty response"
+        elif r.status_code in (429, 500, 502, 503, 504, 529):
+            # Retryable: rate limit or transient server error
+            last_err = f"status {r.status_code} (attempt {attempt + 1})"
+            log.warning(
+                "ai_readiness: anthropic retryable %s body=%s",
+                last_err, r.text[:300],
             )
-    except Exception as exc:  # noqa: BLE001
-        log.warning("ai_readiness: anthropic network failed: %s", exc)
-        return f"{_CLAUDE_FALLBACK_TAG} (network: {exc})"
+        else:
+            # Non-retryable error (400/401/403)
+            log.warning(
+                "ai_readiness: anthropic non-retryable status=%s body=%s",
+                r.status_code, r.text[:300],
+            )
+            return f"{_CLAUDE_FALLBACK_TAG} (status {r.status_code})"
 
-    if r.status_code >= 400:
-        log.warning(
-            "ai_readiness: anthropic non-2xx status=%s body=%s",
-            r.status_code, r.text[:300],
-        )
-        return f"{_CLAUDE_FALLBACK_TAG} (status {r.status_code})"
+        if attempt < max_retries - 1:
+            await asyncio.sleep(2 ** attempt)
 
-    body = r.json() if r.text else {}
-    blocks = body.get("content") or []
-    parts: List[str] = []
-    for blk in blocks:
-        if isinstance(blk, dict) and blk.get("type") == "text":
-            parts.append(blk.get("text") or "")
-    out = "\n".join(parts).strip()
-    return out or f"{_CLAUDE_FALLBACK_TAG} (empty response)"
+    return f"{_CLAUDE_FALLBACK_TAG} ({last_err})"
 
 
 # ---------------------------------------------------------------------------
@@ -1093,7 +1143,7 @@ Devolva APENAS JSON válido, sem markdown:
 }}
 """
 
-    raw = await _claude_call_with_voice(prompt, max_tokens=5000)
+    raw = await _claude_call_with_voice(prompt, max_tokens=6000)
     return _parse_json_or_fallback(
         raw,
         fallback_factory=lambda: {
@@ -1270,7 +1320,7 @@ Estrutura sugerida (30 slides):
 
 Voz Anuvia: seca, direta, anti-hype. Bullets curtos sem ponto final.
 """
-    return await _claude_call_with_voice(prompt, max_tokens=6000)
+    return await _claude_call_with_voice(prompt, max_tokens=8000)
 
 
 async def _compose_final_executive_report(
@@ -1331,7 +1381,7 @@ Estruture o documento markdown com estas seções, nesta ordem:
 
 Voz Anuvia: seca, direta, numbers-first. Cada caso carrega compliance_tag explícito. Estimativas marcadas como tal.
 """
-    return await _claude_call_with_voice(prompt, max_tokens=7000)
+    return await _claude_call_with_voice(prompt, max_tokens=8000)
 
 
 # ---------------------------------------------------------------------------
