@@ -248,13 +248,21 @@ async def _run_handler_direct(action: str, lead: Dict[str, Any]) -> Dict[str, An
 
 @router.post("/smoke/engagement")
 async def smoke_engagement(request: Request):
-    """Run a full E2E delivery simulation.
+    """Run a full E2E delivery simulation. Errors are surfaced in JSON, not 500."""
+    try:
+        return await _smoke_engagement_impl(request)
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        return {
+            "ok": False,
+            "error": f"{type(e).__name__}: {e}",
+            "trace": traceback.format_exc().splitlines()[-10:],
+        }
 
-    Body: {email, practice, max_phase?}
-    Query: ?token=<hex>
 
-    Returns: {ok, lead_id, contract_id, engagement_id, steps[], artifacts_keys}
-    """
+async def _smoke_engagement_impl(request: Request):
     if not SUPA_URL or not SUPA_KEY:
         raise HTTPException(500, "SUPABASE_URL / SUPABASE_KEY not configured")
 
