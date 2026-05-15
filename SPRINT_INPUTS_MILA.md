@@ -563,39 +563,60 @@ Cada vertical tem playbook próprio. Estrutura comum:
 
 ### Mila precisa gerar/conseguir (priority order)
 
-#### CRÍTICO PRA WAVE 1 GO-LIVE
-1. **Stripe BR** — recomendação: criar conta nova `anuvia-br` se ainda não tem. Pegar `STRIPE_SECRET_KEY` (modo live) + `STRIPE_WEBHOOK_SECRET` quando configurar webhook. **[VALIDATE]** Mila confirma se já tem conta Stripe BR ativa.
-2. **Mercado Pago** — pra Pix/boleto BR. Conta business + gerar `MERCADO_PAGO_ACCESS_TOKEN` (Production) + `MP_WEBHOOK_SECRET`. **[VALIDATE]** Mila confirma se quer aceitar Pix/boleto ou só cartão via Stripe.
-3. **Apollo.io** (recomendação > Clay) — pra prospecting BR + US. Plan Basic $59/mês cobre primeiros 200 prospects/dia. Gerar API key. **[VALIDATE]** Mila confirma orçamento.
-4. **CONTRACT_HMAC_SECRET** + **INBOUND_WEBHOOK_SECRET** — gerar via `openssl rand -hex 32`. Já tá no Coolify env.
+### Decisões Mila (2026-05-15)
 
-#### IMPORTANTE PRA WAVE 2 (delivery)
-5. **HubSpot (free tier)** — pra Sales Ops Diagnostic, Mila vai precisar acesso read-only de CRM cliente. Free tier OK pra começar (1k contacts). Recommendation: Mila usa HubSpot pessoal pra testar agents antes de pedir acesso cliente.
-6. **PandaDoc** (recomendação > DocuSign) — pra contratos. Preço BR friendly ($19/mês business plan). Necessário pra Wave 2 mais formal. **[VALIDATE]** Mila prefere PandaDoc ou DocuSign?
-7. **Conta Azul** — pra NF-e Brasileira. Necessário só quando faturar primeiro cliente real. Por ora podemos deixar em stub mode (gerar PDF de invoice sem fiscal).
-8. **BuiltWith** ($295/mês Pro) — pra enriquecer prospects com tech stack signal (AWS detection, observability tools, etc.). Optional — se não vier, prospecting agent funciona sem (só Apollo data).
+Em vez de DocuSign/PandaDoc → **Google Workspace eSignature** (Anuvia já paga Workspace; Google Docs tem eSignature nativo desde 2023).
+Em vez de Mercado Pago → **Pix via Nubank** (conta CNPJ Anuvia Ltda; Pix key estático + reconciliação por extrato).
+Stripe → **dois accounts**: Anuvia Ltda (BR cards) + Anuvia LLC (US cards).
+Banking → Nubank (BR) + Mercury (US).
+Tools secundários (Apollo, HubSpot, ContaAzul, BuiltWith) → contas já criadas com mila@anuvia.com.br, abertas em sessão Chrome "anuvia automacao".
+
+### Credentials que entram no Coolify env
+
+#### CRÍTICO (Wave 1 + Wave 2 go-live)
+1. **STRIPE_SECRET_KEY_BR** + **STRIPE_WEBHOOK_SECRET_BR** — Anuvia Ltda account (cards BR).
+2. **STRIPE_SECRET_KEY_US** + **STRIPE_WEBHOOK_SECRET_US** — Anuvia LLC account (cards US).
+3. **PIX_NUBANK_KEY** — Pix key estático CNPJ Anuvia Ltda (pra QR codes inline em contracts BR).
+4. **GOOGLE_WORKSPACE_SERVICE_ACCOUNT_JSON** — service account com Drive API + Docs API + eSignature scope.
+5. **APOLLO_API_KEY** — Apollo.io (conta com mila@anuvia.com.br).
+6. **CONTRACT_HMAC_SECRET** + **INBOUND_WEBHOOK_SECRET** — `openssl rand -hex 32`. ✅ já no Coolify.
+
+#### IMPORTANTE (Wave 2 delivery agents)
+7. **HUBSPOT_PRIVATE_APP_TOKEN** — pra Sales Ops Diagnostic (Mila já tem conta).
+8. **CONTAAZUL_API_TOKEN** — pra NF-e Brasileira (Mila já tem conta).
+9. **BUILTWITH_API_KEY** — tech stack enrichment (Mila já tem conta).
 
 #### NICE-TO-HAVE
-9. **LinkedIn Sales Navigator** — pra prospecting LinkedIn (paid plan). $99/mês. Pode esperar quando outbound email validar.
-10. **Cloudflare Workers** (já temos provavelmente) — pra outbound throttling + rate limiting se Resend SMTP não comportar volume.
+10. **LINKEDIN_SALES_NAV_COOKIE** — quando outbound email validar.
 
-### Recomendação Anuvia stack-of-record (ano 1)
+### Stack-of-record (decisão final Mila)
+- E-sign: Google Workspace eSignature (zero custo marginal — já paga Workspace)
+- Payments BR: Stripe Anuvia Ltda + Pix Nubank
+- Payments US: Stripe Anuvia LLC
+- Banking: Nubank (BR) + Mercury (US)
+- NF-e BR: Conta Azul
+- Prospecting: Apollo.io + BuiltWith
+
+### Recomendação Anuvia stack-of-record (ano 1 — decisão final Mila)
 | Tool | Plan | Mensal | Uso |
 |------|------|--------|-----|
 | Anthropic API | Claude Sonnet 4.5 | $200-500 | Outbound personalization, classification, delivery |
 | Resend | Pro | $35 | Outbound + transactional |
 | Supabase | Pro | $25 | DB + auth + storage |
 | Coolify | Self-hosted Hetzner | €40 (Hetzner) | Deploy infra |
-| Stripe BR | Business | 4.99% + R$ 0.39 | Card processing |
-| Mercado Pago | Standard | 4.99% | Pix/boleto |
+| Stripe Anuvia Ltda | Business BR | 4.99% + R$ 0.39 | Card processing BR |
+| Stripe Anuvia LLC | Business US | 2.9% + $0.30 | Card processing US |
+| Pix Nubank | Conta PJ | 0% | Pix BR (reconciliação por extrato) |
+| Mercury | Banking US | 0% | Banking + invoicing US |
+| Google Workspace eSignature | Business Standard | (já paga Workspace) | E-sign nativo |
 | Apollo.io | Basic | $59 | Prospecting |
-| PandaDoc | Business | $19 | E-sign |
 | Conta Azul | Standard | R$ 79 | NF-e BR |
-| BuiltWith | Pro (later) | $295 | Tech stack enrichment |
-| n8n | Self-hosted | (Hetzner) | Workflow orchestration |
-| HubSpot | Free | $0 | CRM (testing + free tier clients) |
-| Slack | Standard | $0-7.25/user | Internal + cliente channels |
+| BuiltWith | Pro | $295 | Tech stack enrichment |
+| HubSpot | Free tier | $0 | CRM |
+| n8n | Self-hosted | (incluído Hetzner) | Workflow orchestration |
+| Slack | Standard | $7.25/user | Internal + cliente |
 | **Total recurring** | | **~$700/mês** | (excluindo transaction fees) |
+| **Economia vs DocuSign+MP** | | **~$60/mês** | Google eSign + Pix Nubank |
 
 ---
 
