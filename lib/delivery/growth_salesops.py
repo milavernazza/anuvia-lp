@@ -429,7 +429,7 @@ async def _html_to_pdf(html: str) -> Optional[bytes]:
 async def _claude_call_with_voice(
     prompt: str,
     *,
-    max_tokens: int = 6000,
+    max_tokens: int = 4000,
     system: str = _BRAND_SYSTEM_PROMPT,
     max_retries: int = 3,
 ) -> str:
@@ -940,7 +940,7 @@ Devolva APENAS JSON válido, sem markdown, sem comentários:
 }}
 """
 
-    raw = await _claude_call_with_voice(prompt, max_tokens=6000)
+    raw = await _claude_call_with_voice(prompt, max_tokens=4000)
     return _parse_json_or_fallback(
         raw,
         fallback_factory=lambda: {
@@ -1088,7 +1088,7 @@ Devolva APENAS JSON válido, sem markdown:
 }}
 """
 
-    raw = await _claude_call_with_voice(prompt, max_tokens=6000)
+    raw = await _claude_call_with_voice(prompt, max_tokens=4000)
     return _parse_json_or_fallback(
         raw,
         fallback_factory=lambda: {
@@ -1185,7 +1185,7 @@ Devolva APENAS JSON válido, sem markdown:
 }}
 """
 
-    raw = await _claude_call_with_voice(prompt, max_tokens=6000)
+    raw = await _claude_call_with_voice(prompt, max_tokens=4000)
     return _parse_json_or_fallback(
         raw,
         fallback_factory=lambda: {
@@ -1324,7 +1324,7 @@ Devolva APENAS JSON válido, sem markdown:
 }}
 """
 
-    raw = await _claude_call_with_voice(prompt, max_tokens=6000)
+    raw = await _claude_call_with_voice(prompt, max_tokens=4000)
     return _parse_json_or_fallback(
         raw,
         fallback_factory=lambda: {
@@ -1438,7 +1438,7 @@ Cadência semanal de revisão (template inline): KPIs principais, threshold que 
 
 Voz Anuvia: seca, direta, numbers-first. Cada automação carrega build vs buy nomeado. NUNCA prometa o que não se mede.
 """
-    return await _claude_call_with_voice(prompt, max_tokens=6000)
+    return await _claude_call_with_voice(prompt, max_tokens=4000)
 
 
 async def _compose_tooling_recommendations(
@@ -1507,7 +1507,7 @@ Quais conectores precisam ser feitos (CRM ↔ email, form ↔ CRM, WhatsApp ↔ 
 
 Voz Anuvia: seca, direta, numbers-first. Cada recomendação com posture nomeada e justificativa.
 """
-    return await _claude_call_with_voice(prompt, max_tokens=6000)
+    return await _claude_call_with_voice(prompt, max_tokens=4000)
 
 
 async def _compose_executive_deck(
@@ -1574,7 +1574,7 @@ Estrutura sugerida (20 slides):
 
 Voz Anuvia: seca, direta, anti-hype. Bullets curtos sem ponto final. Cada automação com build vs buy nomeado.
 """
-    return await _claude_call_with_voice(prompt, max_tokens=8000)
+    return await _claude_call_with_voice(prompt, max_tokens=4500)
 
 
 async def _compose_final_executive_report(
@@ -1650,7 +1650,7 @@ Estruture o documento markdown com estas seções, nesta ordem:
 
 Voz Anuvia: seca, direta, numbers-first. Cada automação carrega build vs buy nomeado. Estimativas marcadas como tal. NUNCA prometa o que não se mede.
 """
-    return await _claude_call_with_voice(prompt, max_tokens=8000)
+    return await _claude_call_with_voice(prompt, max_tokens=4500)
 
 
 # ---------------------------------------------------------------------------
