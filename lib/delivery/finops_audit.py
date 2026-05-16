@@ -1063,7 +1063,9 @@ Devolva APENAS um JSON válido com esta estrutura, sem markdown, sem comentário
 }}
 """
 
-    raw = await _call_claude(prompt, max_tokens=6000)
+    # 8 vectors × 13 fields × ~80 tokens each ≈ 8.5k tokens minimum.
+    # +premissas + closing + math = needs headroom.
+    raw = await _call_claude(prompt, max_tokens=12000)
 
     # Defensive parse — strip code fences if Claude added them despite the
     # explicit instruction, and tolerate trailing prose.
