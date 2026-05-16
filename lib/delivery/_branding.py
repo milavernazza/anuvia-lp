@@ -6,25 +6,36 @@ brand tokens defined in ``templates/_base.html``.
 
 Public API:
 
-  * ``render_deliverable_html(...)`` — full HTML document with cover page,
-    running headers/footers, table styling, blockquotes, code blocks.
+  * ``render_deliverable_html(...)`` — full HTML document with dark-banner
+    cover page, section dividers, callout boxes, stat cards, running
+    headers/footers, table styling, blockquotes, code blocks, and inline
+    SVG charts.
   * ``md_to_html_rich(md)`` — markdown -> HTML using ``markdown`` package
     with the ``tables``, ``fenced_code``, ``nl2br`` extensions, then a
-    light post-processing pass to bolt Anuvia classnames onto tables,
-    blockquotes, etc.
-  * ``generate_pptx_deck(...)`` — build a light-theme PPTX deck in memory
-    and return the binary bytes.
+    multi-pass post-processing step to bolt Anuvia classnames onto tables,
+    blockquotes, detect FinOps framework metadata blocks, render callouts
+    for "Premissas e Limitações" / "Validation criteria", and inject
+    inline SVG bar/donut charts when a structured "chart:" marker is
+    present.
+  * ``svg_bar_chart(items, ...)`` — horizontal range bar chart helper.
+  * ``svg_donut_chart(items, ...)`` — single-ring donut helper.
+  * ``generate_pptx_deck(...)`` — build a PPTX deck in memory with the
+    new dark/light cover, full-bleed section dividers, and content slides
+    with a slim top band; returns the binary bytes.
 
-Design rules — DO NOT INVENT colors/fonts. Everything below is pulled
-directly from ``templates/_base.html``.
+Design rules — DO NOT INVENT colors/fonts. Strict monochrome palette pulled
+directly from ``templates/_base.html`` (#1a1a1a, #fafaf9, #e7e5e4, #78716c,
+white). Functional accents (red/blue/green) reserved exclusively for the
+warning/info/success callout variants — never used decoratively.
 """
 
 from __future__ import annotations
 
 import io
+import math
 import re
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 
 # ---------------------------------------------------------------------------
@@ -32,11 +43,18 @@ from typing import Any, Dict, List, Optional
 # ---------------------------------------------------------------------------
 
 BG_PAPER = "#fafaf9"          # warm off-white (page bg, card bg)
-INK = "#1a1a1a"               # near-black (primary text, headings)
+INK = "#1a1a1a"               # near-black (primary text, headings, dark banners)
 INK_MUTED = "#475569"         # secondary text on dark bg
 STONE_500 = "#78716c"         # muted text (eyebrow)
+STONE_400 = "#94a3b8"         # cool muted (subtitles on dark bg)
 STONE_200 = "#e7e5e4"         # borders / rules
+STONE_100 = "#f5f5f4"         # alt panel bg
 WHITE = "#ffffff"
+
+# Functional accents — used ONLY for callout box borders. Never decorative.
+ACCENT_WARN = "#b91c1c"       # warning callout
+ACCENT_INFO = "#1d4ed8"       # info callout
+ACCENT_OK = "#15803d"         # success callout
 
 FONT_BODY = "'Inter', system-ui, -apple-system, 'Helvetica Neue', sans-serif"
 FONT_HEAD = "'Playfair Display', Georgia, serif"
@@ -100,7 +118,134 @@ def md_to_html_rich(md: str) -> str:
     # Bolt Anuvia classnames onto the generated tags so the CSS hooks line up.
     html = re.sub(r"<table>", '<table class="anuvia-table">', html)
     html = re.sub(r"<blockquote>", '<blockquote class="anuvia-bq">', html)
+
+    # FinOps framework polish — promote special H2 sections to callout boxes
+    # and wrap "## Premissas e Limitações" / similar in the styled box.
+    html = _wrap_callouts(html)
+
+    # Detect inline chart markers like ``[chart:bar] ...`` and inject SVG.
+    html = _inject_inline_charts(html)
+
     return html
+
+
+# Callouts and chart-marker post-processors (run after `markdown` package
+# converts md -> html). These look for predictable patterns produced by the
+# Claude prompts and don't rely on the markdown extension API, so the
+# pipeline stays portable.
+
+_CALLOUT_TITLES = {
+    "premissas e limitações": "info",
+    "premissas e limitacoes": "info",
+    "premissas": "info",
+    "validation criteria": "info",
+    "critérios de validação": "info",
+    "criterios de validacao": "info",
+    "confiança baixa": "warning",
+    "confianca baixa": "warning",
+    "atenção": "warning",
+    "atencao": "warning",
+    "próximos passos": "success",
+    "proximos passos": "success",
+    "próxima rodada — o que pedir": "warning",
+    "proxima rodada - o que pedir": "warning",
+    "próxima rodada": "warning",
+}
+
+
+def _wrap_callouts(html: str) -> str:
+    """Wrap selected H2 sections in callout boxes.
+
+    Heuristic: for each ``<h2>...</h2>`` whose text matches a known key,
+    rewrap the H2 plus the following sibling block(s) up to the next H2
+    inside a ``<aside class="callout callout-...">`` element. We do this
+    with a regex pass (markdown output is predictable, single-line tags).
+    """
+    if "<h2" not in html:
+        return html
+
+    # Split by H2 boundaries to make wrapping tractable.
+    parts = re.split(r"(<h2[^>]*>.*?</h2>)", html, flags=re.DOTALL)
+    out: List[str] = []
+    i = 0
+    while i < len(parts):
+        chunk = parts[i]
+        if chunk.startswith("<h2") and i + 1 < len(parts):
+            # The next part is the body until the next H2 marker.
+            body = parts[i + 1] if i + 1 < len(parts) else ""
+            # Find h2 text.
+            m = re.search(r"<h2[^>]*>(.*?)</h2>", chunk, flags=re.DOTALL)
+            title_text = (m.group(1) if m else "").strip().lower()
+            # Strip any nested tags.
+            title_text = re.sub(r"<[^>]+>", "", title_text).strip()
+            kind = _CALLOUT_TITLES.get(title_text)
+            if kind:
+                label = "PREMISSA" if kind == "info" else (
+                    "ATENÇÃO" if kind == "warning" else "PRÓXIMOS"
+                )
+                # Strip the H2 itself; we'll render a custom label instead.
+                inner = body
+                out.append(
+                    f'<aside class="callout callout-{kind}">'
+                    f'<div class="callout-label">{label}</div>'
+                    f'<div class="callout-title">{_html_escape(_title_case(title_text))}</div>'
+                    f'<div class="callout-body">{inner}</div>'
+                    f'</aside>'
+                )
+                i += 2
+                continue
+            out.append(chunk)
+            out.append(body)
+            i += 2
+            continue
+        out.append(chunk)
+        i += 1
+    return "".join(out)
+
+
+def _title_case(s: str) -> str:
+    # Keep accents — just upper-first each significant word.
+    return s.title() if s else s
+
+
+# Inline chart marker: a paragraph that contains exactly ``[chart:bar:JSON]``
+# or ``[chart:donut:JSON]`` is replaced with the SVG. JSON is a list of
+# ``[label, low, high]`` (bar) or ``[label, value]`` (donut). This lets the
+# Claude prompts request a chart without coupling to matplotlib.
+_CHART_RE = re.compile(
+    r"<p>\s*\[chart:(bar|donut):(.+?)\]\s*</p>",
+    re.DOTALL,
+)
+
+
+def _inject_inline_charts(html: str) -> str:
+    def _sub(m: re.Match) -> str:
+        kind = m.group(1)
+        raw = m.group(2)
+        try:
+            import json as _json
+            data = _json.loads(raw)
+        except Exception:  # noqa: BLE001
+            return m.group(0)
+        if not isinstance(data, list):
+            return m.group(0)
+        if kind == "bar":
+            items: List[Tuple[str, float, float]] = []
+            for row in data:
+                if isinstance(row, list) and len(row) >= 3:
+                    items.append((str(row[0]), float(row[1]), float(row[2])))
+                elif isinstance(row, list) and len(row) == 2:
+                    items.append((str(row[0]), float(row[1]), float(row[1])))
+            return svg_bar_chart(items)
+        if kind == "donut":
+            ditems: List[Tuple[str, float]] = []
+            for row in data:
+                if isinstance(row, list) and len(row) >= 2:
+                    ditems.append((str(row[0]), float(row[1])))
+            return svg_donut_chart(ditems)
+        return m.group(0)
+
+    return _CHART_RE.sub(_sub, html)
 
 
 def _md_fallback(md: str) -> str:
@@ -164,6 +309,305 @@ def _html_escape(s: str) -> str:
         .replace(">", "&gt;")
         .replace('"', "&quot;")
     )
+
+
+# ---------------------------------------------------------------------------
+# Stat card + section divider builders
+# ---------------------------------------------------------------------------
+
+
+def stat_card_html(label: str, value: str, meta: Optional[str] = None) -> str:
+    """Single stat card — eyebrow label + Playfair value + optional meta."""
+    meta_html = (
+        f'<div class="stat-meta">{_html_escape(meta)}</div>' if meta else ""
+    )
+    return (
+        '<div class="stat-card">'
+        f'<div class="stat-label">{_html_escape(label)}</div>'
+        f'<div class="stat-value">{_html_escape(value)}</div>'
+        f'{meta_html}'
+        '</div>'
+    )
+
+
+def stat_grid_html(stats: List[Tuple[str, str, Optional[str]]]) -> str:
+    """Stat grid wrapper — list of (label, value, meta) tuples."""
+    if not stats:
+        return ""
+    cards = "".join(stat_card_html(*s) for s in stats)
+    return f'<div class="stat-grid">{cards}</div>'
+
+
+def section_divider_html(section_num: int, title: str, subtitle: str = "") -> str:
+    """Full-page section divider — slate bg, white centered Playfair title."""
+    sub_html = (
+        f'<div class="section-divider-subtitle">{_html_escape(subtitle)}</div>'
+        if subtitle else ""
+    )
+    return (
+        '<section class="section-divider">'
+        f'<div class="section-divider-eyebrow">SEÇÃO {section_num:02d}</div>'
+        f'<div class="section-divider-title">{_html_escape(title)}</div>'
+        f'{sub_html}'
+        '</section>'
+    )
+
+
+# ---------------------------------------------------------------------------
+# Inline SVG charts (no matplotlib dependency)
+# ---------------------------------------------------------------------------
+
+
+def svg_bar_chart(
+    items: List[Tuple[str, float, float]],
+    *,
+    width: int = 620,
+    height: int = 260,
+    currency: str = "R$",
+) -> str:
+    """Horizontal range bar chart.
+
+    Args:
+        items: list of ``(label, value_low, value_high)`` — values in
+            same currency unit. ``value_low`` may equal ``value_high`` for
+            single-point series.
+        width / height: SVG canvas size in px.
+        currency: prefix for axis labels.
+
+    Strict monochrome: dark INK bars (low), STONE_500 extension (high),
+    STONE_200 grid. Inter 11px labels.
+    """
+    if not items:
+        return ""
+
+    n = len(items)
+    margin_left = 160
+    margin_right = 90
+    margin_top = 18
+    margin_bottom = 22
+    plot_w = max(width - margin_left - margin_right, 100)
+    plot_h = max(height - margin_top - margin_bottom, 40)
+    row_h = plot_h / n
+
+    max_val = max((v[2] for v in items), default=1.0) or 1.0
+    # Round up max to a "nice" gridline (1, 2, 5 × 10^n).
+    grid_max = _nice_ceil(max_val)
+    gridlines = 4
+
+    def _x(v: float) -> float:
+        return margin_left + (v / grid_max) * plot_w
+
+    def _fmt(v: float) -> str:
+        if grid_max >= 1_000_000:
+            return f"{currency} {v / 1_000_000:.1f}M"
+        if grid_max >= 1_000:
+            return f"{currency} {v / 1_000:.0f}k"
+        return f"{currency} {v:.0f}"
+
+    svg: List[str] = []
+    svg.append(
+        f'<svg class="anuvia-chart" viewBox="0 0 {width} {height}" '
+        f'xmlns="http://www.w3.org/2000/svg" role="img" '
+        f'aria-label="Anuvia bar chart">'
+    )
+    # Gridlines + axis ticks.
+    for i in range(gridlines + 1):
+        x = margin_left + (plot_w * i / gridlines)
+        v = grid_max * i / gridlines
+        svg.append(
+            f'<line x1="{x:.1f}" y1="{margin_top}" x2="{x:.1f}" '
+            f'y2="{margin_top + plot_h}" stroke="{STONE_200}" stroke-width="1"/>'
+        )
+        svg.append(
+            f'<text x="{x:.1f}" y="{margin_top + plot_h + 14}" '
+            f'font-family="Inter, sans-serif" font-size="9" fill="{STONE_500}" '
+            f'text-anchor="middle">{_fmt(v)}</text>'
+        )
+    # Rows.
+    for idx, (label, lo, hi) in enumerate(items):
+        y0 = margin_top + row_h * idx + row_h * 0.18
+        bar_h = row_h * 0.55
+        x_lo = _x(max(lo, 0))
+        x_hi = _x(max(hi, 0))
+        # Label (left).
+        svg.append(
+            f'<text x="{margin_left - 8:.1f}" y="{y0 + bar_h * 0.72:.1f}" '
+            f'font-family="Inter, sans-serif" font-size="10.5" '
+            f'fill="{INK}" text-anchor="end" font-weight="500">'
+            f'{_html_escape(label)}</text>'
+        )
+        if hi > lo:
+            # Range from low to high — INK low bar + STONE_500 extension.
+            svg.append(
+                f'<rect x="{margin_left:.1f}" y="{y0:.1f}" '
+                f'width="{x_hi - margin_left:.1f}" height="{bar_h:.1f}" '
+                f'fill="{STONE_500}"/>'
+            )
+            svg.append(
+                f'<rect x="{margin_left:.1f}" y="{y0:.1f}" '
+                f'width="{x_lo - margin_left:.1f}" height="{bar_h:.1f}" '
+                f'fill="{INK}"/>'
+            )
+            # Value label.
+            svg.append(
+                f'<text x="{x_hi + 6:.1f}" y="{y0 + bar_h * 0.72:.1f}" '
+                f'font-family="Inter, sans-serif" font-size="10" '
+                f'fill="{STONE_500}">{_fmt(lo)}–{_fmt(hi)}</text>'
+            )
+        else:
+            svg.append(
+                f'<rect x="{margin_left:.1f}" y="{y0:.1f}" '
+                f'width="{x_hi - margin_left:.1f}" height="{bar_h:.1f}" '
+                f'fill="{INK}"/>'
+            )
+            svg.append(
+                f'<text x="{x_hi + 6:.1f}" y="{y0 + bar_h * 0.72:.1f}" '
+                f'font-family="Inter, sans-serif" font-size="10" '
+                f'fill="{STONE_500}">{_fmt(hi)}</text>'
+            )
+
+    svg.append("</svg>")
+    return "".join(svg)
+
+
+def svg_donut_chart(
+    items: List[Tuple[str, float]],
+    *,
+    width: int = 320,
+    height: int = 320,
+) -> str:
+    """Donut chart for category breakdown.
+
+    Args:
+        items: ``[(label, value), ...]``. Values summed for percentage.
+
+    Strict monochrome: 5 gray shades cycled. Center shows total.
+    """
+    if not items:
+        return ""
+
+    total = sum(max(v, 0) for _, v in items) or 1.0
+    cx = width / 2
+    cy = height / 2
+    r_outer = min(width, height) * 0.38
+    r_inner = r_outer * 0.62
+    # Gray ramp dark→light.
+    shades = ["#1a1a1a", "#3d3d3d", "#6b6b6b", "#9c9a98", "#cfcecd"]
+
+    svg: List[str] = []
+    svg.append(
+        f'<svg class="anuvia-chart" viewBox="0 0 {width} {height}" '
+        f'xmlns="http://www.w3.org/2000/svg" role="img" '
+        f'aria-label="Anuvia donut chart">'
+    )
+
+    start_angle = -math.pi / 2  # start at top
+    for i, (label, value) in enumerate(items):
+        if value <= 0:
+            continue
+        frac = value / total
+        end_angle = start_angle + frac * 2 * math.pi
+        large_arc = 1 if frac > 0.5 else 0
+        # Outer arc points.
+        x1 = cx + r_outer * math.cos(start_angle)
+        y1 = cy + r_outer * math.sin(start_angle)
+        x2 = cx + r_outer * math.cos(end_angle)
+        y2 = cy + r_outer * math.sin(end_angle)
+        # Inner arc points (reverse direction).
+        x3 = cx + r_inner * math.cos(end_angle)
+        y3 = cy + r_inner * math.sin(end_angle)
+        x4 = cx + r_inner * math.cos(start_angle)
+        y4 = cy + r_inner * math.sin(start_angle)
+        color = shades[i % len(shades)]
+        path = (
+            f'M {x1:.1f} {y1:.1f} '
+            f'A {r_outer:.1f} {r_outer:.1f} 0 {large_arc} 1 {x2:.1f} {y2:.1f} '
+            f'L {x3:.1f} {y3:.1f} '
+            f'A {r_inner:.1f} {r_inner:.1f} 0 {large_arc} 0 {x4:.1f} {y4:.1f} '
+            f'Z'
+        )
+        svg.append(f'<path d="{path}" fill="{color}"/>')
+        start_angle = end_angle
+
+    # Center label.
+    svg.append(
+        f'<text x="{cx:.1f}" y="{cy - 6:.1f}" '
+        f'font-family="Inter, sans-serif" font-size="9" '
+        f'fill="{STONE_500}" text-anchor="middle" letter-spacing="0.16em">TOTAL</text>'
+    )
+    svg.append(
+        f'<text x="{cx:.1f}" y="{cy + 14:.1f}" '
+        f'font-family="Playfair Display, serif" font-size="18" '
+        f'fill="{INK}" text-anchor="middle" font-weight="600">'
+        f'{_fmt_thousands(total)}</text>'
+    )
+
+    # Legend below.
+    legend_y = height - 8 - 14 * len(items)
+    # If chart is small, render legend to the right instead.
+    if legend_y < r_outer + cy + 4:
+        legend_x = cx + r_outer + 14
+        for i, (label, value) in enumerate(items):
+            color = shades[i % len(shades)]
+            ly = (cy - r_outer) + i * 16
+            svg.append(
+                f'<rect x="{legend_x:.1f}" y="{ly:.1f}" width="9" height="9" '
+                f'fill="{color}"/>'
+            )
+            pct = (value / total) * 100 if total else 0
+            svg.append(
+                f'<text x="{legend_x + 14:.1f}" y="{ly + 8:.1f}" '
+                f'font-family="Inter, sans-serif" font-size="10" '
+                f'fill="{INK}">{_html_escape(label)} '
+                f'<tspan fill="{STONE_500}">({pct:.0f}%)</tspan></text>'
+            )
+    svg.append("</svg>")
+    return "".join(svg)
+
+
+def _nice_ceil(v: float) -> float:
+    """Round up to a 'nice' tick boundary (1, 2, 5 × 10^n)."""
+    if v <= 0:
+        return 1.0
+    exp = math.floor(math.log10(v))
+    base = 10 ** exp
+    for mult in (1, 2, 2.5, 5, 10):
+        candidate = mult * base
+        if candidate >= v:
+            return candidate
+    return 10 * base
+
+
+def _fmt_thousands(v: float) -> str:
+    if v >= 1_000_000:
+        return f"R$ {v / 1_000_000:.2f}M"
+    if v >= 1_000:
+        return f"R$ {v / 1_000:.0f}k"
+    return f"R$ {v:.0f}"
+
+
+def _derive_cover_stats(
+    meta: Dict[str, Any],
+) -> List[Tuple[str, str, Optional[str]]]:
+    """Derive stat cards from engagement meta when caller didn't pass any.
+
+    Heuristic: look for canonical Anuvia FinOps meta keys and pull the
+    headline numbers out. Returns up to 4 cards.
+    """
+    if not meta:
+        return []
+    stats: List[Tuple[str, str, Optional[str]]] = []
+    if meta.get("Baseline mensal"):
+        stats.append(("Baseline mensal", str(meta["Baseline mensal"]), None))
+    if meta.get("Economia identificada"):
+        stats.append(
+            ("Economia anualizada", str(meta["Economia identificada"]), "faixa estimada")
+        )
+    if meta.get("Payback"):
+        stats.append(("Payback", str(meta["Payback"]), None))
+    if meta.get("Período"):
+        stats.append(("Período", str(meta["Período"]), None))
+    return stats[:4]
 
 
 def _cover_meta_block(meta: Dict[str, Any]) -> str:
@@ -275,63 +719,126 @@ html, body {{
   color: {STONE_500};
 }}
 
-/* -------- Cover page -------- */
+/* -------- Cover page (dark banner + white body) -------- */
 
 .cover-page {{
   page-break-after: always;
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 32px 24px;
+  padding: 0;
+  margin: -22mm -18mm 0 -18mm;  /* bleed full A4 width past the @page margin */
+  background: {WHITE};
 }}
 
-.cover-top .cover-eyebrow {{
-  margin: 0 0 8px;
-}}
-
-.cover-top .cover-rule {{
-  height: 1px;
+.cover-banner {{
   background: {INK};
-  width: 56px;
-  margin-top: 12px;
+  color: {WHITE};
+  padding: 28mm 22mm 24mm 22mm;
+  position: relative;
+  overflow: hidden;
 }}
 
-.cover-middle {{
-  margin: 48px 0;
+.cover-banner::after {{
+  /* Subtle diagonal accent — three thin monochrome lines top-right corner. */
+  content: "";
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 200px;
+  height: 200px;
+  background:
+    linear-gradient(45deg, transparent 49%, rgba(255,255,255,0.06) 49%, rgba(255,255,255,0.06) 51%, transparent 51%) center / 100% 100%,
+    linear-gradient(45deg, transparent 64%, rgba(255,255,255,0.04) 64%, rgba(255,255,255,0.04) 66%, transparent 66%) center / 100% 100%,
+    linear-gradient(45deg, transparent 79%, rgba(255,255,255,0.03) 79%, rgba(255,255,255,0.03) 81%, transparent 81%) center / 100% 100%;
+  transform: rotate(0deg);
+  pointer-events: none;
+}}
+
+.cover-banner-top {{
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 22mm;
+  position: relative;
+  z-index: 1;
+}}
+
+.cover-wordmark {{
+  font-family: {FONT_HEAD};
+  font-size: 18pt;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: {WHITE};
+}}
+
+.cover-banner-eyebrow {{
+  font-family: {FONT_BODY};
+  font-size: 9pt;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: {STONE_400};
 }}
 
 .cover-title {{
   font-family: {FONT_HEAD};
   font-weight: 600;
-  font-size: 44pt;
-  line-height: 1.05;
-  letter-spacing: -0.015em;
-  color: {INK};
-  margin: 0 0 18px;
+  font-size: 48pt;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  color: {WHITE};
+  margin: 0 0 14px;
+  position: relative;
+  z-index: 1;
 }}
 
 .cover-subtitle {{
   font-family: {FONT_BODY};
   font-size: 14pt;
-  color: {INK_MUTED};
-  margin: 0 0 36px;
+  color: {STONE_400};
+  margin: 0 0 4px;
   font-weight: 400;
+  position: relative;
+  z-index: 1;
+}}
+
+.cover-engagement-id {{
+  font-family: {FONT_MONO};
+  font-size: 10pt;
+  color: {STONE_400};
+  letter-spacing: 0.06em;
+  position: relative;
+  z-index: 1;
+}}
+
+.cover-body {{
+  padding: 18mm 22mm 14mm 22mm;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}}
+
+.cover-body-eyebrow {{
+  font-family: {FONT_BODY};
+  font-size: 9pt;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: {STONE_500};
+  margin: 0 0 10px;
 }}
 
 .meta-card {{
-  background: {BG_PAPER};
+  background: {WHITE};
   border: 1px solid {STONE_200};
-  padding: 22px 26px;
-  margin-top: 28px;
+  padding: 18px 22px;
   display: block;
 }}
 
 .meta-row {{
   display: flex;
   align-items: baseline;
-  gap: 20px;
-  padding: 10px 0;
+  gap: 16px;
+  padding: 8px 0;
   border-bottom: 1px solid {STONE_200};
 }}
 
@@ -340,8 +847,8 @@ html, body {{
 }}
 
 .meta-label {{
-  flex: 0 0 38%;
-  font-size: 10px;
+  flex: 0 0 42%;
+  font-size: 9.5px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   font-weight: 600;
@@ -350,27 +857,171 @@ html, body {{
 
 .meta-value {{
   flex: 1 1 auto;
-  font-size: 12px;
+  font-size: 11.5px;
   color: {INK};
   font-weight: 500;
 }}
 
+/* Stat grid on the cover (right column). */
+
+.cover-body .stat-grid {{
+  grid-template-columns: repeat(2, 1fr);
+}}
+
+.stat-grid {{
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}}
+
+.stat-card {{
+  border: 1px solid {STONE_200};
+  background: {WHITE};
+  padding: 14px 16px;
+}}
+
+.stat-label {{
+  font-family: {FONT_BODY};
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: {STONE_500};
+  margin-bottom: 6px;
+}}
+
+.stat-value {{
+  font-family: {FONT_HEAD};
+  font-size: 22pt;
+  font-weight: 600;
+  color: {INK};
+  letter-spacing: -0.01em;
+  line-height: 1.05;
+  margin-top: 4px;
+}}
+
+.stat-meta {{
+  font-family: {FONT_BODY};
+  font-size: 10px;
+  color: {STONE_500};
+  margin-top: 6px;
+}}
+
 .cover-bottom {{
+  margin: 0 22mm;
+  padding: 14px 0 18px 0;
   border-top: 1px solid {STONE_200};
-  padding-top: 18px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 10px;
+  font-size: 9.5px;
   color: {STONE_500};
   letter-spacing: 0.04em;
 }}
 
-.cover-bottom .cover-brand {{
+/* -------- Section divider (full-page break) -------- */
+
+.section-divider {{
+  page-break-before: always;
+  page-break-after: always;
+  margin: -22mm -18mm;  /* bleed full A4 past page margin */
+  min-height: 100vh;
+  background: {INK};
+  color: {WHITE};
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 30mm 22mm;
+}}
+
+.section-divider-eyebrow {{
+  font-family: {FONT_BODY};
+  font-size: 9pt;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: {STONE_400};
+  margin-bottom: 22px;
+}}
+
+.section-divider-title {{
+  font-family: {FONT_HEAD};
+  font-size: 42pt;
+  font-weight: 600;
+  color: {WHITE};
+  letter-spacing: -0.015em;
+  line-height: 1.05;
+  max-width: 28ch;
+}}
+
+.section-divider-subtitle {{
+  font-family: {FONT_BODY};
+  font-size: 13pt;
+  color: {STONE_400};
+  margin-top: 14px;
+  max-width: 40ch;
+  font-weight: 400;
+}}
+
+/* -------- Callout boxes -------- */
+
+.callout {{
+  margin: 18px 0;
+  padding: 14px 18px;
+  border-left: 4px solid {INK};
+  background: {BG_PAPER};
+  border-radius: 0 4px 4px 0;
+  page-break-inside: avoid;
+}}
+
+.callout.callout-warning {{
+  border-left-color: {ACCENT_WARN};
+}}
+
+.callout.callout-info {{
+  border-left-color: {ACCENT_INFO};
+}}
+
+.callout.callout-success {{
+  border-left-color: {ACCENT_OK};
+}}
+
+.callout-label {{
+  font-family: {FONT_BODY};
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: {STONE_500};
+  margin-bottom: 4px;
+}}
+
+.callout-title {{
   font-family: {FONT_HEAD};
   font-size: 14pt;
+  font-weight: 600;
   color: {INK};
+  margin-bottom: 8px;
   letter-spacing: -0.01em;
+}}
+
+.callout-body {{
+  font-size: 11px;
+}}
+
+.callout-body p:first-child {{ margin-top: 0; }}
+.callout-body p:last-child {{ margin-bottom: 0; }}
+
+/* -------- Inline SVG charts -------- */
+
+.anuvia-chart {{
+  display: block;
+  width: 100%;
+  max-width: 620px;
+  height: auto;
+  margin: 16px 0;
 }}
 
 /* -------- Body -------- */
@@ -578,6 +1229,8 @@ def render_deliverable_html(
     body_md: str,
     engagement_meta: Optional[dict] = None,
     show_cover: bool = True,
+    cover_stats: Optional[List[Tuple[str, str, Optional[str]]]] = None,
+    engagement_id: Optional[str] = None,
 ) -> str:
     """Return a full HTML document ready for Gotenberg PDF conversion.
 
@@ -588,6 +1241,10 @@ def render_deliverable_html(
         body_md: Raw markdown — converted with ``md_to_html_rich``.
         engagement_meta: Optional dict rendered on the cover meta card.
         show_cover: If True, render a dedicated cover page (default).
+        cover_stats: Optional list of ``(label, value, meta)`` rendered as
+            stat cards in the cover right column. If omitted, the function
+            tries to derive 3-4 stats from ``engagement_meta``.
+        engagement_id: Optional engagement id, surfaced in the cover banner.
     """
     body_html = md_to_html_rich(body_md)
     css = _stylesheet(practice_label)
@@ -595,21 +1252,39 @@ def render_deliverable_html(
     title_esc = _html_escape(title)
     subtitle_esc = _html_escape(subtitle)
     today = _today_pt()
+    year = _now().strftime("%Y")
 
     if show_cover:
+        meta = engagement_meta or {}
+        stats = cover_stats or _derive_cover_stats(meta)
+        eng_id_html = (
+            f'<div class="cover-engagement-id">'
+            f'Engagement {_html_escape(engagement_id)}</div>'
+            if engagement_id else ""
+        )
         cover_block = f"""
 <section class="cover-page">
-  <div class="cover-top">
-    <p class="eyebrow cover-eyebrow">ANUVIA · {label_esc}</p>
-    <div class="cover-rule"></div>
-  </div>
-  <div class="cover-middle">
+  <div class="cover-banner">
+    <div class="cover-banner-top">
+      <div class="cover-wordmark">ANUVIA</div>
+      <div class="cover-banner-eyebrow">{label_esc}</div>
+    </div>
     <h1 class="cover-title">{title_esc}</h1>
     <p class="cover-subtitle">{subtitle_esc}</p>
-    {_cover_meta_block(engagement_meta or {})}
+    {eng_id_html}
+  </div>
+  <div class="cover-body">
+    <div>
+      <p class="cover-body-eyebrow">Engagement</p>
+      {_cover_meta_block(meta)}
+    </div>
+    <div>
+      <p class="cover-body-eyebrow">Sumário em números</p>
+      {stat_grid_html(stats) if stats else ''}
+    </div>
   </div>
   <div class="cover-bottom">
-    <div class="cover-brand">Anuvia</div>
+    <div>Anuvia Cloud &amp; AI Consulting · São Paulo · {year}</div>
     <div>{today} · Documento confidencial</div>
   </div>
 </section>
@@ -784,57 +1459,71 @@ def _set_speaker_notes(slide, notes: Optional[str]) -> None:
 
 
 def _slide_chrome(slide, mod, practice_label: str, page_num: int, total: int):
-    """Top eyebrow + bottom footer with page number. Skip on cover/section."""
-    # Top eyebrow.
+    """Slim dark band at the top with ANUVIA brand left + page N/total right.
+
+    Adds the matching bottom footer (subtle) and a thin rule below the band
+    so the title clearly hangs under it. Used on every content slide.
+    """
+    # Slim dark band — ~10mm tall at the very top.
+    _add_rect(
+        slide, mod,
+        0, 0,
+        mod["Inches"](_PPTX_SLIDE_WIDTH_IN),
+        mod["Inches"](0.4),
+        _PPTX_INK_HEX,
+    )
+    # Brand left.
     _add_text(
         slide, mod,
         f"ANUVIA · {practice_label}",
         mod["Inches"](0.5),
-        mod["Inches"](0.35),
+        mod["Inches"](0.08),
         mod["Inches"](8),
         mod["Inches"](0.3),
         size=9,
         bold=True,
-        color_hex=_PPTX_STONE_500_HEX,
+        color_hex=_PPTX_WHITE_HEX,
         font="Calibri",
     )
-    # Thin rule.
-    _add_rect(
+    # Page x / y right.
+    _add_text(
         slide, mod,
-        mod["Inches"](0.5),
-        mod["Inches"](0.7),
-        mod["Inches"](12.33),
-        mod["Emu"](9525),  # ~1px
-        _PPTX_STONE_200_HEX,
+        f"{page_num:02d} / {total:02d}",
+        mod["Inches"](11.5),
+        mod["Inches"](0.08),
+        mod["Inches"](1.33),
+        mod["Inches"](0.3),
+        size=9,
+        color_hex=(0x94, 0xA3, 0xB8),
+        font="Calibri",
+        align=mod["PP_ALIGN"].RIGHT,
     )
-    # Bottom footer left.
+    # Bottom footer left (date + brand).
     _add_text(
         slide, mod,
         f"Anuvia Cloud & AI Consulting · {_today_pt()}",
         mod["Inches"](0.5),
-        mod["Inches"](7.05),
+        mod["Inches"](7.15),
         mod["Inches"](8),
         mod["Inches"](0.3),
         size=8,
         color_hex=_PPTX_STONE_500_HEX,
     )
-    # Bottom footer right (page x / y).
-    _add_text(
+    # Bottom rule (thin).
+    _add_rect(
         slide, mod,
-        f"{page_num} / {total}",
-        mod["Inches"](11.5),
-        mod["Inches"](7.05),
-        mod["Inches"](1.33),
-        mod["Inches"](0.3),
-        size=8,
-        color_hex=_PPTX_STONE_500_HEX,
-        align=mod["PP_ALIGN"].RIGHT,
+        mod["Inches"](0.5),
+        mod["Inches"](7.1),
+        mod["Inches"](12.33),
+        mod["Emu"](9525),
+        _PPTX_STONE_200_HEX,
     )
 
 
 def _build_cover_slide(prs, mod, *, practice_label, title, subtitle, client_name, engagement_id):
+    """Cover slide — 40/60 split (dark left panel, white right panel)."""
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-    # White bg (default), but explicit shape for safety.
+    # White right side.
     _add_rect(
         slide, mod,
         0, 0,
@@ -842,92 +1531,170 @@ def _build_cover_slide(prs, mod, *, practice_label, title, subtitle, client_name
         mod["Inches"](_PPTX_SLIDE_HEIGHT_IN),
         _PPTX_WHITE_HEX,
     )
-    # Top eyebrow.
-    _add_text(
-        slide, mod,
-        f"ANUVIA · {practice_label}",
-        mod["Inches"](0.7),
-        mod["Inches"](0.7),
-        mod["Inches"](10),
-        mod["Inches"](0.4),
-        size=11,
-        bold=True,
-        color_hex=_PPTX_STONE_500_HEX,
-    )
-    # Rule under eyebrow.
+    # Dark left panel — 40% of slide width.
+    dark_w = mod["Inches"](_PPTX_SLIDE_WIDTH_IN * 0.40)
     _add_rect(
         slide, mod,
-        mod["Inches"](0.7),
-        mod["Inches"](1.15),
-        mod["Inches"](0.6),
-        mod["Emu"](19050),  # ~2px
+        0, 0,
+        dark_w,
+        mod["Inches"](_PPTX_SLIDE_HEIGHT_IN),
         _PPTX_INK_HEX,
     )
-    # Big Playfair title — fall back to Georgia.
+    # Wordmark top-left of dark panel.
+    _add_text(
+        slide, mod,
+        "ANUVIA",
+        mod["Inches"](0.55),
+        mod["Inches"](0.55),
+        mod["Inches"](4),
+        mod["Inches"](0.5),
+        size=20,
+        bold=True,
+        color_hex=_PPTX_WHITE_HEX,
+        font="Playfair Display",
+    )
+    # Practice eyebrow under wordmark.
+    _add_text(
+        slide, mod,
+        practice_label.upper(),
+        mod["Inches"](0.55),
+        mod["Inches"](1.05),
+        mod["Inches"](4.5),
+        mod["Inches"](0.3),
+        size=10,
+        bold=True,
+        color_hex=(0x94, 0xA3, 0xB8),  # STONE_400
+    )
+    # Thin rule under eyebrow.
+    _add_rect(
+        slide, mod,
+        mod["Inches"](0.55),
+        mod["Inches"](1.55),
+        mod["Inches"](0.6),
+        mod["Emu"](19050),
+        _PPTX_WHITE_HEX,
+    )
+    # Big Playfair title — sits inside dark panel, but spills slightly into
+    # the white side so the eye is led across the split.
     _add_text(
         slide, mod,
         title,
-        mod["Inches"](0.7),
-        mod["Inches"](2.3),
-        mod["Inches"](11.9),
-        mod["Inches"](2.0),
-        size=44,
+        mod["Inches"](0.55),
+        mod["Inches"](2.6),
+        mod["Inches"](7.5),
+        mod["Inches"](2.4),
+        size=40,
         bold=True,
-        color_hex=_PPTX_INK_HEX,
+        color_hex=_PPTX_WHITE_HEX,
         font="Playfair Display",
     )
-    # Subtitle.
     if subtitle:
         _add_text(
             slide, mod,
             subtitle,
-            mod["Inches"](0.7),
-            mod["Inches"](4.3),
-            mod["Inches"](11.9),
-            mod["Inches"](0.6),
-            size=18,
-            color_hex=_PPTX_MUTED_HEX,
+            mod["Inches"](0.55),
+            mod["Inches"](5.05),
+            mod["Inches"](4.5),
+            mod["Inches"](0.5),
+            size=13,
+            color_hex=(0x94, 0xA3, 0xB8),
         )
-    # Bottom-right client + date.
+    # Engagement id bottom of dark panel.
+    if engagement_id:
+        _add_text(
+            slide, mod,
+            f"Engagement · {engagement_id}",
+            mod["Inches"](0.55),
+            mod["Inches"](6.7),
+            mod["Inches"](4.5),
+            mod["Inches"](0.3),
+            size=9,
+            color_hex=(0x94, 0xA3, 0xB8),
+            font="Calibri",
+        )
+
+    # Right side — client name, date, anuvia footer.
+    right_x = mod["Inches"](_PPTX_SLIDE_WIDTH_IN * 0.40 + 0.5)
+    right_w = mod["Inches"](_PPTX_SLIDE_WIDTH_IN * 0.60 - 1.0)
+
+    _add_text(
+        slide, mod,
+        "Cliente",
+        right_x,
+        mod["Inches"](2.6),
+        right_w,
+        mod["Inches"](0.3),
+        size=9,
+        bold=True,
+        color_hex=_PPTX_STONE_500_HEX,
+    )
     _add_text(
         slide, mod,
         client_name or "—",
-        mod["Inches"](7.5),
-        mod["Inches"](6.5),
-        mod["Inches"](5.3),
-        mod["Inches"](0.4),
-        size=12,
-        bold=True,
-        color_hex=_PPTX_INK_HEX,
-        align=mod["PP_ALIGN"].RIGHT,
-    )
-    _add_text(
-        slide, mod,
-        f"{_today_pt()} · Engagement {engagement_id}",
-        mod["Inches"](7.5),
-        mod["Inches"](6.9),
-        mod["Inches"](5.3),
-        mod["Inches"](0.4),
-        size=10,
-        color_hex=_PPTX_STONE_500_HEX,
-        align=mod["PP_ALIGN"].RIGHT,
-    )
-    # Bottom-left brand mark.
-    _add_text(
-        slide, mod,
-        "Anuvia",
-        mod["Inches"](0.7),
-        mod["Inches"](6.5),
-        mod["Inches"](4),
-        mod["Inches"](0.8),
+        right_x,
+        mod["Inches"](2.9),
+        right_w,
+        mod["Inches"](0.6),
         size=22,
-        bold=False,
+        bold=True,
         color_hex=_PPTX_INK_HEX,
         font="Playfair Display",
     )
+    _add_text(
+        slide, mod,
+        "Entrega",
+        right_x,
+        mod["Inches"](3.9),
+        right_w,
+        mod["Inches"](0.3),
+        size=9,
+        bold=True,
+        color_hex=_PPTX_STONE_500_HEX,
+    )
+    _add_text(
+        slide, mod,
+        f"{_today_pt()} · Auditoria FinOps · 4 semanas",
+        right_x,
+        mod["Inches"](4.2),
+        right_w,
+        mod["Inches"](0.4),
+        size=13,
+        color_hex=_PPTX_INK_HEX,
+    )
+    # Right side bottom — signature.
+    _add_rect(
+        slide, mod,
+        right_x,
+        mod["Inches"](6.4),
+        mod["Inches"](_PPTX_SLIDE_WIDTH_IN * 0.60 - 1.0),
+        mod["Emu"](9525),
+        _PPTX_STONE_200_HEX,
+    )
+    _add_text(
+        slide, mod,
+        "Mila Vernazza · founder@anuvia.com.br",
+        right_x,
+        mod["Inches"](6.55),
+        right_w,
+        mod["Inches"](0.3),
+        size=10,
+        bold=True,
+        color_hex=_PPTX_INK_HEX,
+    )
+    _add_text(
+        slide, mod,
+        "Anuvia Cloud & AI Consulting · São Paulo",
+        right_x,
+        mod["Inches"](6.85),
+        right_w,
+        mod["Inches"](0.3),
+        size=9,
+        color_hex=_PPTX_STONE_500_HEX,
+    )
 
 
-def _build_section_slide(prs, mod, *, title, subtitle=None):
+def _build_section_slide(prs, mod, *, title, subtitle=None, section_num=None):
+    """Full-bleed dark slate section divider. Centered Playfair title."""
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     _add_rect(
         slide, mod,
@@ -936,14 +1703,30 @@ def _build_section_slide(prs, mod, *, title, subtitle=None):
         mod["Inches"](_PPTX_SLIDE_HEIGHT_IN),
         _PPTX_INK_HEX,
     )
+    # Tiny eyebrow "SEÇÃO N".
+    eyebrow = (
+        f"SEÇÃO {section_num:02d}" if isinstance(section_num, int) else "SEÇÃO"
+    )
+    _add_text(
+        slide, mod,
+        eyebrow,
+        mod["Inches"](0.7),
+        mod["Inches"](2.55),
+        mod["Inches"](11.9),
+        mod["Inches"](0.35),
+        size=10,
+        bold=True,
+        color_hex=(0x94, 0xA3, 0xB8),
+        align=mod["PP_ALIGN"].CENTER,
+    )
     _add_text(
         slide, mod,
         title,
         mod["Inches"](0.7),
-        mod["Inches"](3.0),
+        mod["Inches"](3.1),
         mod["Inches"](11.9),
-        mod["Inches"](1.5),
-        size=40,
+        mod["Inches"](1.6),
+        size=44,
         bold=True,
         color_hex=_PPTX_WHITE_HEX,
         font="Playfair Display",
@@ -954,13 +1737,22 @@ def _build_section_slide(prs, mod, *, title, subtitle=None):
             slide, mod,
             subtitle,
             mod["Inches"](0.7),
-            mod["Inches"](4.3),
+            mod["Inches"](4.65),
             mod["Inches"](11.9),
-            mod["Inches"](0.6),
+            mod["Inches"](0.7),
             size=16,
-            color_hex=_PPTX_STONE_200_HEX,
+            color_hex=(0x94, 0xA3, 0xB8),
             align=mod["PP_ALIGN"].CENTER,
         )
+    # Thin centered rule.
+    _add_rect(
+        slide, mod,
+        mod["Inches"](6.166),
+        mod["Inches"](5.5),
+        mod["Inches"](1.0),
+        mod["Emu"](19050),
+        _PPTX_WHITE_HEX,
+    )
 
 
 def _build_content_slide(prs, mod, *, practice_label, title, subtitle, bullets, page_num, total):
@@ -973,13 +1765,13 @@ def _build_content_slide(prs, mod, *, practice_label, title, subtitle, bullets, 
         _PPTX_WHITE_HEX,
     )
     _slide_chrome(slide, mod, practice_label, page_num, total)
-    # Title.
+    # Title — sits below the dark top band.
     _add_text(
         slide, mod,
         title,
-        mod["Inches"](0.5),
-        mod["Inches"](1.0),
-        mod["Inches"](12.3),
+        mod["Inches"](0.7),
+        mod["Inches"](0.95),
+        mod["Inches"](12.0),
         mod["Inches"](0.9),
         size=28,
         bold=True,
@@ -990,22 +1782,22 @@ def _build_content_slide(prs, mod, *, practice_label, title, subtitle, bullets, 
         _add_text(
             slide, mod,
             subtitle,
-            mod["Inches"](0.5),
+            mod["Inches"](0.7),
             mod["Inches"](1.85),
-            mod["Inches"](12.3),
+            mod["Inches"](12.0),
             mod["Inches"](0.4),
-            size=13,
+            size=12,
             color_hex=_PPTX_MUTED_HEX,
         )
-    # Bullets.
+    # Bullets — indented 8mm (~0.31") from the title left, per spec.
     _add_bullets(
         slide, mod,
         bullets or [],
-        mod["Inches"](0.6),
-        mod["Inches"](2.5),
-        mod["Inches"](12.1),
+        mod["Inches"](1.01),  # 0.7 + 0.31 indent
+        mod["Inches"](2.55),
+        mod["Inches"](11.7),
         mod["Inches"](4.3),
-        size=16,
+        size=15,
         color_hex=_PPTX_INK_HEX,
     )
     return slide
@@ -1030,9 +1822,9 @@ def _build_two_col_slide(
     _add_text(
         slide, mod,
         title,
-        mod["Inches"](0.5),
-        mod["Inches"](1.0),
-        mod["Inches"](12.3),
+        mod["Inches"](0.7),
+        mod["Inches"](0.95),
+        mod["Inches"](12.0),
         mod["Inches"](0.9),
         size=28,
         bold=True,
@@ -1043,129 +1835,200 @@ def _build_two_col_slide(
         _add_text(
             slide, mod,
             subtitle,
-            mod["Inches"](0.5),
+            mod["Inches"](0.7),
             mod["Inches"](1.85),
-            mod["Inches"](12.3),
+            mod["Inches"](12.0),
             mod["Inches"](0.4),
-            size=13,
+            size=12,
             color_hex=_PPTX_MUTED_HEX,
         )
+    # Vertical rule between columns.
+    _add_rect(
+        slide, mod,
+        mod["Inches"](6.65),
+        mod["Inches"](2.4),
+        mod["Emu"](9525),
+        mod["Inches"](4.4),
+        _PPTX_STONE_200_HEX,
+    )
     # Column titles.
     if left_title:
         _add_text(
             slide, mod, left_title,
-            mod["Inches"](0.6),
+            mod["Inches"](0.7),
             mod["Inches"](2.4),
-            mod["Inches"](5.8),
+            mod["Inches"](5.7),
             mod["Inches"](0.4),
-            size=12, bold=True,
+            size=10, bold=True,
             color_hex=_PPTX_STONE_500_HEX,
         )
     if right_title:
         _add_text(
             slide, mod, right_title,
-            mod["Inches"](6.9),
+            mod["Inches"](6.95),
             mod["Inches"](2.4),
-            mod["Inches"](5.8),
+            mod["Inches"](5.7),
             mod["Inches"](0.4),
-            size=12, bold=True,
+            size=10, bold=True,
             color_hex=_PPTX_STONE_500_HEX,
         )
     # Bullets.
     _add_bullets(
         slide, mod,
         left_bullets or [],
-        mod["Inches"](0.6),
-        mod["Inches"](2.9),
-        mod["Inches"](5.8),
+        mod["Inches"](0.7),
+        mod["Inches"](2.85),
+        mod["Inches"](5.7),
         mod["Inches"](3.9),
-        size=15,
+        size=14,
         color_hex=_PPTX_INK_HEX,
     )
     _add_bullets(
         slide, mod,
         right_bullets or [],
-        mod["Inches"](6.9),
-        mod["Inches"](2.9),
-        mod["Inches"](5.8),
+        mod["Inches"](6.95),
+        mod["Inches"](2.85),
+        mod["Inches"](5.7),
         mod["Inches"](3.9),
-        size=15,
+        size=14,
         color_hex=_PPTX_INK_HEX,
     )
     return slide
 
 
 def _build_closing_slide(prs, mod, *, practice_label, title, subtitle, bullets, page_num, total):
+    """Closing slide — dark background, Mila signature + LinkedIn placeholder."""
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     _add_rect(
         slide, mod,
         0, 0,
         mod["Inches"](_PPTX_SLIDE_WIDTH_IN),
         mod["Inches"](_PPTX_SLIDE_HEIGHT_IN),
-        _PPTX_WHITE_HEX,
+        _PPTX_INK_HEX,
     )
-    _slide_chrome(slide, mod, practice_label, page_num, total)
+    # Wordmark top-left.
+    _add_text(
+        slide, mod,
+        "ANUVIA",
+        mod["Inches"](0.7),
+        mod["Inches"](0.55),
+        mod["Inches"](4),
+        mod["Inches"](0.5),
+        size=18,
+        bold=True,
+        color_hex=_PPTX_WHITE_HEX,
+        font="Playfair Display",
+    )
+    _add_text(
+        slide, mod,
+        practice_label.upper(),
+        mod["Inches"](0.7),
+        mod["Inches"](1.05),
+        mod["Inches"](5),
+        mod["Inches"](0.3),
+        size=9,
+        bold=True,
+        color_hex=(0x94, 0xA3, 0xB8),
+    )
+    # Page indicator top-right.
+    _add_text(
+        slide, mod,
+        f"{page_num:02d} / {total:02d}",
+        mod["Inches"](11.5),
+        mod["Inches"](0.55),
+        mod["Inches"](1.33),
+        mod["Inches"](0.3),
+        size=9,
+        color_hex=(0x94, 0xA3, 0xB8),
+        align=mod["PP_ALIGN"].RIGHT,
+    )
+
     _add_text(
         slide, mod,
         title or "Próximos passos",
-        mod["Inches"](0.5),
+        mod["Inches"](0.7),
+        mod["Inches"](2.2),
+        mod["Inches"](12.0),
         mod["Inches"](1.0),
-        mod["Inches"](12.3),
-        mod["Inches"](0.9),
-        size=32,
+        size=36,
         bold=True,
-        color_hex=_PPTX_INK_HEX,
+        color_hex=_PPTX_WHITE_HEX,
         font="Playfair Display",
     )
     if subtitle:
         _add_text(
             slide, mod, subtitle,
-            mod["Inches"](0.5),
-            mod["Inches"](1.95),
-            mod["Inches"](12.3),
+            mod["Inches"](0.7),
+            mod["Inches"](3.3),
+            mod["Inches"](12.0),
             mod["Inches"](0.5),
             size=14,
-            color_hex=_PPTX_MUTED_HEX,
+            color_hex=(0x94, 0xA3, 0xB8),
         )
     _add_bullets(
         slide, mod,
         bullets or [],
-        mod["Inches"](0.6),
-        mod["Inches"](2.7),
-        mod["Inches"](12.1),
-        mod["Inches"](3.6),
-        size=16,
-        color_hex=_PPTX_INK_HEX,
+        mod["Inches"](0.7),
+        mod["Inches"](4.0),
+        mod["Inches"](12.0),
+        mod["Inches"](2.4),
+        size=14,
+        color_hex=_PPTX_WHITE_HEX,
     )
-    # Signature.
+
+    # Signature block — thin white rule then sig + LinkedIn.
     _add_rect(
         slide, mod,
-        mod["Inches"](0.5),
-        mod["Inches"](6.2),
-        mod["Inches"](12.3),
-        mod["Emu"](9525),
-        _PPTX_STONE_200_HEX,
+        mod["Inches"](0.7),
+        mod["Inches"](6.55),
+        mod["Inches"](2.5),
+        mod["Emu"](19050),
+        _PPTX_WHITE_HEX,
     )
     _add_text(
         slide, mod,
-        "Mila Vernazza · founder@anuvia.com.br",
-        mod["Inches"](0.5),
-        mod["Inches"](6.35),
-        mod["Inches"](12.3),
-        mod["Inches"](0.4),
-        size=12,
-        bold=True,
-        color_hex=_PPTX_INK_HEX,
-    )
-    _add_text(
-        slide, mod,
-        "Anuvia Cloud & AI Consulting",
-        mod["Inches"](0.5),
+        "Mila Vernazza",
+        mod["Inches"](0.7),
         mod["Inches"](6.7),
-        mod["Inches"](12.3),
+        mod["Inches"](6),
+        mod["Inches"](0.35),
+        size=13,
+        bold=True,
+        color_hex=_PPTX_WHITE_HEX,
+        font="Playfair Display",
+    )
+    _add_text(
+        slide, mod,
+        "founder · Anuvia Cloud & AI Consulting",
+        mod["Inches"](0.7),
+        mod["Inches"](7.05),
+        mod["Inches"](6),
+        mod["Inches"](0.3),
+        size=9,
+        color_hex=(0x94, 0xA3, 0xB8),
+    )
+    # Contact right column.
+    _add_text(
+        slide, mod,
+        "mila@anuvia.com.br",
+        mod["Inches"](7.0),
+        mod["Inches"](6.7),
+        mod["Inches"](5.8),
         mod["Inches"](0.3),
         size=10,
-        color_hex=_PPTX_STONE_500_HEX,
+        color_hex=_PPTX_WHITE_HEX,
+        align=mod["PP_ALIGN"].RIGHT,
+    )
+    _add_text(
+        slide, mod,
+        "linkedin.com/in/milavernazza",
+        mod["Inches"](7.0),
+        mod["Inches"](7.05),
+        mod["Inches"](5.8),
+        mod["Inches"](0.3),
+        size=9,
+        color_hex=(0x94, 0xA3, 0xB8),
+        align=mod["PP_ALIGN"].RIGHT,
     )
 
 
@@ -1211,6 +2074,7 @@ async def generate_pptx_deck(
         }]
 
     total = len(slides)
+    section_counter = 0
 
     for idx, spec in enumerate(slides):
         page_num = idx + 1
@@ -1239,7 +2103,13 @@ async def generate_pptx_deck(
             )
             slide_obj = prs.slides[-1]
         elif stype == "section":
-            _build_section_slide(prs, mod, title=s_title, subtitle=s_subtitle)
+            section_counter += 1
+            _build_section_slide(
+                prs, mod,
+                title=s_title,
+                subtitle=s_subtitle,
+                section_num=section_counter,
+            )
             slide_obj = prs.slides[-1]
         elif stype == "two_col":
             slide_obj = _build_two_col_slide(
