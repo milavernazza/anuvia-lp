@@ -1012,7 +1012,12 @@ async def _compose_findings_narrative(
 
     vectors_block = "\n".join(f"{i+1}. {v}" for i, v in enumerate(_FINOPS_VECTORS))
 
-    prompt = f"""Você está compondo a seção de findings da auditoria FinOps de um cliente — padrão AWS Well-Architected Review + FinOps Foundation framework. Esta é a base estruturada que vai alimentar o relatório executivo final.
+    prompt = f"""Você está compondo a seção de findings da auditoria FinOps — padrão AWS Well-Architected Review + FinOps Foundation framework.
+
+INSTRUÇÃO DE OUTPUT (CRÍTICA): Responda APENAS com JSON válido. NADA antes ou depois do `{{`. NADA de prosa, markdown, comentários, ` ``` `. Apenas o objeto JSON puro.
+
+Cada finding deve ser DENSO mas CONCISO — voz Anuvia senior. Frases de 1-2 linhas com número e referência técnica. NÃO escreva parágrafos longos.
+
 
 Perfil do cliente (intake submetido):
 {profile_block}
@@ -1063,9 +1068,9 @@ Devolva APENAS um JSON válido com esta estrutura, sem markdown, sem comentário
 }}
 """
 
-    # 8 vectors × 13 fields × ~80 tokens each ≈ 8.5k tokens minimum.
-    # +premissas + closing + math = needs headroom.
-    raw = await _call_claude(prompt, max_tokens=12000)
+    # Pragmatic: 7k tokens fits 8 vectors w/ concise fields. Senior tone =
+    # density, not length. Larger budgets time out Coolify workers.
+    raw = await _call_claude(prompt, max_tokens=7000)
 
     # Defensive parse — strip code fences if Claude added them despite the
     # explicit instruction, and tolerate trailing prose.
