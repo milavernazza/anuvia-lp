@@ -1121,8 +1121,39 @@ Devolva APENAS um JSON válido com esta estrutura, sem markdown, sem comentário
         if "```" in text:
             text = text.split("```", 1)[0]
 
+    # Extract the first balanced {...} JSON object — handles cases where Claude
+    # wraps the object in prose preamble/outro despite the JSON-only instruction.
+    def _extract_first_json_object(s: str) -> Optional[str]:
+        start = s.find("{")
+        if start < 0:
+            return None
+        depth = 0
+        in_str = False
+        esc = False
+        for i in range(start, len(s)):
+            ch = s[i]
+            if in_str:
+                if esc:
+                    esc = False
+                elif ch == "\\":
+                    esc = True
+                elif ch == '"':
+                    in_str = False
+                continue
+            if ch == '"':
+                in_str = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return s[start : i + 1]
+        return None
+
+    candidate = _extract_first_json_object(text) or text
+
     try:
-        data = json.loads(text)
+        data = json.loads(candidate)
         if not isinstance(data, dict):
             raise ValueError("top-level not object")
         if "findings" not in data or not isinstance(data["findings"], list):
