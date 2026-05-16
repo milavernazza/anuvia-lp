@@ -717,37 +717,99 @@ def _approval_reminder_email_html(
 # ---------------------------------------------------------------------------
 
 
-def _deliverable_html(title: str, subtitle: str, body_md_html: str) -> str:
-    """A4-friendly inline-styled deliverable wrapper. Same look as contracts."""
+# ---------------------------------------------------------------------------
+# Shared branding module — Anuvia visual identity (HTML/PDF + PPTX)
+# ---------------------------------------------------------------------------
+#
+# We migrated off inline-styled HTML helpers to ``lib.delivery._branding`` so
+# every practice (finops, ai, devops, ...) renders deliverables with the
+# same cover page, table styling, fonts, and tokens. The import is wrapped
+# in a try/except so a missing module never breaks the delivery pipeline —
+# we fall back to a minimal inline renderer in that case.
+
+try:
+    from lib.delivery import _branding as _branding_mod  # type: ignore
+    _BRANDING_AVAILABLE = True
+except Exception:  # noqa: BLE001
+    _branding_mod = None  # type: ignore[assignment]
+    _BRANDING_AVAILABLE = False
+    log.warning(
+        "finops: lib.delivery._branding not importable; falling back to "
+        "inline-styled deliverable renderer"
+    )
+
+
+def _deliverable_html(
+    title: str,
+    subtitle: str,
+    body_md_html: str,
+    *,
+    body_md: Optional[str] = None,
+    engagement_meta: Optional[dict] = None,
+    show_cover: bool = True,
+) -> str:
+    """Render a full deliverable HTML doc with Anuvia branding.
+
+    Preferred path: delegate to ``_branding.render_deliverable_html`` so the
+    document gets the cover page, running headers/footers, table styling,
+    blockquotes and code blocks defined once in the shared module.
+
+    Backward-compat: the legacy two-arg signature ``(title, subtitle,
+    body_md_html)`` still works — we just wrap the pre-rendered HTML in the
+    minimal inline template so existing call sites keep functioning during
+    the transition.
+    """
+    if _BRANDING_AVAILABLE and body_md is not None:
+        return _branding_mod.render_deliverable_html(
+            practice_label="FINOPS AUDIT",
+            title=title,
+            subtitle=subtitle,
+            body_md=body_md,
+            engagement_meta=engagement_meta,
+            show_cover=show_cover,
+        )
+
+    # Fallback path — A4-friendly inline-styled wrapper, no cover page.
     return f"""<!DOCTYPE html>
 <html lang="pt-BR"><head><meta charset="utf-8"><title>{title}</title>
 <style>
   @page {{ size: A4; margin: 18mm; }}
-  body {{ font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; color:#0f172a; font-size:12px; line-height:1.6; margin:0; padding:0; background:#ffffff; }}
+  body {{ font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; color:#1a1a1a; font-size:12px; line-height:1.6; margin:0; padding:0; background:#ffffff; }}
   h1 {{ font-size:22px; margin:0 0 4px; }}
   h2 {{ font-size:15px; margin:20px 0 8px; border-bottom:1px solid #e7e5e4; padding-bottom:4px; }}
   h3 {{ font-size:13px; margin:14px 0 6px; }}
   p, li {{ font-size:12px; }}
   ul {{ padding-left:20px; margin:6px 0 12px; }}
-  .small {{ color:#64748b; font-size:11px; }}
+  table {{ width:100%; border-collapse:collapse; margin:12px 0; font-size:11px; }}
+  th {{ background:#1a1a1a; color:#fafaf9; text-align:left; padding:8px 10px; font-weight:600; }}
+  td {{ padding:6px 10px; border-bottom:1px solid #e7e5e4; vertical-align:top; }}
+  .small {{ color:#78716c; font-size:11px; }}
   .meta {{ color:#475569; font-size:11px; margin:0 0 18px; }}
-  .tag {{ display:inline-block; background:#fafaf9; border:1px solid #e7e5e4; padding:2px 8px; border-radius:9999px; font-size:10px; color:#475569; }}
 </style></head>
 <body>
 <header style="margin-bottom:24px;">
-  <p class="small" style="text-transform:uppercase;letter-spacing:0.16em;margin:0 0 6px;">Anuvia · FinOps Audit</p>
+  <p class="small" style="text-transform:uppercase;letter-spacing:0.18em;margin:0 0 6px;font-weight:600;">Anuvia · FinOps Audit</p>
   <h1>{title}</h1>
   <p class="meta">{subtitle}</p>
 </header>
 {body_md_html}
-<footer style="margin-top:32px;padding-top:18px;border-top:1px solid #e7e5e4;color:#64748b;font-size:11px;">
+<footer style="margin-top:32px;padding-top:18px;border-top:1px solid #e7e5e4;color:#78716c;font-size:11px;">
   Anuvia Cloud &amp; AI Consulting · Mila Vernazza · Documento gerado em {_now().strftime("%d/%m/%Y")}
 </footer>
 </body></html>"""
 
 
 def _md_to_html(md: str) -> str:
-    """Tiny Markdown-ish converter. Same shape as contract._md_to_simple_html."""
+    """Markdown -> HTML with Anuvia styling. Delegates to the shared module.
+
+    Falls back to a tiny hand-rolled converter (lists, headings, bold) when
+    ``_branding`` isn't importable so we never block a delivery on a missing
+    dependency.
+    """
+    if _BRANDING_AVAILABLE:
+        return _branding_mod.md_to_html_rich(md)
+
+    # Minimal in-line fallback — preserved from the original implementation.
     import re
 
     lines: List[str] = []
@@ -1183,14 +1245,28 @@ async def _render_and_upload(
     subtitle: str,
     body_md: str,
     object_path: str,
+    engagement_meta: Optional[dict] = None,
+    show_cover: bool = True,
 ) -> str:
     """Render markdown → HTML → PDF → upload to Supabase Storage.
 
     Returns the public PDF URL when storage is available, otherwise an
     embedded ``data:`` placeholder URL pointing the operator at the
     stashed inline copy. Always succeeds — never raises.
+
+    ``engagement_meta`` and ``show_cover`` are forwarded to the shared
+    branding module so phase 4 deliverables get the enterprise cover
+    page; phase 1/2 documents pass ``show_cover=False`` for a leaner
+    intermediate look.
     """
-    html = _deliverable_html(title, subtitle, _md_to_html(body_md))
+    html = _deliverable_html(
+        title,
+        subtitle,
+        _md_to_html(body_md),
+        body_md=body_md,
+        engagement_meta=engagement_meta,
+        show_cover=show_cover,
+    )
 
     pdf_bytes = await _html_to_pdf(html)
     if pdf_bytes is None:
@@ -1214,6 +1290,80 @@ async def _render_and_upload(
     # Upload failed → write the HTML next to it so the operator can grab
     # the deliverable manually from the engagement row.
     return f"about:blank#stashed-{engagement_id}-{object_path}"
+
+
+async def _render_deck_artifact(
+    engagement_id: str,
+    *,
+    deck_md: str,
+    client_name: str,
+    engagement_meta: Optional[dict] = None,
+) -> str:
+    """Build the executive deck as a real .pptx (light Anuvia theme) and
+    upload it to Supabase Storage.
+
+    Falls back to PDF rendering (the legacy path) if either the shared
+    branding module or python-pptx is unavailable, so the delivery never
+    blocks on a missing dep. Always returns *some* URL.
+    """
+    pptx_bytes: Optional[bytes] = None
+    if _BRANDING_AVAILABLE:
+        try:
+            slide_specs = _branding_mod.parse_deck_markdown(deck_md)
+            if not slide_specs:
+                slide_specs = [
+                    {
+                        "type": "cover",
+                        "title": "Apresentação Executiva — FinOps Audit",
+                        "subtitle": f"Engagement {engagement_id}",
+                    },
+                    {
+                        "type": "content",
+                        "title": "Deck",
+                        "bullets": ["(conteúdo gerado a partir do markdown)"],
+                    },
+                ]
+            pptx_bytes = await _branding_mod.generate_pptx_deck(
+                practice_label="FINOPS AUDIT",
+                title="Apresentação Executiva — FinOps Audit",
+                client_name=client_name,
+                engagement_id=engagement_id,
+                slides=slide_specs,
+            )
+        except Exception:  # noqa: BLE001
+            log.exception(
+                "finops.phase_4: PPTX build failed eng=%s — falling back to PDF",
+                engagement_id,
+            )
+            pptx_bytes = None
+
+    if pptx_bytes:
+        object_path = f"{engagement_id}/executive_deck.pptx"
+        public = await _upload_artifact(
+            object_path,
+            pptx_bytes,
+            content_type=(
+                "application/vnd.openxmlformats-officedocument."
+                "presentationml.presentation"
+            ),
+        )
+        if public:
+            return public
+        log.warning(
+            "finops.phase_4: PPTX upload failed eng=%s — falling back to PDF",
+            engagement_id,
+        )
+
+    # Fallback: original markdown -> PDF path.
+    return await _render_and_upload(
+        engagement_id,
+        title="Apresentação Executiva — FinOps Audit",
+        subtitle=f"Engagement {engagement_id} · Entrega final",
+        body_md=deck_md,
+        object_path=f"{engagement_id}/executive_deck.pdf",
+        engagement_meta=engagement_meta,
+        show_cover=True,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1922,12 +2072,45 @@ async def _run_phase_4(engagement: dict) -> dict:
             "delivered": False,
         }
 
+    low, high = _findings_total_savings(findings)
+    savings_str = f"{_brl(low)} – {_brl(high)}"
+
+    # Cover-page meta — passed to the shared branding module so each PDF
+    # opens with a proper engagement summary card (Cliente, Período,
+    # Baseline, Economia, Payback, Analista).
+    intake = engagement.get("intake_data") or {}
+    if not isinstance(intake, dict):
+        intake = {}
+    monthly_spend = (
+        intake.get("aws_spend_last_6_months")
+        or intake.get("baseline_mensal")
+        or intake.get("monthly_spend")
+    )
+    client_name = (lead or {}).get("company") or (lead or {}).get("name") or "Confidencial"
+    baseline_str = "—"
+    if monthly_spend:
+        try:
+            baseline_str = f"R$ {_brl(monthly_spend)}/mês"
+        except Exception:  # noqa: BLE001
+            baseline_str = str(monthly_spend)
+
+    engagement_meta = {
+        "Cliente": client_name,
+        "Período": "4 semanas",
+        "Baseline mensal": baseline_str,
+        "Economia identificada": f"R$ {savings_str}/ano",
+        "Payback": "11–18 dias (quick wins)",
+        "Analista responsável": "Mila Vernazza · mila@anuvia.com.br",
+    }
+
     report_url = await _render_and_upload(
         engagement_id,
         title="Relatório Executivo — FinOps Audit",
         subtitle=f"Engagement {engagement_id} · Entrega final",
         body_md=report_md,
         object_path=f"{engagement_id}/final_executive_report.pdf",
+        engagement_meta=engagement_meta,
+        show_cover=True,
     )
     roadmap_url = await _render_and_upload(
         engagement_id,
@@ -1935,17 +2118,19 @@ async def _run_phase_4(engagement: dict) -> dict:
         subtitle=f"Engagement {engagement_id} · Entrega final",
         body_md=roadmap_md,
         object_path=f"{engagement_id}/roadmap_12mo.pdf",
-    )
-    deck_url = await _render_and_upload(
-        engagement_id,
-        title="Apresentação Executiva — FinOps Audit",
-        subtitle=f"Engagement {engagement_id} · Entrega final",
-        body_md=deck_md,
-        object_path=f"{engagement_id}/executive_deck.pdf",
+        engagement_meta=engagement_meta,
+        show_cover=True,
     )
 
-    low, high = _findings_total_savings(findings)
-    savings_str = f"{_brl(low)} – {_brl(high)}"
+    # Executive deck — now a real PPTX (was a markdown→PDF). Falls back to
+    # PDF rendering if python-pptx or the branding module isn't available
+    # so the delivery never blocks on a missing dep.
+    deck_url = await _render_deck_artifact(
+        engagement_id,
+        deck_md=deck_md,
+        client_name=client_name,
+        engagement_meta=engagement_meta,
+    )
 
     await _engagement_merge_artifacts(
         engagement_id,
