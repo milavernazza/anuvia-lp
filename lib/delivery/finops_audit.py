@@ -133,36 +133,121 @@ _APPROVAL_REMINDER_AFTER = timedelta(days=5)
 # Short timeout for HTTP calls; the orchestrator wraps us in retries.
 _HTTP_TIMEOUT = 30.0
 
-# Brand voice — pinned to every Claude system prompt in this module. Sourced
-# from SPRINT_INPUTS_MILA.md section 1.
+# Brand voice + framework grounding — pinned to every Claude system prompt in
+# this module. Sourced from SPRINT_INPUTS_MILA.md section 1 + FinOps Foundation
+# Framework (https://www.finops.org/framework/) + AWS Well-Architected Cost
+# Optimization Pillar + GCP Cost Optimization best practices.
 _BRAND_SYSTEM_PROMPT = (
     "Você está escrevendo em nome de Mila Vernazza, founder da Anuvia "
     "(consultoria sênior de cloud + IA, ex-AWS Solutions Architect, ex-Google, "
-    "ex-MongoDB). Voz: seca, direta, anti-hype, primeiro os números, depois a "
+    "ex-MongoDB, 15× AWS certifications). Esta NÃO é uma proposta comercial — "
+    "é a entrega final de uma auditoria FinOps multicloud de 4 semanas (R$ 45-60k), "
+    "no padrão de qualidade de um AWS Well-Architected Review ou um Google Cloud "
+    "TAM Cost Optimization Engagement. O leitor é CTO, VP Engineering ou "
+    "Head of Platform — ele tem conhecimento técnico e vai detectar fluff.\n\n"
+    "VOZ ANUVIA: seca, direta, anti-hype, primeiro os números, depois a "
     "narrativa. Frases curtas declarativas misturadas com cadeias causa-efeito "
     "mais longas. Léxico que usa: vazamento, clareza, diagnóstico, processo, "
     "padrão, sobreviver em produção. Léxico que evita: sinergia, transformação, "
     "leverage, magia, mágico, IA generativa que muda o jogo.\n\n"
+    "FRAMEWORKS DE REFERÊNCIA (obrigatórios — cite explicitamente):\n\n"
+    "1) FinOps Foundation Framework — 6 Capabilities em 3 Domains, com maturity "
+    "Crawl/Walk/Run:\n"
+    "   Domain INFORM: Allocation · Reporting & Analytics · Showback/Chargeback\n"
+    "   Domain OPTIMIZE: Workload Optimization · Pricing & Rate Optimization · "
+    "Anomaly Management\n"
+    "   Domain OPERATE: Budget Management · Forecasting · Cloud Policy & "
+    "Governance · Decentralized Decision Making · FinOps Education & Enablement · "
+    "Onboarding Workloads\n"
+    "   REGRA: cada finding deve mapear pra ≥1 FinOps Capability + indicar a "
+    "maturity atual (Crawl|Walk|Run) e a maturity-alvo em 12 meses.\n\n"
+    "2) AWS Well-Architected — Cost Optimization Pillar (5 design principles, "
+    "~20 best practices agrupadas em COST01-COST06):\n"
+    "   COST01 Cloud Financial Management (BP: team enablement, governance, "
+    "executive sponsorship)\n"
+    "   COST02 Expenditure & Usage Awareness (BP: cost allocation, AWS Budgets, "
+    "Cost Explorer, CUR ingestion via Athena)\n"
+    "   COST03 Cost-Effective Resources (BP: instance/storage selection, "
+    "pricing models RI/SP, license optimization, SaaS rationalization)\n"
+    "   COST04 Manage Demand & Supplying Resources (BP: rightsizing, "
+    "autoscaling, scheduling, Spot)\n"
+    "   COST05 Optimize Over Time (BP: workload review cadence, monitoring, "
+    "capacity reservations strategy)\n"
+    "   COST06 Modernization (BP: FinOps lens on architectural decisions)\n"
+    "   REGRA: cada finding AWS deve citar um código BP específico (ex: "
+    "'COST05-BP01: Develop a workload review process'). Se incerto do BP "
+    "exato, use 'COST03-BP*' genérico — mas SEMPRE cite o COST-XX.\n\n"
+    "3) GCP Cost Optimization (quando intake mencionar GCP/multi-cloud):\n"
+    "   Discounts: CUDs (Spend-based 1y/3y, Resource-based 1y/3y, Flexible CUDs) · "
+    "SUDs (auto) · Preemptible/Spot VMs\n"
+    "   Tooling: Recommender API (rightsizing, idle VM, CUD coverage, BQ slot) · "
+    "FinOps Hub · Billing Export to BigQuery (equivalente do AWS CUR — query "
+    "via SQL) · Active Assist\n"
+    "   Allocation: hierarquia Folders → Projects → Labels (mapear pra BUs)\n"
+    "   Workloads especiais: BigQuery slot reservations vs on-demand · "
+    "GKE/Anthos cost allocation · Cloud SQL committed use\n"
+    "   REGRA: em ambiente AWS-only, mencione equivalência GCP em nota "
+    "comparativa quando relevante (ex: 'AWS RI 1-year → equivalente GCP: "
+    "CUD spend-based 1-year').\n\n"
+    "DATA SOURCE PROVENANCE — toda afirmação quantitativa DEVE declarar fonte "
+    "em tag entre colchetes:\n"
+    "   [INTAKE]         declarado pelo cliente no formulário de intake\n"
+    "   [CUR]            AWS Cost & Usage Report via Athena (cite query name)\n"
+    "   [CE]             Cost Explorer API\n"
+    "   [TA]             Trusted Advisor\n"
+    "   [CO]             Compute Optimizer\n"
+    "   [GCP-EXPORT]     GCP Billing Export para BigQuery\n"
+    "   [GCP-REC]        GCP Recommender API\n"
+    "   [FH]             FinOps Hub (GCP)\n"
+    "   [ESTIMATIVA]     fallback explícito quando raw data ainda não acessível\n"
+    "   Exemplo: 'RDS sobre-provisionado [INTAKE confirmou 3 instâncias "
+    "db.m5.xlarge + CO Recommender flagged downsizing pra db.t4g.large]. "
+    "Economia anualizada: R$ 42.750 [ESTIMATIVA baseada em right-sizing 60% + "
+    "RI 1-year coverage 80%].'\n\n"
+    "PREMISSAS E LIMITAÇÕES — todo deliverable DEVE incluir seção 'Premissas "
+    "e Limitações' logo após Sumário Executivo, declarando:\n"
+    "   • Dados analisados (intake responses, sample CUR se houver, etc.)\n"
+    "   • Dados pendentes (IAM read-only role pra Athena, GCP IAM viewer pra "
+    "Billing Export BQ, sample CloudWatch metrics, etc.)\n"
+    "   • Premissas adotadas (ex: 'right-sizing potential estimado em 20-30% "
+    "baseado em distribuição típica de CPU idle — validar com Compute "
+    "Optimizer + CloudWatch 14d quando IAM role for provisionado')\n"
+    "   • Status do documento: 'Rascunho preliminar baseado em intake' OU "
+    "'Auditoria validada com CUR + CE'\n\n"
     "REGRAS DE PROFUNDIDADE TÉCNICA (não negociáveis):\n"
-    "1. Cite instance types específicos (db.m5.2xlarge, m7g.xlarge, t4g.large). "
-    "Nunca diga genericamente 'instâncias'.\n"
-    "2. Cite serviços AWS exatos com seu nome de produto (AWS Compute Optimizer, "
-    "Cost Explorer, Trusted Advisor, S3 Intelligent-Tiering, Aurora I/O-Optimized).\n"
-    "3. Cite métricas CloudWatch concretas (CPUUtilization, VolumeReadOps, "
-    "DBIOPS) e thresholds reais (CPU <15% por 14d).\n"
-    "4. Cite comandos AWS CLI/API quando relevante (modify-db-instance, "
-    "AbortIncompleteMultipartUpload, AbortIncompleteMultipartUpload lifecycle rule).\n"
+    "1. Cite instance types específicos (db.m5.2xlarge, m7g.xlarge, t4g.large, "
+    "r6g.2xlarge). Nunca diga genericamente 'instâncias'. Em GCP: n2-standard-8, "
+    "n2d-highmem-16, e2-medium, c3-standard-22.\n"
+    "2. Cite serviços com nome de produto exato (AWS Compute Optimizer, Cost "
+    "Explorer, Trusted Advisor, S3 Intelligent-Tiering, Aurora I/O-Optimized, "
+    "EBS gp3, Savings Plans Compute vs EC2 Instance; GCP Recommender, FinOps "
+    "Hub, Active Assist, Committed Use Discounts).\n"
+    "3. Cite métricas CloudWatch (CPUUtilization, VolumeReadOps, DBIOPS, "
+    "NetworkIn) com thresholds reais (CPU p95 <20% por 14d → candidato a "
+    "downsizing). Em GCP: Cloud Monitoring metrics (compute.googleapis.com/"
+    "instance/cpu/utilization).\n"
+    "4. Cite comandos AWS CLI/API/Athena query quando relevante "
+    "(modify-db-instance, AbortIncompleteMultipartUpload lifecycle rule, "
+    "describe-reserved-instances-modifications). Em GCP: gcloud recommender "
+    "recommendations list, BigQuery SQL contra billing export.\n"
     "5. Use números DO INTAKE do cliente sempre que possível. Se intake diz "
-    "R$ 95k/mês AWS spend, todos os números derivam disso, não de fantasia.\n"
-    "6. Math explícita: 'gp2 ~US$ 0,10/GB/mês vs gp3 ~US$ 0,08/GB/mês × 8TB × "
+    "R$ 95k/mês AWS spend, todos os números derivam disso — não invente.\n"
+    "6. Math explícita: 'gp2 ~US$ 0,10/GB/mês vs gp3 ~US$ 0,08/GB/mês × 8 TB × "
     "12 = US$ 1.920/ano = R$ 9.600/ano (USD/BRL 5,0)'. Mostre a conta.\n"
-    "7. Quando estimar, use 'estimativa' uma vez só. NÃO repita 'padrão setorial' "
-    "como muleta — isso é tique de junior. Diga o número, justifique com a math.\n"
-    "8. Para CADA finding, inclua: validation criteria (como confirmar), rollback "
-    "plan (como reverter), janela de execução (quando).\n"
-    "9. ADRs em formato ADR-XX: ADR-01 (RI 1-year vs 3-year), ADR-02 (Graviton "
-    "blue/green migration), etc.\n"
-    "10. Nunca prometa o que não pode ser medido. Português do Brasil."
+    "7. Quando estimar, use [ESTIMATIVA] uma vez só e justifique. NÃO repita "
+    "'padrão setorial' como muleta — tique de junior.\n"
+    "8. Cada finding DEVE ter: FinOps Capability + maturity atual/alvo + AWS "
+    "WA BP code + data source tags + validation criteria + rollback plan + "
+    "janela de execução + economia anualizada com confiança (alta|média|baixa).\n"
+    "9. ADRs em formato ADR-XX (ADR-01 RI 1-year vs 3-year, ADR-02 Graviton "
+    "blue/green migration, ADR-03 S3 Intelligent-Tiering vs lifecycle manual, "
+    "ADR-04 NAT Gateway vs VPC Endpoints, etc.)\n"
+    "10. Confiança baixa quando só intake foi acessado. Diga isso explicitamente "
+    "e indique o que precisa pra confiança alta.\n"
+    "11. Nunca prometa o que não pode ser medido. Português do Brasil.\n"
+    "12. Fechamento honesto: se faltou acesso (IAM role, Billing Export), "
+    "diga que validação dos achados fica limitada a 60-70% de precisão sem "
+    "isso, e liste o que pedir pra próxima rodada."
 )
 
 #: Sentinel prefix for narrative that Claude could not generate (env var
@@ -927,35 +1012,58 @@ async def _compose_findings_narrative(
 
     vectors_block = "\n".join(f"{i+1}. {v}" for i, v in enumerate(_FINOPS_VECTORS))
 
-    prompt = f"""Você está compondo a seção de findings da auditoria FinOps de um cliente.
+    prompt = f"""Você está compondo a seção de findings da auditoria FinOps de um cliente — padrão AWS Well-Architected Review + FinOps Foundation framework. Esta é a base estruturada que vai alimentar o relatório executivo final.
 
 Perfil do cliente (intake submetido):
 {profile_block}
 
-Para cada um dos 8 vetores abaixo, gere uma hipótese específica baseada no perfil. Quando não tiver dado suficiente, marque a hipótese como "estimativa baseada em padrões setoriais" e dimensione conservador. Sempre forneça intervalo de economia anualizada em R$, esforço (low/med/high), risco (low/med/high) e bucket de prioridade (quick_win | medium_term | structural).
+REQUISITOS DE FRAMEWORK (não negociáveis):
+- Cada finding mapeia pra ≥1 FinOps Capability (Allocation, Workload Optimization, Pricing & Rate Optimization, Anomaly Management, Budget Management, Forecasting, Cloud Policy & Governance, Showback/Chargeback, etc.) com maturity_current e maturity_target (Crawl|Walk|Run).
+- Cada finding AWS cita o AWS WA Best Practice code (COST01-BPxx até COST06-BPxx). Se incerto do BPxx específico, use 'COST03-BP*' genérico — SEMPRE cite o COST-XX.
+- Se intake indicar GCP ou multi-cloud, cada finding GCP referencia o serviço/recommender específico (Recommender API, CUDs, FinOps Hub, Billing Export BQ, etc.). Caso contrário, inclua 1-line de equivalência GCP em 'gcp_equivalent'.
+- Cada quantitativo tem data source tag: [INTAKE] | [CUR] | [CE] | [TA] | [CO] | [GCP-EXPORT] | [GCP-REC] | [FH] | [ESTIMATIVA].
+- 'confidence' = alta quando baseado em CUR/CE/TA/CO/GCP-REC; média quando intake + math setorial; baixa quando só estimativa sem validação.
 
-Vetores:
+Vetores (gere 1 finding por vetor — todos os 8):
 {vectors_block}
 
 Devolva APENAS um JSON válido com esta estrutura, sem markdown, sem comentários:
 
 {{
-  "summary": "<parágrafo de 3-5 linhas, voz Anuvia: seca, direta, numbers-first>",
+  "summary": "<3-5 linhas, voz Anuvia: seca, numbers-first. Cite o baseline mensal (com tag [INTAKE]), economia total anualizada (faixa), payback estimado em dias, e o status do documento (rascunho preliminar baseado em intake OU validado com CUR).>",
+  "status_documento": "<'rascunho preliminar baseado em intake' OU 'auditoria validada com CUR + CE' — based em quais dados foram realmente acessados>",
+  "premissas_limitacoes": {{
+    "dados_analisados": ["<lista do que foi acessado: intake fields, sample CUR, etc.>"],
+    "dados_pendentes": ["<o que falta: IAM read-only role pra Athena CUR, GCP IAM viewer pra Billing Export BQ, CloudWatch metrics 14d, etc.>"],
+    "premissas_adotadas": ["<premissas explícitas: 'right-sizing estimado em 20-30% baseado em distribuição CPU típica — validar com CO + CloudWatch quando IAM role provisionada'>"]
+  }},
   "findings": [
     {{
       "vector": "<nome curto, ex: Compute>",
-      "hypothesis": "<2-3 frases>",
+      "finops_capability": "<ex: Workload Optimization + Pricing & Rate Optimization>",
+      "maturity_current": "<Crawl|Walk|Run>",
+      "maturity_target_12mo": "<Crawl|Walk|Run>",
+      "aws_wa_bp": "<ex: COST04-BP01, COST04-BP03 OR COST03-BP*>",
+      "gcp_equivalent": "<1-line: ex: 'Equivalente GCP: Recommender rightsizing + CUD spend-based 1y'>",
+      "data_sources": ["<lista de tags: ex: ['INTAKE', 'ESTIMATIVA']>"],
+      "hypothesis": "<3-5 frases. Cite instance types específicos (db.m5.2xlarge → db.t4g.large), serviços com nome de produto exato (Compute Optimizer, S3 Intelligent-Tiering), métricas CloudWatch concretas (CPU p95 <20% por 14d), e math explícita (gp2 → gp3: 0.10 vs 0.08 USD/GB/mês × 8TB × 12).>",
+      "validation_criteria": ["<bullet de query CUR/CloudWatch metric a verificar>", "<bullet de Compute Optimizer recommendation a cross-check>"],
+      "implementation_steps": ["<step 1>", "<step 2>"],
+      "rollback_plan": "<procedure curta de reversão>",
+      "execution_window": "<ex: 'fora do horário comercial BRT' ou 'próxima janela de manutenção'>",
       "savings_brl_low": <int>,
       "savings_brl_high": <int>,
+      "confidence": "<alta|média|baixa>",
       "effort": "<low|med|high>",
       "risk": "<low|med|high>",
       "priority": "<quick_win|medium_term|structural>"
     }}
-  ]
+  ],
+  "closing_recommendation": "<2-3 linhas: o que pedir na próxima rodada pra elevar confiança (IAM role Athena, GCP Billing Export access, etc.). Honesto sobre limitação de precisão sem esses dados.>"
 }}
 """
 
-    raw = await _call_claude(prompt, max_tokens=3000)
+    raw = await _call_claude(prompt, max_tokens=6000)
 
     # Defensive parse — strip code fences if Claude added them despite the
     # explicit instruction, and tolerate trailing prose.
@@ -963,18 +1071,46 @@ Devolva APENAS um JSON válido com esta estrutura, sem markdown, sem comentário
     if text.startswith(_CLAUDE_FALLBACK_TAG):
         return {
             "summary": text,
+            "status_documento": "rascunho preliminar baseado em intake",
+            "premissas_limitacoes": {
+                "dados_analisados": ["intake submetido pelo cliente"],
+                "dados_pendentes": [
+                    "IAM read-only role pra Athena CUR queries",
+                    "GCP IAM viewer pra Billing Export BigQuery",
+                    "CloudWatch metrics 14d via cross-account read role",
+                ],
+                "premissas_adotadas": [
+                    "Claude indisponível — preencher manualmente antes de enviar ao cliente",
+                ],
+            },
             "findings": [
                 {
                     "vector": v.split(" ")[0],
+                    "finops_capability": "Workload Optimization",
+                    "maturity_current": "Crawl",
+                    "maturity_target_12mo": "Walk",
+                    "aws_wa_bp": "COST03-BP*",
+                    "gcp_equivalent": "—",
+                    "data_sources": ["ESTIMATIVA"],
                     "hypothesis": f"{_CLAUDE_FALLBACK_TAG} estimativa pendente",
+                    "validation_criteria": [],
+                    "implementation_steps": [],
+                    "rollback_plan": "—",
+                    "execution_window": "—",
                     "savings_brl_low": 0,
                     "savings_brl_high": 0,
+                    "confidence": "baixa",
                     "effort": "med",
                     "risk": "med",
                     "priority": "medium_term",
                 }
                 for v in _FINOPS_VECTORS
             ],
+            "closing_recommendation": (
+                "Próxima rodada: solicitar IAM read-only role pra Athena CUR + "
+                "GCP IAM viewer pra Billing Export BQ. Sem isso, validação fica "
+                "limitada a 60-70% de precisão."
+            ),
         }
 
     if text.startswith("```"):
@@ -999,30 +1135,77 @@ Devolva APENAS um JSON válido com esta estrutura, sem markdown, sem comentário
                 f"{_CLAUDE_FALLBACK_TAG} resposta não-JSON da Claude.\n\n"
                 f"{text[:1200]}"
             ),
+            "status_documento": "rascunho preliminar baseado em intake",
+            "premissas_limitacoes": {
+                "dados_analisados": ["intake submetido pelo cliente"],
+                "dados_pendentes": [
+                    "IAM read-only role pra Athena CUR queries",
+                    "GCP IAM viewer pra Billing Export BigQuery",
+                ],
+                "premissas_adotadas": [
+                    "Claude retornou JSON inválido — preencher manualmente",
+                ],
+            },
             "findings": [
                 {
                     "vector": v.split(" ")[0],
+                    "finops_capability": "Workload Optimization",
+                    "maturity_current": "Crawl",
+                    "maturity_target_12mo": "Walk",
+                    "aws_wa_bp": "COST03-BP*",
+                    "gcp_equivalent": "—",
+                    "data_sources": ["ESTIMATIVA"],
                     "hypothesis": (
                         f"{_CLAUDE_FALLBACK_TAG} revisar manualmente. "
                         f"Vetor: {v}"
                     ),
+                    "validation_criteria": [],
+                    "implementation_steps": [],
+                    "rollback_plan": "—",
+                    "execution_window": "—",
                     "savings_brl_low": 0,
                     "savings_brl_high": 0,
+                    "confidence": "baixa",
                     "effort": "med",
                     "risk": "med",
                     "priority": "medium_term",
                 }
                 for v in _FINOPS_VECTORS
             ],
+            "closing_recommendation": (
+                "Próxima rodada: solicitar acesso programático aos dados de billing."
+            ),
         }
 
 
 def _findings_to_markdown(data: dict) -> str:
-    """Render the structured findings dict as a markdown document."""
+    """Render the structured findings dict as a framework-grade markdown doc."""
     out: List[str] = []
-    out.append("## Resumo")
+    out.append("## Resumo executivo")
     out.append(data.get("summary") or "")
     out.append("")
+
+    status = data.get("status_documento") or "rascunho preliminar baseado em intake"
+    out.append("## Premissas e Limitações")
+    out.append("")
+    out.append(f"**Status do documento:** {status}")
+    out.append("")
+
+    premissas = data.get("premissas_limitacoes") or {}
+    if isinstance(premissas, dict):
+        for label_key, list_key in (
+            ("Dados analisados", "dados_analisados"),
+            ("Dados pendentes", "dados_pendentes"),
+            ("Premissas adotadas", "premissas_adotadas"),
+        ):
+            items = premissas.get(list_key) or []
+            if not items:
+                continue
+            out.append(f"**{label_key}:**")
+            for item in items:
+                out.append(f"- {item}")
+            out.append("")
+
     out.append("## Findings por vetor")
     out.append("")
     findings = data.get("findings") or []
@@ -1033,23 +1216,77 @@ def _findings_to_markdown(data: dict) -> str:
             continue
         vector = f.get("vector") or "—"
         out.append(f"### {vector}")
+        out.append("")
+
+        # Framework metadata block — bold inline labels so it renders cleanly
+        # in both markdown and the styled HTML pipeline.
+        cap = f.get("finops_capability") or "—"
+        mat_cur = f.get("maturity_current") or "—"
+        mat_tgt = f.get("maturity_target_12mo") or "—"
+        bp = f.get("aws_wa_bp") or "—"
+        gcp = f.get("gcp_equivalent") or "—"
+        sources = f.get("data_sources") or []
+        sources_str = ", ".join(sources) if sources else "—"
+
+        out.append(f"**FinOps Capability:** {cap}")
+        out.append(f"**Maturity atual:** {mat_cur}  ·  **Maturity-alvo (12 meses):** {mat_tgt}")
+        out.append(f"**AWS WA Best Practice:** {bp}")
+        out.append(f"**GCP Equivalent:** {gcp}")
+        out.append(f"**Fontes de dado:** [{sources_str}]")
+        out.append("")
+        out.append("**Hipótese e math:**")
         out.append(f.get("hypothesis") or "—")
+        out.append("")
+
+        vcrit = f.get("validation_criteria") or []
+        if vcrit:
+            out.append("**Validation criteria:**")
+            for v in vcrit:
+                out.append(f"- {v}")
+            out.append("")
+
+        steps = f.get("implementation_steps") or []
+        if steps:
+            out.append("**Implementation steps:**")
+            for i, s in enumerate(steps, start=1):
+                out.append(f"{i}. {s}")
+            out.append("")
+
+        rb = f.get("rollback_plan")
+        if rb and rb != "—":
+            out.append(f"**Rollback:** {rb}")
+            out.append("")
+
+        win = f.get("execution_window")
+        if win and win != "—":
+            out.append(f"**Janela de execução:** {win}")
+            out.append("")
+
         low = int(f.get("savings_brl_low") or 0)
         high = int(f.get("savings_brl_high") or 0)
         total_low += low
         total_high += high
         out.append(
-            f"- **Economia estimada (anualizada):** R$ {_brl(low)} – R$ {_brl(high)}"
+            f"**Economia anualizada:** R$ {_brl(low)} – R$ {_brl(high)}  ·  "
+            f"**Confiança:** {f.get('confidence') or '—'}  ·  "
+            f"**Esforço:** {f.get('effort') or '—'}  ·  "
+            f"**Risco:** {f.get('risk') or '—'}  ·  "
+            f"**Prioridade:** {f.get('priority') or '—'}"
         )
-        out.append(f"- **Esforço:** {f.get('effort') or '—'}")
-        out.append(f"- **Risco:** {f.get('risk') or '—'}")
-        out.append(f"- **Prioridade:** {f.get('priority') or '—'}")
         out.append("")
+
     out.append("## Total estimado")
     out.append(
         f"- **Economia anualizada (faixa):** "
         f"R$ {_brl(total_low)} – R$ {_brl(total_high)}"
     )
+    out.append("")
+
+    closing = data.get("closing_recommendation")
+    if closing:
+        out.append("## Próxima rodada — o que pedir")
+        out.append(closing)
+
     return "\n".join(out)
 
 
@@ -1095,24 +1332,62 @@ async def _compose_change_log_narrative(
         quick_wins = (findings.get("findings") or [])[:4]
 
     qw_block = "\n".join(
-        f"- {f.get('vector')}: {f.get('hypothesis')}" for f in quick_wins
+        f"- {f.get('vector')} [FinOps: {f.get('finops_capability') or '—'} · "
+        f"WA: {f.get('aws_wa_bp') or '—'} · sources: "
+        f"{','.join(f.get('data_sources') or []) or '—'}]\n  {f.get('hypothesis')}"
+        for f in quick_wins
     )
 
-    prompt = f"""Você está escrevendo o plano de mudanças (change log) da semana 3 de uma auditoria FinOps Anuvia. Esse documento vai para o cliente aprovar mudança por mudança ANTES de qualquer execução em produção.
+    prompt = f"""Você está escrevendo o plano de mudanças (change log) da semana 3 de uma auditoria FinOps Anuvia. Esse documento vai para o cliente aprovar mudança por mudança ANTES de qualquer execução em produção — formato AWS Well-Architected remediation plan + GCP TAM execution plan.
 
 Quick wins identificados na semana 2:
 {qw_block}
 
-Para cada quick win, escreva uma seção markdown com:
-1. **Descrição** — o que será feito, em 2-3 frases.
-2. **Critérios de validação** — bullets do que precisa ser verdade antes de aprovar.
-3. **Plano de rollback** — o passo-a-passo se algo quebrar.
-4. **Janela proposta** — quando executar (ex: "fora do horário comercial BRT", "próxima janela de manutenção").
-5. **Economia anualizada esperada** — em R$.
+REQUISITOS DE FRAMEWORK:
+- Comece com seção "## Sumário executivo" (3-5 linhas) + "## Premissas e Limitações" declarando o status do documento (rascunho preliminar OU validado com CUR) e o que ainda falta pra validação completa.
+- Para cada quick win, inclua referência ao FinOps Capability + AWS WA Best Practice code + GCP equivalent (quando relevante).
+- Toda afirmação quantitativa traz tag de fonte [INTAKE/CUR/CE/TA/CO/GCP-EXPORT/GCP-REC/FH/ESTIMATIVA].
+- Cite instance types específicos (db.m5.2xlarge → db.t4g.large), comandos AWS CLI (modify-db-instance, put-bucket-lifecycle-configuration), e thresholds CloudWatch reais.
 
-Comece com uma seção "## Visão geral" curta (3-5 linhas) explicando o que é o documento e qual é a regra de aprovação. Termine com uma seção "## Próximos passos" explicando o que acontece após o sign-off."""
+Estrutura markdown por quick win (use heading ### para cada um):
 
-    return await _call_claude(prompt, max_tokens=3000)
+### {{Vector}} — {{ação concreta de 1-line}}
+
+**FinOps Capability:** {{capability}}  ·  **AWS WA BP:** {{COST-XX-BPYY}}  ·  **GCP Equivalent:** {{1-line}}
+
+**Fontes de dado:** [{{INTAKE/CUR/...}}]
+
+**Descrição da mudança** (3-5 frases com instance types, comandos AWS CLI/API, math explícita):
+- ...
+
+**Critérios de validação (PRÉ-execução):**
+- {{query CUR ou CloudWatch metric a verificar}}
+- {{Compute Optimizer recommendation a cross-check}}
+- {{checagem de blast radius — workloads dependentes}}
+
+**Implementation steps:**
+1. {{step}}
+2. {{step}}
+
+**Plano de rollback (se algo quebrar):**
+1. {{step}}
+2. {{step}}
+
+**Janela proposta:** {{ex: "sábado 02:00-06:00 BRT", "próxima janela de manutenção", "imediato — operação não-disruptiva"}}
+
+**Critérios de sucesso (PÓS-execução):**
+- {{ex: "CPU p95 da nova instance permanece <70% por 72h"}}
+- {{ex: "Cost Explorer mostra delta de spend conforme estimado em 48h"}}
+
+**Economia anualizada esperada:** R$ X – R$ Y  ·  **Confiança:** alta|média|baixa
+
+---
+
+Termine com seção "## Próximos passos" explicando: (1) processo de sign-off por cliente, (2) ordem de execução proposta, (3) janela de monitoring pós-execução (típico 7d), (4) o que precisa pra elevar confiança baixa em alta (ex: 'IAM read-only role pra Athena CUR queries').
+
+Voz Anuvia: seca, direta, numbers-first. Português do Brasil."""
+
+    return await _call_claude(prompt, max_tokens=4500)
 
 
 async def _compose_final_report_narrative(
@@ -1131,12 +1406,12 @@ async def _compose_final_report_narrative(
 
     findings_block = _findings_to_markdown(findings)
 
-    prompt = f"""Você está escrevendo o relatório executivo final (12 páginas) de uma auditoria FinOps Anuvia.
+    prompt = f"""Você está escrevendo o relatório executivo final (15-20 páginas) de uma auditoria FinOps Anuvia — padrão de qualidade AWS Well-Architected Review Report + Google Cloud TAM Cost Optimization Engagement deliverable. O leitor é CTO/VP Engineering/Head of Platform.
 
 Perfil do cliente:
 {profile_block}
 
-Findings da semana 2:
+Findings estruturados da semana 2 (framework metadata + math):
 {findings_block}
 
 Change log da semana 3 (resumo):
@@ -1144,49 +1419,128 @@ Change log da semana 3 (resumo):
 
 Economia anualizada total identificada: R$ {_brl(low)} – R$ {_brl(high)}.
 
+REQUISITOS DE FRAMEWORK (não negociáveis):
+- Toda quantitativo traz tag de fonte [INTAKE/CUR/CE/TA/CO/GCP-EXPORT/GCP-REC/FH/ESTIMATIVA].
+- Toda finding referencia FinOps Capability + AWS WA BP code (COST01-COST06) + GCP equivalent.
+- Maturity assessment (Crawl/Walk/Run) por capability é OBRIGATÓRIO em seção dedicada.
+- Premissas e Limitações vem imediatamente após Sumário Executivo — declare honestly o que foi acessado vs estimado.
+- Math explícita em todos os cálculos (mostre a conta: $/unit × quantity × período).
+- Status do documento na primeira página: "rascunho preliminar baseado em intake" OU "auditoria validada com CUR + CE".
+
 Estruture o documento markdown com estas seções, nesta ordem:
 
-1. **## Sumário executivo** — 1 página: contexto, principais números (baseline mensal estimado, economia identificada, payback), decisão pedida.
-2. **## Baseline de spend** — descrição do gasto atual por categoria. Quando faltar dado concreto, marque como "estimativa baseada em padrões setoriais".
-3. **## Metodologia** — como rodamos a auditoria (8 vetores, CUR via Athena, Cost Explorer, Trusted Advisor, Compute Optimizer).
-4. **## Findings detalhados** — uma subseção por vetor com hipótese, evidências esperadas, economia, esforço, risco, prioridade.
-5. **## Savings realizadas (semana 3)** — o que foi executado no quick wins phase, números antes/depois.
-6. **## Roadmap 12 meses** — 3 horizontes: 30 dias (quick wins residuais), 90 dias (RI/SP strategy, Graviton, S3 intelligent tiering), 180-365 dias (re-arch cross-AZ, multi-region, database migrations).
-7. **## ADRs** — Architecture Decision Records para cada decisão estrutural (RI strategy, Graviton, observability cost).
-8. **## Handoff checklist** — 16 itens revisados em toda auditoria Anuvia.
-9. **## Apêndices** — queries SQL usadas (Athena), referências.
+1. **## Sumário executivo** — 1 página. Inclua: contexto (1-2 frases), baseline mensal com tag [INTAKE], economia anualizada faixa, payback dias, % do bill recuperável, decisão pedida. Em formato tabela compacta no final.
 
-Voz Anuvia: seca, direta, numbers-first. Cada afirmação com número quando possível. Quando estimar, dizer "estimativa".
+2. **## Premissas e Limitações** — Status do documento + Dados analisados + Dados pendentes + Premissas adotadas (use seção callout). Esta seção CONSTRÓI CONFIANÇA — seja honesto sobre o que ainda precisa ser validado com IAM role / Billing Export access.
+
+3. **## Baseline de spend** — Decomposição por categoria com tag de fonte. Tabela: Categoria | Spend mensal estimado | % do total | Fonte. Para AWS use categorias AWS WA padrão (Compute, Storage, Database, Network, Data Transfer, Support, Third-party SaaS). Para multi-cloud, separe AWS / GCP.
+
+4. **## Metodologia** — 8 vetores Anuvia mapeados pra FinOps Foundation Capabilities + AWS WA Cost Pillar BPs. Liste ferramentas usadas (CUR via Athena, Cost Explorer, Trusted Advisor, Compute Optimizer, GCP Recommender, FinOps Hub, Billing Export BQ). Indique quais foram efetivamente acessadas vs pendentes.
+
+5. **## FinOps Maturity Assessment** — Tabela com todas as 6 Capabilities da FinOps Foundation (Allocation, Reporting & Analytics, Showback/Chargeback, Workload Optimization, Pricing & Rate Optimization, Anomaly Management) + 5 do Operate domain (Budget Mgmt, Forecasting, Cloud Policy & Governance, Decentralized Decision Making, FinOps Education). Colunas: Capability | Domain | Maturity atual | Maturity-alvo 12mo | Gap principal. Use Crawl/Walk/Run.
+
+6. **## Findings detalhados** — Uma subseção ### por vetor. Cada uma com: FinOps Capability + maturity + AWS WA BP code + GCP equivalent + Fontes + Hipótese com math explícita + Validation criteria + Implementation steps + Rollback + Janela + Economia + Confiança. Cite instance types reais (db.m5.2xlarge → db.t4g.large, m7g.xlarge), serviços com nome de produto (Compute Optimizer, S3 Intelligent-Tiering, Aurora I/O-Optimized, EBS gp3), métricas CloudWatch (CPUUtilization p95 <20% por 14d), comandos AWS CLI (modify-db-instance --apply-immediately false).
+
+7. **## Savings realizadas (quick wins phase)** — Tabela: Mudança | Data | Spend antes | Spend depois | Delta mensal | Delta anualizado | Fonte da medição [CE/CUR]. Se ainda em rascunho, marque "Pendente execução pós-sign-off".
+
+8. **## Roadmap 12 meses** — 3 horizontes:
+   - **30 dias** — quick wins residuais + setup de governança (AWS Budgets alerts, tagging policy enforced via SCP, Cost Explorer custom dashboards). Mapear cada item pra COST01/COST02 BP.
+   - **90 dias** — RI/SP strategy (target coverage 70-85%, mix Compute SP + EC2 RI), Graviton migration por workload (blue/green via AMI swap), S3 Intelligent-Tiering rollout, Aurora I/O-Optimized eval, observability cost optimization. Mapear cada item pra COST03/COST04 BP.
+   - **180-365 dias** — re-arch cross-AZ traffic (VPC Endpoints vs NAT Gateway), multi-region rationalization, database migration considerations (RDS → Aurora Serverless v2 quando aplicável), FinOps Foundation framework adoption formal (monthly cadence + chargeback model). Mapear cada item pra COST05/COST06 BP.
+
+9. **## ADRs (Architecture Decision Records)** — Para cada decisão estrutural, formato ADR-XX:
+   - ADR-01 RI 1-year vs 3-year (com math de break-even e flexibility tradeoffs)
+   - ADR-02 Graviton migration (workloads candidatos, blue/green plan, rollback)
+   - ADR-03 S3 Intelligent-Tiering vs lifecycle manual
+   - ADR-04 NAT Gateway consolidation vs VPC Endpoints
+   - ADR-05 Observability cost (CloudWatch vs Datadog vs OpenTelemetry self-hosted)
+   - + adicionais conforme findings
+
+10. **## Governança contínua** — Cadência mensal de FinOps review (template incluso: agenda, métricas obrigatórias). Métricas: cost per workload, cost per request (unit economics), RI/SP coverage, RI/SP utilization, anomaly count, savings realized YTD. Thresholds que disparam alerta (ex: anomaly >20% MoM em qualquer categoria).
+
+11. **## Handoff checklist** — 16 itens revisados em toda auditoria Anuvia: ownership de cost dashboards, runbooks de RI purchase, alerting wiring, tagging compliance, etc.
+
+12. **## Próxima rodada — o que pedir** — Honest closing: se confiança ficou em "média" ou "baixa" em vários findings, liste exatamente o que pedir pra próxima iteração elevar pra "alta" (IAM read-only role com policies específicas, GCP Billing Export BQ access, sample CloudWatch metrics 30d via cross-account role, etc.). Esta seção PROTEGE o cliente — sem ela o relatório vira só estimativa.
+
+13. **## Apêndices** — Queries SQL Athena usadas (template + parameters), GCP Billing BQ SQL templates, referências (links pra AWS WA Cost Pillar whitepaper, FinOps Foundation framework page, GCP cost optimization docs).
+
+Voz Anuvia: seca, direta, numbers-first. Cada afirmação com número + tag de fonte quando possível. Quando estimar, use [ESTIMATIVA] e justifique com math. Português do Brasil.
 """
 
-    return await _call_claude(prompt, max_tokens=4000)
+    return await _call_claude(prompt, max_tokens=8000)
 
 
 async def _compose_roadmap_narrative(engagement: dict, findings: dict) -> str:
     """Standalone 12-month roadmap markdown (separate from the report)."""
     findings_block = _findings_to_markdown(findings)
-    prompt = f"""Escreva um roadmap de FinOps de 12 meses pra um cliente Anuvia, em markdown.
+    prompt = f"""Escreva o Roadmap FinOps de 12 meses como deliverable standalone — padrão AWS Well-Architected Improvement Plan + FinOps Foundation maturity progression plan. Vai pra leadership técnica (CTO/VP Eng).
 
 Findings da auditoria:
 {findings_block}
 
-Estrutura:
+REQUISITOS DE FRAMEWORK:
+- Cada iniciativa mapeada pra FinOps Capability + AWS WA BP code (COST01-COST06) + GCP equivalent quando relevante.
+- Tags de fonte [INTAKE/CUR/CE/TA/CO/GCP-EXPORT/GCP-REC/FH/ESTIMATIVA] em toda economia citada.
+- Trajetória de maturity explicit: Crawl → Walk → Run por capability, com timestamp.
 
-## Horizonte 1 — 30 dias
-Os quick wins residuais e setup de governança (alertas de billing, tagging policy enforced, dashboards default). Tabela com item, dono sugerido, esforço (dias-pessoa), economia esperada.
+Estrutura markdown:
 
-## Horizonte 2 — 90 dias
-Iniciativas de médio prazo: RI/SP strategy (target coverage 70-85%), Graviton migration por workload, S3 intelligent tiering rollout, observability cost optimization.
+## Sumário executivo
+3-5 linhas: target maturity em 12 meses, economia total acumulada esperada (faixa), estado atual da maturity por domain (INFORM/OPTIMIZE/OPERATE).
 
-## Horizonte 3 — 180-365 dias
-Iniciativas estruturais: re-arch cross-AZ, multi-region rationalization, database migration considerations, FinOps culture (FinOps Foundation framework adoption, monthly review cadence).
+## Premissas e Limitações
+- Status do documento (rascunho preliminar baseado em intake OU validado com CUR)
+- Dados pendentes pra refinar roadmap (IAM read-only role Athena, Billing Export BQ access)
+
+## Trajetória de maturity FinOps (12 meses)
+Tabela: Capability | Domain | T0 (hoje) | T+30d | T+90d | T+365d. Use Crawl/Walk/Run. Inclua todas as 12 capabilities (Allocation, Reporting & Analytics, Showback/Chargeback, Workload Optimization, Pricing & Rate Optimization, Anomaly Management, Budget Management, Forecasting, Cloud Policy & Governance, Decentralized Decision Making, FinOps Education & Enablement, Onboarding Workloads).
+
+## Horizonte 1 — 30 dias (Crawl → Walk em Inform domain)
+Quick wins residuais + setup de governança. Mapear cada item pra COST01/COST02 BP.
+Tabela: Item | FinOps Capability | AWS WA BP | Dono sugerido | Esforço (pessoa-dias) | Economia anualizada | Fonte
+Itens típicos:
+- AWS Budgets com alertas em 50/80/100% (COST02-BP02) — owner: Platform Eng
+- Tagging policy enforced via SCP (COST02-BP04) — owner: Platform Eng + Sec
+- Cost Explorer custom dashboards por business unit (COST02-BP05) — owner: FinOps lead
+- Compute Optimizer recommendations review semanal (COST04-BP05) — owner: SRE
+- GCP equivalente (se multi-cloud): Recommender API automation + FinOps Hub setup
+
+## Horizonte 2 — 90 dias (Walk em Optimize domain)
+Iniciativas de médio prazo. Mapear cada item pra COST03/COST04 BP.
+- RI/SP strategy: target coverage 70-85% (Compute SP cobre EC2 + Lambda + Fargate; EC2 RI pra workloads estáveis). Math break-even. COST03-BP05.
+- Graviton migration blue/green por workload (m5 → m7g, c5 → c7g, r5 → r7g). AMI swap + ASG canary. COST04-BP02.
+- S3 Intelligent-Tiering enable para buckets >100GB com access pattern variável. COST03-BP08.
+- Aurora I/O-Optimized eval para clusters com I/O >25% do bill. COST03-BP06.
+- Observability cost optimization (CloudWatch log retention rationalization, metric filter cleanup, Datadog/New Relic SKU review). COST03-BP11.
+- GCP equivalente: CUDs spend-based 1y commitment 60-70% baseline; BigQuery slot reservations vs on-demand decision.
+
+## Horizonte 3 — 180-365 dias (Run em Operate domain)
+Iniciativas estruturais. Mapear cada item pra COST05/COST06 BP.
+- Re-arch cross-AZ traffic: VPC Endpoints (Gateway pra S3/DynamoDB free; Interface endpoints com custo mas evitam NAT egress). COST05-BP04.
+- Multi-region rationalization: consolidar workloads dev/staging em single region; DR strategy explicit. COST06-BP01.
+- Database migration considerations: RDS → Aurora Serverless v2 onde aplicável; DynamoDB on-demand vs provisioned. COST06-BP02.
+- FinOps Foundation framework adoption formal: monthly cadence + chargeback model + KPIs (cost per workload, unit economics). COST01-BP03.
+- FinOps Education program: training Plataforma + Eng leads em FinOps fundamentals.
 
 ## Governança contínua
-Cadência mensal de revisão (template incluso), métricas que importam (cost per workload, cost per request, RI/SP utilization, unit economics), thresholds que disparam alerta.
+- Cadência mensal de FinOps review (1h agenda template):
+  1. RI/SP coverage + utilization
+  2. Anomaly review (>20% MoM movement)
+  3. Top 10 spend drivers
+  4. Forecast vs actual delta
+  5. Maturity progression (mover capability Crawl→Walk→Run)
+- Métricas obrigatórias (dashboard): cost per workload, cost per request (unit economics), RI/SP coverage, RI/SP utilization, anomaly count, savings realized YTD, % spend coberto por tags.
+- Thresholds que disparam alerta automático: anomaly >20% MoM em qualquer categoria; RI/SP utilization <85%; tagging compliance <95%.
 
-Voz Anuvia: seca, direta, numbers-first.
+## Riscos e mitigações
+Tabela: Risco | Probabilidade | Impacto | Mitigação | Owner
+
+## Próxima rodada — o que pedir
+Honest closing: dados pendentes que destravariam refinamento do roadmap (IAM read-only role Athena, GCP Billing Export BQ, sample CloudWatch metrics 30d).
+
+Voz Anuvia: seca, direta, numbers-first. Português do Brasil.
 """
-    return await _call_claude(prompt, max_tokens=4000)
+    return await _call_claude(prompt, max_tokens=6500)
 
 
 async def _compose_deck_narrative(engagement: dict, findings: dict) -> str:
@@ -1203,34 +1557,69 @@ async def _compose_deck_narrative(engagement: dict, findings: dict) -> str:
         for f in top
     )
 
-    prompt = f"""Escreva o esqueleto markdown de uma apresentação executiva (15-20 slides) pra um cliente Anuvia, fechando uma auditoria FinOps de 4 semanas.
+    prompt = f"""Escreva o esqueleto markdown de uma apresentação executiva (18-22 slides) — padrão Google Cloud TAM readout deck + AWS Well-Architected Review presentation. Cliente é CTO/VP Eng. Sem hype, sem marketing fluff.
 
-Top 6 findings:
+Top 6 findings (de findings JSON já estruturado):
 {top_block}
 
 Economia anualizada total identificada: R$ {_brl(low)} – R$ {_brl(high)}.
 
-Para cada slide, escreva:
+REQUISITOS DE FRAMEWORK:
+- Cada slide de vetor cita FinOps Capability + AWS WA BP code + instance types específicos + economia com tag de fonte.
+- Slide de maturity (Crawl/Walk/Run) é obrigatório.
+- Slide de premissas/limitações é obrigatório (logo após sumário).
 
-### Slide N — <título>
-- 3-5 bullets curtos (uma frase cada, sem ponto final)
-- (notas: <fala de 30s do apresentador, opcional>)
+Formato por slide:
+
+### Slide N — Título curto
+- bullet 1 (uma frase curta, sem ponto final, com tag de fonte quando quantitativo)
+- bullet 2
+- bullet 3
+(notas: 30s do apresentador — contexto adicional)
 
 Estrutura:
-1. Slide 1 — capa: cliente, escopo, prazo, garantia 3× ROI.
-2. Slide 2 — sumário (números headline: baseline, economia identificada, payback).
-3. Slide 3-4 — metodologia (8 vetores, ferramentas).
-4. Slide 5-12 — um slide por vetor com economia + evidência.
-5. Slide 13 — savings realizadas (quick wins phase).
-6. Slide 14-16 — roadmap 30/90/365 dias.
-7. Slide 17 — ADRs principais.
-8. Slide 18 — governança contínua (cadência mensal, métricas).
-9. Slide 19 — handoff (próximos passos, ownership).
-10. Slide 20 — encerramento + Anuvia retainer ongoing (CTA).
 
-Voz Anuvia: seca, direta. Sem hype. Bullets curtos."""
+1. Slide 1 — Capa (cliente, escopo "Auditoria FinOps Multicloud", prazo 4 semanas, engagement id, Anuvia + Mila Vernazza)
 
-    return await _call_claude(prompt, max_tokens=4500)
+2. Slide 2 — Sumário em números (baseline mensal [INTAKE], economia anualizada faixa, % do bill recuperável, payback dias, # quick wins identificados)
+
+3. Slide 3 — Premissas e Limitações (Status do documento + Dados acessados + Dados pendentes + Confiança média/baixa onde aplicável)
+
+4. Slide 4 — Metodologia (8 vetores Anuvia + frameworks: FinOps Foundation + AWS WA Cost Pillar + GCP Cost Optimization)
+
+5. Slide 5 — FinOps Maturity Assessment (tabela compacta: 6 Capabilities × Crawl/Walk/Run atual vs alvo 12mo)
+
+6. Slide 6 — Baseline de spend (decomposição por categoria com tag de fonte — Compute / Storage / Database / Network / Data Transfer / Support / SaaS)
+
+7-12. Slides 7-12 — Um slide por vetor top-6 (em ordem decrescente de savings). Para cada um:
+   - **Vetor [Capability · COST-XX-BPYY]**
+   - bullet: instance types ou serviços específicos identificados [INTAKE/CUR/CO/ESTIMATIVA]
+   - bullet: math explícita (ex: gp2 → gp3, US$ 0,10 vs 0,08/GB/mês × 8TB)
+   - bullet: economia anualizada R$ X-Y · confiança alta/média/baixa
+   - bullet: GCP equivalent (1-line)
+   - (notas: validation criteria + rollback resumido)
+
+13. Slide 13 — Quick wins phase: savings realizadas (tabela antes/depois com tag [CE])
+
+14. Slide 14 — Roadmap H1 (30 dias) — quick wins residuais + governance setup (COST01/COST02 BPs)
+
+15. Slide 15 — Roadmap H2 (90 dias) — RI/SP strategy + Graviton + S3 Intelligent-Tiering (COST03/COST04 BPs)
+
+16. Slide 16 — Roadmap H3 (180-365 dias) — re-arch cross-AZ + database migrations + FinOps culture (COST05/COST06 BPs)
+
+17. Slide 17 — ADRs principais (ADR-01 RI strategy, ADR-02 Graviton, ADR-03 S3 tiering, ADR-04 NAT vs VPC Endpoints, ADR-05 observability cost)
+
+18. Slide 18 — Governança contínua (cadência mensal + métricas obrigatórias + thresholds de alerta)
+
+19. Slide 19 — Handoff checklist (16 itens — ownership de dashboards, runbooks RI purchase, alerting, tagging compliance)
+
+20. Slide 20 — Próxima rodada: o que pedir (IAM read-only role Athena CUR + GCP Billing Export BQ + sample CloudWatch metrics 30d — honest sobre limitação de precisão sem isso)
+
+21. Slide 21 — Encerramento (Mila Vernazza · founder@anuvia.com.br · próximos passos: opcional retainer ongoing FinOps)
+
+Voz Anuvia: seca, direta. Sem hype. Bullets curtos sem ponto final. Português do Brasil."""
+
+    return await _call_claude(prompt, max_tokens=6500)
 
 
 # ---------------------------------------------------------------------------
