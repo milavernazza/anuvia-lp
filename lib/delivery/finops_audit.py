@@ -1170,9 +1170,16 @@ Devolva APENAS um JSON válido com esta estrutura, sem markdown, sem comentário
         log.warning("finops: claude returned non-JSON: %s", exc)
         return {
             "summary": (
-                f"{_CLAUDE_FALLBACK_TAG} resposta não-JSON da Claude.\n\n"
-                f"{text[:1200]}"
+                f"{_CLAUDE_FALLBACK_TAG} resposta não-JSON da Claude — "
+                f"erro: {type(exc).__name__}: {exc}.\n\n"
+                f"=== CANDIDATE LEN {len(candidate)} ===\n"
+                f"{candidate[:600]}\n...[TRUNCATED]...\n{candidate[-600:]}\n\n"
+                f"=== RAW TEXT LEN {len(text)} ===\n"
+                f"{text[:300]}"
             ),
+            "_debug_raw_text_len": len(text),
+            "_debug_candidate_len": len(candidate),
+            "_debug_parse_error": f"{type(exc).__name__}: {exc}",
             "status_documento": "rascunho preliminar baseado em intake",
             "premissas_limitacoes": {
                 "dados_analisados": ["intake submetido pelo cliente"],
