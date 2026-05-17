@@ -699,21 +699,22 @@ def _kickoff_email_html(
 ) -> str:
     body = f"""
 <p style="color:#475569;line-height:1.65;margin:0 0 14px;">Olá {first_name},</p>
-<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Contrato fechado, FinOps Audit começa agora. Investimento total: <strong>R$ {value_str}</strong>. Cronograma: 4 semanas, com entregáveis escritos no fim de cada uma.</p>
-<p style="color:#475569;line-height:1.65;margin:0 0 8px;"><strong>Semana 1 — Discovery &amp; Data Collection.</strong> Primeira coisa que preciso: as informações listadas no formulário abaixo. Sem isso, a análise da semana 2 não roda.</p>
+<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Obrigada pela confiança. O contrato da FinOps Audit foi confirmado — investimento total <strong>R$ {value_str}</strong>, cronograma de 4 semanas com entregáveis ao final de cada uma. Nosso time já está organizando o kickoff da semana 1.</p>
+<p style="color:#475569;line-height:1.65;margin:0 0 8px;"><strong>Semana 1 — Discovery &amp; Data Collection.</strong> Pra começarmos com a análise calibrada ao perfil de vocês, nosso time precisa das informações abaixo. Quanto antes recebermos, mais aprofundada fica a análise da semana 2.</p>
 <ul style="color:#475569;line-height:1.65;margin:0 0 18px 18px;padding:0;">
   <li>AWS spend dos últimos 6 meses (CSV do CUR ou self-report)</li>
   <li>Quantidade de accounts e estrutura de Organizations</li>
   <li>Serviços primários em uso</li>
   <li>Estratégia atual de tagging</li>
   <li>Maiores preocupações de custo que vocês já mapearam</li>
+  <li>Preferência de remediação: time interno OU Anuvia executa via success-fee</li>
   <li>Nome e email do sponsor executivo</li>
 </ul>
 <p style="margin:24px 0;"><a href="{intake_url}" style="display:inline-block;background:#0f172a;color:#ffffff;padding:14px 26px;border-radius:8px;text-decoration:none;font-weight:600;">Abrir formulário de intake &rarr;</a></p>
-<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Em paralelo, vou pedir um IAM role read-only pra rodar queries direto no CUR. O detalhamento técnico vai junto no formulário.</p>
-<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Padrão das 14 últimas auditorias: 27% do bill mensal sai por 4 mesmos canos. Vamos achar os de vocês.</p>
+<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Em paralelo, vamos solicitar um IAM role read-only pra rodar queries direto no CUR — o detalhamento técnico está no formulário.</p>
+<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Como referência, padrão observado nas últimas 14 auditorias da Anuvia: 27% do bill mensal sai por 4 mesmos canos. Nosso time vai mapear os de vocês.</p>
 """
-    return _wrap_email("FinOps Audit começou", body)
+    return _wrap_email("Boas-vindas — FinOps Audit Anuvia", body)
 
 
 def _phase2_email_html(
@@ -725,28 +726,53 @@ def _phase2_email_html(
     )
     body = f"""
 <p style="color:#475569;line-height:1.65;margin:0 0 14px;">Olá {first_name},</p>
-<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Semana 2 fechada. Rodei a análise nos 8 vetores (compute, storage, network, data transfer, RDS, S3, SaaS de terceiros, support tier). Findings priorizados por impacto × esforço × risco.</p>
-<p style="color:#475569;line-height:1.65;margin:0 0 8px;"><strong>Top 5 do que encontramos:</strong></p>
+<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Concluímos a análise da semana 2. Nossa equipe revisou os 8 vetores da auditoria (compute, storage, network, data transfer, RDS, S3, SaaS de terceiros, support tier) e segue em anexo o relatório de findings priorizados por impacto × esforço × risco.</p>
+<p style="color:#475569;line-height:1.65;margin:0 0 8px;"><strong>Top 5 oportunidades identificadas:</strong></p>
 <ul style="color:#1a1a1a;line-height:1.6;margin:0 0 18px 18px;padding:0;">{bullets}</ul>
 <p style="margin:24px 0;"><a href="{pdf_url}" style="display:inline-block;background:#0f172a;color:#ffffff;padding:14px 26px;border-radius:8px;text-decoration:none;font-weight:600;">Findings completos (PDF) &rarr;</a></p>
-<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Próximo passo: na semana 3 implementamos os quick wins (high impact, low risk) com aprovação em cada step. Já te mando o plano de mudanças pra sign-off.</p>
+<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Na semana 3, preparamos o plano detalhado de execução das quick wins (high impact, low risk). O cronograma ramifica baseado na opção de remediação escolhida no intake — time interno de vocês ou execução pela Anuvia via success-fee.</p>
 """
-    return _wrap_email("Findings da semana 2", body)
+    return _wrap_email("Findings da semana 2 — FinOps Audit", body)
 
 
 def _phase3_email_html(
-    *, first_name: str, changelog_url: str, approval_url: str, savings_brl: str
+    *,
+    first_name: str,
+    changelog_url: str,
+    approval_url: str,
+    savings_brl: str,
+    remediation_choice: str = "cliente_interno",
 ) -> str:
+    """Phase 3 email branches based on intake remediation_choice.
+
+    - 'cliente_interno': delivers plan + runbooks for client team to execute
+    - 'anuvia_success_fee': delivers plan + asks for sign-off for Anuvia to execute
+    """
+    is_anuvia = remediation_choice == "anuvia_success_fee"
+
+    if is_anuvia:
+        execution_block = f"""
+<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Conforme acordado no intake, nossa equipe executa as mudanças em produção via success-fee (15-20% da economia validada). Antes de iniciar, precisamos do sign-off explícito por mudança — cada item vem com rollback documentado e janela proposta.</p>
+<p style="margin:24px 0;"><a href="{changelog_url}" style="display:inline-block;background:#0f172a;color:#ffffff;padding:14px 26px;border-radius:8px;text-decoration:none;font-weight:600;">Change log completo (PDF) &rarr;</a></p>
+<p style="color:#475569;line-height:1.65;margin:0 0 8px;">Quando estiverem prontos para autorizar a execução pela nossa equipe:</p>
+<p style="margin:8px 0 24px;"><a href="{approval_url}" style="display:inline-block;background:#16a34a;color:#ffffff;padding:14px 26px;border-radius:8px;text-decoration:none;font-weight:600;">Aprovar execução Anuvia &rarr;</a></p>
+<p style="color:#78716c;line-height:1.55;font-size:13px;margin:0 0 14px;">Sem aprovação não tocamos em nada em produção. Se quiserem ajustar escopo (excluir item, adicionar contexto, mudar janela), basta responder este email.</p>
+"""
+    else:
+        execution_block = f"""
+<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Como o time interno de vocês vai executar as mudanças, o documento abaixo está estruturado como runbook prático: cada item com critério de validação, comandos AWS CLI/console, métricas CloudWatch para checar pré/pós, plano de rollback e janela sugerida.</p>
+<p style="margin:24px 0;"><a href="{changelog_url}" style="display:inline-block;background:#0f172a;color:#ffffff;padding:14px 26px;border-radius:8px;text-decoration:none;font-weight:600;">Runbook completo (PDF) &rarr;</a></p>
+<p style="color:#475569;line-height:1.65;margin:0 0 8px;">Quando completarem a execução das quick wins, nos avisem para validarmos os ganhos via CUR:</p>
+<p style="margin:8px 0 24px;"><a href="{approval_url}" style="display:inline-block;background:#16a34a;color:#ffffff;padding:14px 26px;border-radius:8px;text-decoration:none;font-weight:600;">Confirmar execução concluída &rarr;</a></p>
+<p style="color:#78716c;line-height:1.55;font-size:13px;margin:0 0 14px;">Se tiverem dúvidas técnicas durante a execução, basta responder este email — nossa equipe acompanha e responde em até 1 dia útil. Se preferirem, ainda é possível migrar para o modelo de execução Anuvia via success-fee.</p>
+"""
+
     body = f"""
 <p style="color:#475569;line-height:1.65;margin:0 0 14px;">Olá {first_name},</p>
-<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Semana 3 — plano de quick wins prontos. Economia anualizada estimada: <strong>R$ {savings_brl}</strong>. Cada mudança vem com rollback documentado.</p>
-<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Antes de executar, preciso do seu sign-off explícito por mudança. O change log completo (com timestamp, ticket, aprovador, rollback procedure) está no link abaixo.</p>
-<p style="margin:24px 0;"><a href="{changelog_url}" style="display:inline-block;background:#0f172a;color:#ffffff;padding:14px 26px;border-radius:8px;text-decoration:none;font-weight:600;">Change log (PDF) &rarr;</a></p>
-<p style="color:#475569;line-height:1.65;margin:0 0 8px;">Quando estiver pronto pra eu executar, é um clique:</p>
-<p style="margin:8px 0 24px;"><a href="{approval_url}" style="display:inline-block;background:#16a34a;color:#ffffff;padding:14px 26px;border-radius:8px;text-decoration:none;font-weight:600;">Aprovar quick wins &rarr;</a></p>
-<p style="color:#78716c;line-height:1.55;font-size:13px;margin:0 0 14px;">Sem aprovação não toco em nada em produção. Se quiser ajustar escopo (tirar item, adicionar contexto), só responder este email.</p>
+<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Semana 3 — o plano de quick wins está pronto. Economia anualizada estimada nesta fase: <strong>R$ {savings_brl}</strong>. Cada mudança vem com critério de validação prévio, plano de execução e procedimento de rollback documentado.</p>
+{execution_block}
 """
-    return _wrap_email("Quick wins prontos pra aprovação", body)
+    return _wrap_email("Plano de quick wins pronto — FinOps Audit", body)
 
 
 def _phase4_email_html(
@@ -760,27 +786,27 @@ def _phase4_email_html(
 ) -> str:
     body = f"""
 <p style="color:#475569;line-height:1.65;margin:0 0 14px;">Olá {first_name},</p>
-<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Auditoria concluída. Quatro semanas, três entregáveis principais:</p>
+<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Concluímos a FinOps Audit. Foram quatro semanas de trabalho conjunto entre nossa equipe e vocês — segue em anexo os três entregáveis finais:</p>
 <ul style="color:#475569;line-height:1.65;margin:0 0 18px 18px;padding:0;">
-  <li><a href="{report_url}" style="color:#0f172a;">Relatório executivo</a> — 12 páginas, baseline + findings + savings realizadas + ADRs.</li>
-  <li><a href="{deck_url}" style="color:#0f172a;">Apresentação executiva</a> — pra rodar com C-level e board.</li>
-  <li><a href="{roadmap_url}" style="color:#0f172a;">Roadmap 12 meses</a> — médio prazo (RI/SP, Graviton, S3 tiering) e alto risco (re-arch).</li>
+  <li><a href="{report_url}" style="color:#0f172a;">Relatório executivo</a> — baseline AWS, findings detalhados por vetor, savings realizadas, ADRs e premissas explícitas.</li>
+  <li><a href="{deck_url}" style="color:#0f172a;">Apresentação executiva (PPTX)</a> — material para apresentação com C-level e board.</li>
+  <li><a href="{roadmap_url}" style="color:#0f172a;">Roadmap 12 meses</a> — Crawl→Walk→Run mapeado nas FinOps Foundation capabilities, com gates de evolução.</li>
 </ul>
-<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Economia anualizada identificada: <strong>R$ {savings_brl}</strong>. Sessão de handoff 2h fica agendada pelo email com a Mila.</p>
-<p style="color:#475569;line-height:1.65;margin:0 0 14px;">A invoice da segunda parcela já entrou na fila — ela cai no seu inbox separada.</p>
-<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Um pedido: 2 minutos pra deixar um NPS. Direto, sem firula:</p>
-<p style="margin:8px 0 24px;"><a href="{nps_url}" style="display:inline-block;background:#0f172a;color:#ffffff;padding:14px 26px;border-radius:8px;text-decoration:none;font-weight:600;">Deixar NPS &rarr;</a></p>
-<p style="color:#475569;line-height:1.65;margin:0 0 14px;">E se conhecer outro CTO/Head Cloud com bill AWS &gt; R$ 80k/mês — você sabe quem precisa ouvir isso. Indicação direta vale mais que qualquer outbound nosso.</p>
+<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Economia anualizada identificada nesta auditoria: <strong>R$ {savings_brl}</strong>. A sessão final de handoff (90 min) será agendada nos próximos dias diretamente com a Mila.</p>
+<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Como próximos passos, nossa equipe está à disposição para acompanhar a evolução do roadmap. Caso queiram que a Anuvia execute as iniciativas estruturais (RI/SP strategy, Graviton migration, re-arch cross-AZ), trabalhamos via success-fee 15-20% da economia validada — sem custo upfront adicional.</p>
+<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Pedimos um favor breve: 2 minutos para deixar a avaliação NPS — feedback honesto nos ajuda a evoluir o programa.</p>
+<p style="margin:8px 0 24px;"><a href="{nps_url}" style="display:inline-block;background:#0f172a;color:#ffffff;padding:14px 26px;border-radius:8px;text-decoration:none;font-weight:600;">Deixar avaliação &rarr;</a></p>
+<p style="color:#475569;line-height:1.65;margin:0 0 14px;">E se conhecerem outro CTO ou Head of Cloud enfrentando os mesmos desafios de spend AWS, ficaríamos gratos pela indicação. Referrals diretos seguem sendo nossa principal forma de crescimento.</p>
 """
-    return _wrap_email("FinOps Audit entregue", body)
+    return _wrap_email("Entrega final — FinOps Audit Anuvia", body)
 
 
 def _intake_reminder_email_html(*, first_name: str, intake_url: str) -> str:
     body = f"""
 <p style="color:#475569;line-height:1.65;margin:0 0 14px;">Olá {first_name},</p>
-<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Lembrete curto: o formulário de intake ainda não foi preenchido. Sem ele, a análise da semana 2 não pode rodar e o cronograma desloca.</p>
+<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Lembrete amigável — nosso time ainda não recebeu o formulário de intake preenchido. Para mantermos o cronograma das 4 semanas, idealmente recebemos as informações nos próximos 2 dias úteis.</p>
 <p style="margin:24px 0;"><a href="{intake_url}" style="display:inline-block;background:#0f172a;color:#ffffff;padding:14px 26px;border-radius:8px;text-decoration:none;font-weight:600;">Abrir formulário &rarr;</a></p>
-<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Se tiver algum bloqueio (acesso AWS, sponsor não definido), me avisa. A gente resolve.</p>
+<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Caso haja algum bloqueio (acesso AWS pendente, sponsor executivo a definir, qualquer dúvida sobre os campos), basta responder este email — nosso time ajuda a destravar.</p>
 """
     return _wrap_email("Intake pendente — FinOps Audit", body)
 
@@ -2446,17 +2472,30 @@ async def _run_phase_3(engagement: dict) -> dict:
                 f"{BASE_URL}/api/delivery/finops/approve"
                 f"?engagement_id={engagement_id}&token={token}"
             )
+            # Branch email tone on remediation choice declared in intake.
+            intake = engagement.get("intake_data") or {}
+            remediation_choice = str(
+                intake.get("remediation_choice")
+                or intake.get("execution_choice")
+                or "cliente_interno"
+            )
             html = _phase3_email_html(
                 first_name=first_name,
                 changelog_url=change_log_url,
                 approval_url=approval_url,
                 savings_brl=f"{_brl(low)} – {_brl(high)}",
+                remediation_choice=remediation_choice,
+            )
+            subject = (
+                "Plano de execução pronto — autorização requerida"
+                if remediation_choice == "anuvia_success_fee"
+                else "Runbook de quick wins pronto — execução pelo time interno"
             )
             try:
                 await _send_email(
                     engagement_id=engagement_id,
                     to=email,
-                    subject="Quick wins prontos — aprovação requerida",
+                    subject=subject,
                     html=html,
                     kind="finops_phase_3_approval",
                 )
