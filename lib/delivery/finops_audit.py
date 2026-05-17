@@ -1016,7 +1016,14 @@ async def _compose_findings_narrative(
 
 INSTRUÇÃO DE OUTPUT (CRÍTICA): Responda APENAS com JSON válido. NADA antes ou depois do `{{`. NADA de prosa, markdown, comentários, ` ``` `. Apenas o objeto JSON puro.
 
-Cada finding deve ser DENSO mas CONCISO — voz Anuvia senior. Frases de 1-2 linhas com número e referência técnica. NÃO escreva parágrafos longos.
+LIMITES DE TAMANHO (não negociáveis pra caber no token budget):
+- hypothesis: máximo 3 frases (250 chars)
+- validation_criteria: máximo 3 bullets, cada um <80 chars
+- implementation_steps: máximo 4 steps, cada um <120 chars
+- rollback_plan: 1-2 frases máximo
+- gcp_equivalent: 1 frase de 1 linha
+
+Voz Anuvia senior = densidade, NÃO verbosidade. Frase curta, número, referência técnica. STOP.
 
 
 Perfil do cliente (intake submetido):
@@ -1068,9 +1075,9 @@ Devolva APENAS um JSON válido com esta estrutura, sem markdown, sem comentário
 }}
 """
 
-    # Pragmatic: 7k tokens fits 8 vectors w/ concise fields. Senior tone =
-    # density, not length. Larger budgets time out Coolify workers.
-    raw = await _call_claude(prompt, max_tokens=7000)
+    # Sonnet 4.5 supports up to 64k output. 16k handles 8 vectors w/ size
+    # caps enforced in prompt (max 4 steps × 120 chars, 3 validation × 80, etc).
+    raw = await _call_claude(prompt, max_tokens=16000)
 
     # Defensive parse — strip code fences if Claude added them despite the
     # explicit instruction, and tolerate trailing prose.
@@ -1159,6 +1166,75 @@ Devolva APENAS um JSON válido com esta estrutura, sem markdown, sem comentário
 
     candidate = _extract_first_json_object(text) or text
 
+    # JSON repair safety net — if Claude hit max_tokens mid-string, close
+    # outstanding string + arrays + objects so we salvage what we have.
+    def _repair_truncated_json(s: str) -> str:
+        """Best-effort: close any unterminated string, then balance braces."""
+        depth_obj = 0
+        depth_arr = 0
+        in_str = False
+        esc = False
+        i = 0
+        last_complete = 0  # index AFTER last char where state was clean
+        for i, ch in enumerate(s):
+            if in_str:
+                if esc:
+                    esc = False
+                elif ch == "\\":
+                    esc = True
+                elif ch == '"':
+                    in_str = False
+            else:
+                if ch == '"':
+                    in_str = True
+                elif ch == "{":
+                    depth_obj += 1
+                elif ch == "}":
+                    depth_obj -= 1
+                elif ch == "[":
+                    depth_arr += 1
+                elif ch == "]":
+                    depth_arr -= 1
+        # Close everything cleanly.
+        out = s
+        if in_str:
+            # Truncate to last complete value or string-end. Easiest: trim
+            # trailing partial string and close it.
+            # Find the LAST safe close point: trim to last "," outside string.
+            last_safe = out.rfind(",")
+            if last_safe > 0:
+                out = out[:last_safe]
+            else:
+                out += '"'  # close the string
+        # Close any open arrays/objects by counting again on trimmed text.
+        depth_obj = 0
+        depth_arr = 0
+        in_str = False
+        esc = False
+        for ch in out:
+            if in_str:
+                if esc:
+                    esc = False
+                elif ch == "\\":
+                    esc = True
+                elif ch == '"':
+                    in_str = False
+            else:
+                if ch == '"':
+                    in_str = True
+                elif ch == "{":
+                    depth_obj += 1
+                elif ch == "}":
+                    depth_obj -= 1
+                elif ch == "[":
+                    depth_arr += 1
+                elif ch == "]":
+                    depth_arr -= 1
+        # Now close in order.
+        out += "]" * max(0, depth_arr)
+        out += "}" * max(0, depth_obj)
+        return out
+
     try:
         data = json.loads(candidate)
         if not isinstance(data, dict):
@@ -1167,6 +1243,18 @@ Devolva APENAS um JSON válido com esta estrutura, sem markdown, sem comentário
             raise ValueError("missing findings array")
         return data
     except Exception as exc:  # noqa: BLE001
+        # Try JSON repair first (likely max_tokens cut mid-output).
+        if isinstance(exc, json.JSONDecodeError):
+            log.warning("finops: claude JSON truncated, attempting repair: %s", exc)
+            try:
+                repaired = _repair_truncated_json(candidate)
+                data = json.loads(repaired)
+                if isinstance(data, dict) and isinstance(data.get("findings"), list):
+                    data["_repaired_from_truncation"] = True
+                    log.warning("finops: JSON repaired OK (was truncated)")
+                    return data
+            except Exception:  # noqa: BLE001
+                pass
         log.warning("finops: claude returned non-JSON: %s", exc)
         return {
             "summary": (
