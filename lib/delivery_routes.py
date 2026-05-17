@@ -180,6 +180,7 @@ _INTAKE_FIELDS = {
         ("primary_services", "Serviços AWS principais (vírgula-separado: EC2, RDS, S3, CloudFront, ...)", "text", True),
         ("tagging_strategy", "Estratégia atual de tagging (1 parágrafo)", "textarea", True),
         ("biggest_concerns", "Maiores preocupações de custo que já mapeou (uma por linha)", "textarea", True),
+        ("remediation_choice", "Quem implementa as quick wins identificadas? (time interno OU Anuvia via success-fee 15-20% economia)", "select", True),
     ],
     "ai": [
         ("executive_sponsor_name", "Nome do executivo sponsor", "text", True),
@@ -234,6 +235,7 @@ _SELECT_OPTIONS = {
     "post_mortem_culture": ["none", "some", "always"],
     "vertical": ["manufacturing", "logistics", "healthcare", "life_sciences", "finserv"],
     "ai_maturity": ["none", "exploring", "scaling"],
+    "remediation_choice": ["cliente_interno", "anuvia_success_fee"],
 }
 
 
