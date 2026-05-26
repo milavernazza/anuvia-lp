@@ -792,7 +792,7 @@ def _phase4_email_html(
   <li><a href="{deck_url}" style="color:#0f172a;">Apresentação executiva (PPTX)</a> — material para apresentação com C-level e board.</li>
   <li><a href="{roadmap_url}" style="color:#0f172a;">Roadmap 12 meses</a> — Crawl→Walk→Run mapeado nas FinOps Foundation capabilities, com gates de evolução.</li>
 </ul>
-<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Economia anualizada identificada nesta auditoria: <strong>R$ {savings_brl}</strong>. A sessão final de handoff (90 min) será agendada nos próximos dias diretamente com a Mila.</p>
+<p style="color:#475569;line-height:1.65;margin:0 0 14px;">Economia anualizada identificada nesta auditoria: <strong>R$ {savings_brl}</strong>. A sessão final de handoff (90 min) será agendada nos próximos dias com nossa equipe.</p>
 <p style="color:#475569;line-height:1.65;margin:0 0 14px;">Como próximos passos, nossa equipe está à disposição para acompanhar a evolução do roadmap. Caso queiram que a Anuvia execute as iniciativas estruturais (RI/SP strategy, Graviton migration, re-arch cross-AZ), trabalhamos via success-fee 15-20% da economia validada — sem custo upfront adicional.</p>
 <p style="color:#475569;line-height:1.65;margin:0 0 14px;">Pedimos um favor breve: 2 minutos para deixar a avaliação NPS — feedback honesto nos ajuda a evoluir o programa.</p>
 <p style="margin:8px 0 24px;"><a href="{nps_url}" style="display:inline-block;background:#0f172a;color:#ffffff;padding:14px 26px;border-radius:8px;text-decoration:none;font-weight:600;">Deixar avaliação &rarr;</a></p>
