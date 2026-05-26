@@ -244,7 +244,7 @@ def _render(title: str, body: str) -> HTMLResponse:
 
 
 def _err_page(msg: str, code: int = 400) -> HTMLResponse:
-    body = f'<div class="err"><strong>Erro:</strong> {msg}</div><p class="muted">Se o link expirou, peça pra Mila reenviar.</p>'
+    body = f'<div class="err"><strong>Erro:</strong> {msg}</div><p class="muted">Se o link expirou ou foi acessado fora da sessão original, entre em contato com a equipe Anuvia respondendo ao email recebido.</p>'
     return HTMLResponse(_PAGE_BASE.format(title="Erro", body=body), status_code=code)
 
 
@@ -356,7 +356,7 @@ _INTAKE_FIELDS = {
             ]}),
 
         # Section: Stakeholders
-        ("stakeholders", "Stakeholders pras 4 sessões executivas (Mila apresenta ao vivo)",
+        ("stakeholders", "Stakeholders para as sessões executivas (nossa equipe apresenta ao vivo a cada fase)",
          "stakeholders_list", True, {
              "help_text": "Adicione todos que vão participar das apresentações: CTO, Head Cloud, CFO, etc."}),
     ],
@@ -660,7 +660,7 @@ _INTAKE_JS = r"""
       +     '<input type="text" name="stakeholder_name_' + idx + '" placeholder="Ex: Ana Silva"/></div>'
       +   '<div><span class="field-label">Email</span>'
       +     '<input type="email" name="stakeholder_email_' + idx + '" placeholder="ana@empresa.com"/></div>'
-      +   '<div><span class="field-label">Papel</span>'
+      +   '<div><span class="field-label">Cargo</span>'
       +     '<input type="text" name="stakeholder_role_' + idx + '" placeholder="CTO / Head Cloud / CFO"/></div>'
       +   '<button type="button" class="remove-btn" onclick="removeStakeholderRow(' + idx + ')">Remover</button>'
       + '</div>';
