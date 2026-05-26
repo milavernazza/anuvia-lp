@@ -815,7 +815,14 @@ async def book_phase_session(
         sessions_map = {}
     phase_key = f"phase_{phase}"
     existing = sessions_map.get(phase_key)
-    if isinstance(existing, dict) and existing.get("gcal_event_id"):
+    # Only return cached if booking SUCCEEDED previously. If gcal_event_id is
+    # None or gcal_error was recorded, retry the Gcal call — the previous
+    # failure was likely transient (token expired, etc.) and is now resolved.
+    if (
+        isinstance(existing, dict)
+        and existing.get("gcal_event_id")
+        and not existing.get("gcal_error")
+    ):
         log.info(
             "sessions: phase %s already booked for eng=%s — returning cached",
             phase, engagement_id,
@@ -827,8 +834,14 @@ async def book_phase_session(
             "gcal_event_id": existing.get("gcal_event_id"),
             "meet_url": existing.get("meet_url"),
             "scheduled_at": existing.get("scheduled_at"),
+            "scheduled_at_br": existing.get("scheduled_at_br"),
             "duration_min": existing.get("duration_min") or duration_min,
         }
+    if isinstance(existing, dict) and existing.get("gcal_error"):
+        log.warning(
+            "sessions: phase %s had gcal_error=%s — retrying Gcal booking",
+            phase, existing.get("gcal_error"),
+        )
 
     # --- 1) Resolve client identity ---
     lead_id = eng.get("lead_id")
