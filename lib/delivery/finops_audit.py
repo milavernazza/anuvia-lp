@@ -2607,6 +2607,10 @@ async def _run_phase_3(engagement: dict) -> dict:
             },
         )
 
+    # Always (re-)call delivery side. If whiteglove session previously failed
+    # (gcal_error) book_phase_session retries; if client email already sent
+    # (autonomous mode) the email sender is idempotent. Re-fires resume here.
+    if True:
         low, high = _findings_total_savings(findings)
         mode = _engagement_delivery_mode(engagement)
         if mode == _DELIVERY_MODE_WHITEGLOVE:
