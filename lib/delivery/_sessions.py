@@ -873,7 +873,7 @@ async def book_phase_session(
     client_desc = (
         f"Olá {first_name},\n\n"
         f"Sessão de apresentação da fase {phase} da FinOps Audit Anuvia "
-        f"({phase_label}). Mila Vernazza apresenta os achados + "
+        f"({phase_label}). Nossa equipe apresenta os achados + "
         f"recomendações; ao final, vocês recebem os materiais por email.\n\n"
         f"Duração: {duration_min} min. O link do Google Meet está neste convite."
     )
