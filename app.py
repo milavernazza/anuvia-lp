@@ -73,6 +73,8 @@ try:
     from lib.delivery_routes import router as _delivery_routes_router  # noqa: E402,F401
     # White-glove delivery — Slack-button-driven artifact release (task #56)
     from lib.whiteglove_routes import router as _whiteglove_router  # noqa: E402,F401
+    # Engagement lifecycle dashboard (read-only admin view)
+    from lib.admin_dashboard import router as _admin_dashboard_router  # noqa: E402,F401
     app.include_router(_sessions_router)
     app.include_router(_orchestrator_router)
     app.include_router(_track_b_router)
@@ -82,6 +84,7 @@ try:
     app.include_router(_admin_smoke_router)
     app.include_router(_delivery_routes_router)
     app.include_router(_whiteglove_router)
+    app.include_router(_admin_dashboard_router)
     _AUTONOMOUS_FUNNEL_ENABLED = True
     log.info(
         "Autonomous funnel v2 mounted: /api/session, /api/orchestrator, /api/track-b, "
