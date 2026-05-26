@@ -1626,7 +1626,7 @@ Estruture o documento markdown com estas seções, nesta ordem:
 Voz Anuvia: seca, direta, numbers-first. Cada afirmação com número + tag de fonte quando possível. Quando estimar, use [ESTIMATIVA] e justifique com math. Português do Brasil.
 """
 
-    return await _call_claude(prompt, max_tokens=8000)
+    return await _call_claude(prompt, max_tokens=5000)
 
 
 async def _compose_roadmap_narrative(engagement: dict, findings: dict) -> str:
@@ -1699,7 +1699,7 @@ Honest closing: dados pendentes que destravariam refinamento do roadmap (IAM rea
 
 Voz Anuvia: seca, direta, numbers-first. Português do Brasil.
 """
-    return await _call_claude(prompt, max_tokens=6500)
+    return await _call_claude(prompt, max_tokens=4500)
 
 
 async def _compose_deck_narrative(engagement: dict, findings: dict) -> str:
@@ -1778,7 +1778,7 @@ Estrutura:
 
 Voz Anuvia: seca, direta. Sem hype. Bullets curtos sem ponto final. Português do Brasil."""
 
-    return await _call_claude(prompt, max_tokens=6500)
+    return await _call_claude(prompt, max_tokens=4500)
 
 
 # ---------------------------------------------------------------------------
@@ -2595,12 +2595,37 @@ async def _run_phase_4(engagement: dict) -> dict:
     findings = artifacts.get("phase_2_findings") or {}
     change_log_md = artifacts.get("phase_3_change_log_md") or ""
 
-    # Compose all three deliverables.
-    report_md = await _compose_final_report_narrative(
-        engagement, findings, change_log_md
-    )
-    roadmap_md = await _compose_roadmap_narrative(engagement, findings)
-    deck_md = await _compose_deck_narrative(engagement, findings)
+    # Compose all three deliverables INCREMENTALLY — persist after each so
+    # if a worker dies mid-phase, next tick can resume from where it stopped.
+
+    # 1) Report — skip if we already have it from prior run.
+    report_md = artifacts.get("final_report_md") or ""
+    if not report_md or _CLAUDE_FALLBACK_TAG in report_md:
+        report_md = await _compose_final_report_narrative(
+            engagement, findings, change_log_md
+        )
+        await _engagement_merge_artifacts(
+            engagement_id, {"final_report_md": report_md}
+        )
+        log.info("finops.phase_4: report_md saved (%s chars)", len(report_md))
+
+    # 2) Roadmap — skip if already done.
+    roadmap_md = artifacts.get("roadmap_md") or ""
+    if not roadmap_md or _CLAUDE_FALLBACK_TAG in roadmap_md:
+        roadmap_md = await _compose_roadmap_narrative(engagement, findings)
+        await _engagement_merge_artifacts(
+            engagement_id, {"roadmap_md": roadmap_md}
+        )
+        log.info("finops.phase_4: roadmap_md saved (%s chars)", len(roadmap_md))
+
+    # 3) Deck — skip if already done.
+    deck_md = artifacts.get("deck_md") or ""
+    if not deck_md or _CLAUDE_FALLBACK_TAG in deck_md:
+        deck_md = await _compose_deck_narrative(engagement, findings)
+        await _engagement_merge_artifacts(
+            engagement_id, {"deck_md": deck_md}
+        )
+        log.info("finops.phase_4: deck_md saved (%s chars)", len(deck_md))
 
     # SAFETY: if any deliverable came back as fallback, do NOT email the client.
     # Stash artifacts (so operator has the partial work) + Slack-escalate.
