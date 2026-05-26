@@ -646,11 +646,22 @@ async def _slack_post(payload: dict) -> bool:
     ``SLACK_NEW_LEAD_WEBHOOK``. Returns True iff the webhook responded 2xx
     with body == "ok" (Slack's standard success response).
     """
-    webhook = os.environ.get("SLACK_ALERTS_WEBHOOK") or os.environ.get(
-        "SLACK_NEW_LEAD_WEBHOOK"
+    # Validate webhook URLs — skip values that aren't proper https URLs (e.g.
+    # someone pasted "#channel-name" instead of the hooks.slack.com URL).
+    candidates = [
+        os.environ.get("SLACK_ALERTS_WEBHOOK", ""),
+        os.environ.get("SLACK_NEW_LEAD_WEBHOOK", ""),
+    ]
+    webhook = next(
+        (c for c in candidates if c.startswith("https://")),
+        None,
     )
     if not webhook:
-        log.warning("sessions: no slack webhook configured; payload dropped")
+        log.warning(
+            "sessions: no valid slack webhook configured (raw values: %s); "
+            "payload dropped",
+            [c[:30] + "..." if c else "(empty)" for c in candidates],
+        )
         return False
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
