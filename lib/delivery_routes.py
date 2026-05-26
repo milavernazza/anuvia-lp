@@ -135,18 +135,100 @@ _PAGE_BASE = """<!DOCTYPE html>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>{title}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background:#fafaf9; color:#0f172a; max-width:680px; margin:40px auto; padding:32px; line-height:1.55; }}
-  h1 {{ font-family: 'Playfair Display', Georgia, serif; font-weight:600; }}
-  .card {{ background:white; border:1px solid #e7e5e4; border-radius:12px; padding:32px; box-shadow:0 1px 3px rgba(0,0,0,0.04); }}
-  label {{ display:block; margin-top:18px; font-weight:600; font-size:14px; }}
-  input, textarea, select {{ width:100%; padding:10px 12px; border:1px solid #d6d3d1; border-radius:6px; font-size:14px; font-family:inherit; box-sizing:border-box; }}
-  textarea {{ min-height:120px; resize:vertical; }}
-  button {{ display:inline-block; background:#0f172a; color:white; padding:12px 24px; border:none; border-radius:8px; font-weight:600; font-size:15px; cursor:pointer; margin-top:24px; }}
-  button.success {{ background:#16a34a; }}
-  .muted {{ color:#78716c; font-size:13px; }}
-  .err {{ background:#fef2f2; color:#991b1b; padding:14px; border-radius:6px; margin-bottom:20px; }}
-  .ok {{ background:#f0fdf4; color:#166534; padding:14px; border-radius:6px; margin-bottom:20px; }}
+  :root {{
+    --bg:#fafaf9; --card:#ffffff; --ink:#1c1917; --ink-soft:#44403c;
+    --muted:#78716c; --line:#e7e5e4; --line-strong:#d6d3d1;
+    --accent:#0c4a6e; --accent-soft:#e0f2fe; --ok:#15803d; --ok-bg:#f0fdf4;
+    --err:#b91c1c; --err-bg:#fef2f2; --warn:#b45309; --warn-bg:#fffbeb;
+    --chip-bg:#f5f5f4; --chip-active:#0c4a6e;
+  }}
+  * {{ box-sizing:border-box; }}
+  body {{ font-family:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+         background:var(--bg); color:var(--ink); max-width:760px; margin:40px auto;
+         padding:32px; line-height:1.55; }}
+  h1 {{ font-family:'Playfair Display', Georgia, serif; font-weight:600;
+        font-size:32px; margin:8px 0 18px; letter-spacing:-0.01em; }}
+  h2 {{ font-family:'Playfair Display', Georgia, serif; font-weight:500;
+        font-size:20px; margin:32px 0 8px; color:var(--ink); }}
+  .card {{ background:var(--card); border:1px solid var(--line);
+           border-radius:14px; padding:36px; box-shadow:0 1px 3px rgba(0,0,0,0.04); }}
+  .eyebrow {{ font-size:11px; letter-spacing:0.18em; text-transform:uppercase;
+              color:var(--accent); margin:0 0 6px; font-weight:600; }}
+  .section {{ margin-top:28px; padding-top:20px; border-top:1px solid var(--line); }}
+  .section:first-of-type {{ border-top:none; padding-top:0; margin-top:0; }}
+  .section-title {{ font-family:'Playfair Display', Georgia, serif; font-weight:500;
+                    font-size:15px; color:var(--ink-soft); text-transform:none;
+                    letter-spacing:0; margin:0 0 4px; }}
+  label {{ display:block; margin-top:18px; font-weight:500; font-size:14px; color:var(--ink); }}
+  .help {{ font-size:12px; color:var(--muted); margin-top:3px; font-weight:400; }}
+  input, textarea, select {{ width:100%; padding:10px 12px; border:1px solid var(--line-strong);
+                              border-radius:6px; font-size:14px; font-family:inherit;
+                              background:#fff; color:var(--ink); margin-top:6px;
+                              transition:border-color 0.15s; }}
+  input:focus, textarea:focus, select:focus {{ outline:none; border-color:var(--accent); }}
+  textarea {{ min-height:110px; resize:vertical; }}
+  button {{ display:inline-block; background:var(--ink); color:#fff;
+           padding:12px 24px; border:none; border-radius:8px; font-weight:600;
+           font-size:15px; cursor:pointer; margin-top:24px; font-family:inherit; }}
+  button:hover {{ background:#0c0a09; }}
+  button.success {{ background:var(--ok); }}
+  button.ghost {{ background:transparent; color:var(--accent);
+                  border:1px solid var(--line-strong); padding:6px 12px;
+                  font-size:13px; margin-top:8px; }}
+  .muted {{ color:var(--muted); font-size:13px; }}
+  .err {{ background:var(--err-bg); color:var(--err); padding:14px; border-radius:6px;
+          margin-bottom:20px; }}
+  .ok {{ background:var(--ok-bg); color:var(--ok); padding:14px 16px;
+         border-radius:8px; margin-bottom:20px; }}
+  .multi-grid {{ display:grid; grid-template-columns:1fr 1fr; gap:6px 14px;
+                 margin-top:8px; }}
+  .multi-grid label.opt {{ display:flex; align-items:flex-start; gap:8px;
+                            font-weight:400; font-size:13px; margin-top:0;
+                            padding:6px 8px; border-radius:5px; cursor:pointer;
+                            transition:background 0.1s; line-height:1.35; }}
+  .multi-grid label.opt:hover {{ background:var(--chip-bg); }}
+  .multi-grid input[type=checkbox] {{ width:auto; margin:3px 0 0; flex-shrink:0; }}
+  .chips-input {{ position:relative; }}
+  .chips-box {{ display:flex; flex-wrap:wrap; gap:6px; padding:8px;
+                border:1px solid var(--line-strong); border-radius:6px;
+                background:#fff; min-height:44px; margin-top:6px; }}
+  .chip {{ display:inline-flex; align-items:center; gap:6px; padding:4px 10px;
+           background:var(--chip-bg); color:var(--ink); border-radius:20px;
+           font-size:13px; font-weight:500; }}
+  .chip .x {{ cursor:pointer; color:var(--muted); font-weight:700; padding:0 0 0 2px; }}
+  .chip .x:hover {{ color:var(--err); }}
+  .chips-box input.chip-input {{ flex:1; min-width:160px; border:none;
+                                  padding:4px 6px; margin:0; font-size:13px;
+                                  background:transparent; }}
+  .chips-box input.chip-input:focus {{ outline:none; border:none; }}
+  .stakeholder-row {{ display:grid; grid-template-columns:1fr 1fr 1fr auto;
+                       gap:8px; align-items:end; margin-top:10px;
+                       padding:10px; background:#fafaf9; border-radius:8px;
+                       border:1px solid var(--line); }}
+  .stakeholder-row input {{ margin-top:2px; padding:8px 10px; font-size:13px; }}
+  .stakeholder-row .field-label {{ font-size:11px; color:var(--muted);
+                                    text-transform:uppercase; letter-spacing:0.05em;
+                                    font-weight:600; margin-bottom:2px; display:block; }}
+  .stakeholder-row .remove-btn {{ background:transparent; color:var(--err);
+                                   border:1px solid var(--line-strong);
+                                   border-radius:6px; padding:8px 10px;
+                                   font-size:12px; margin:0; cursor:pointer; }}
+  .stakeholder-row .remove-btn:hover {{ background:var(--err-bg); }}
+  .stakeholder-add {{ background:transparent; color:var(--accent);
+                       border:1px dashed var(--line-strong); border-radius:8px;
+                       padding:10px 14px; font-size:13px; cursor:pointer;
+                       margin-top:10px; width:100%; font-weight:500; }}
+  .stakeholder-add:hover {{ background:var(--accent-soft); border-color:var(--accent); }}
+  .currency-prefix {{ position:relative; }}
+  .currency-prefix:before {{ content:"R$"; position:absolute; left:12px;
+                              top:50%; transform:translateY(-30%);
+                              color:var(--muted); font-size:14px;
+                              pointer-events:none; }}
+  .currency-prefix input {{ padding-left:34px; }}
 </style>
 </head>
 <body>
@@ -171,72 +253,480 @@ def _err_page(msg: str, code: int = 400) -> HTMLResponse:
 # -----------------------------------------------------------------------------
 
 
+# AWS services catalog for the chips autocomplete (FinOps intake)
+_AWS_SERVICES_CATALOG = [
+    "EC2", "ECS", "EKS", "Fargate", "Lambda", "Batch", "Lightsail", "Outposts",
+    "RDS", "Aurora", "DynamoDB", "DocumentDB", "ElastiCache", "MemoryDB",
+    "Neptune", "Timestream", "Keyspaces",
+    "S3", "EFS", "FSx", "EBS", "Storage Gateway", "Backup",
+    "CloudFront", "Route 53", "ALB", "NLB", "API Gateway", "Direct Connect",
+    "VPN", "Transit Gateway", "Global Accelerator",
+    "SageMaker", "Bedrock", "Comprehend", "Rekognition", "Textract", "Polly",
+    "Transcribe", "Translate", "Forecast", "Personalize", "Q",
+    "Glue", "Athena", "Redshift", "EMR", "Kinesis", "MSK", "OpenSearch",
+    "QuickSight", "Lake Formation", "DataZone",
+    "CodeCommit", "CodeBuild", "CodeDeploy", "CodePipeline", "CodeArtifact",
+    "CodeGuru", "Cloud9",
+    "CloudWatch", "X-Ray", "CloudTrail", "Config", "Systems Manager",
+    "Trusted Advisor", "Compute Optimizer", "Cost Explorer",
+    "IAM", "Cognito", "KMS", "Secrets Manager", "WAF", "Shield", "GuardDuty",
+    "Inspector", "Macie", "Security Hub", "Detective",
+    "EventBridge", "SQS", "SNS", "Step Functions", "MQ", "AppFlow", "AppSync",
+    "WorkSpaces", "AppStream", "WorkDocs", "Chime", "Connect", "SES", "Pinpoint",
+    "IoT Core", "Greengrass", "FreeRTOS", "RoboMaker",
+    "Organizations", "Control Tower", "SSO", "Resource Access Manager",
+    "Service Catalog",
+]
+
+
+# Field spec format: (name, label, type, required, opts_dict)
+# Types: text, email, number, textarea, select, currency_brl, multiselect,
+#        aws_services_chips, stakeholders_list
+# `opts` keys: placeholder, help_text, options
+#   options for select: list[str] OR list[(value, label) tuples]
+#   options for multiselect: list[str]
+
 _INTAKE_FIELDS = {
     "finops": [
-        ("executive_sponsor_name", "Nome do executivo sponsor", "text", True),
-        ("executive_sponsor_email", "Email do sponsor (CC nos deliverables)", "email", True),
-        ("aws_spend_brl_monthly", "AWS spend mensal aproximado (R$)", "number", True),
-        ("aws_account_count", "Quantos AWS accounts vocês têm?", "number", True),
-        ("primary_services", "Serviços AWS principais (vírgula-separado: EC2, RDS, S3, CloudFront, ...)", "text", True),
-        ("tagging_strategy", "Estratégia atual de tagging (1 parágrafo)", "textarea", True),
-        ("biggest_concerns", "Maiores preocupações de custo que já mapeou (uma por linha)", "textarea", True),
-        ("remediation_choice", "Quem implementa as quick wins identificadas? (time interno OU Anuvia via success-fee 15-20% economia)", "select", True),
+        # Section: Identification
+        ("executive_sponsor_name", "Nome do executive sponsor", "text", True, {}),
+        ("executive_sponsor_email", "Email do sponsor (CC nos deliverables)", "email", True, {}),
+        ("company_name", "Nome da empresa", "text", True, {}),
+
+        # Section: Business context
+        ("industry_vertical", "Vertical / indústria", "select", True, {
+            "options": ["SaaS B2B", "E-commerce", "Fintech", "Healthtech",
+                        "EdTech", "Marketplace", "Media/AdTech", "Logistics",
+                        "Manufacturing", "Other"]}),
+        ("arr_range_brl", "ARR aproximado (R$)", "select", True, {
+            "options": ["< 5M", "5-15M", "15-50M", "50-200M", "> 200M",
+                        "Pré-receita"]}),
+        ("growth_stage", "Estágio de crescimento", "select", True, {
+            "options": ["Pré-Seed", "Seed", "Series A", "Series B", "Series C+",
+                        "Profitable Mature", "Outro"]}),
+        ("urgency", "Timeline esperado pra primeiros resultados", "select", True, {
+            "options": ["Urgente (board pressure / quarter end)",
+                        "4-6 semanas (padrão)",
+                        "Flexível (3+ meses)"]}),
+
+        # Section: AWS environment
+        ("aws_spend_brl_monthly", "AWS spend mensal aproximado (R$)", "currency_brl", True, {
+            "help_text": "Valor médio dos últimos 3 meses, antes de descontos. Ex: R$ 95.000"}),
+        ("aws_account_count", "Quantos AWS accounts (production+staging+dev)?", "number", True, {}),
+        ("aws_organizations_structure", "Estrutura AWS Organizations", "select", True, {
+            "options": ["Single account", "Multi-account sem OU",
+                        "OUs por ambiente (prod/staging/dev)",
+                        "OUs por unidade de negócio", "Não tenho certeza"]}),
+        ("aws_regions", "Regions AWS principais (multi-select)", "multiselect", True, {
+            "options": ["us-east-1 (N. Virginia)", "us-east-2 (Ohio)",
+                        "us-west-2 (Oregon)", "sa-east-1 (São Paulo)",
+                        "eu-west-1 (Ireland)", "eu-central-1 (Frankfurt)",
+                        "ap-southeast-1 (Singapore)", "Outras"]}),
+        ("ri_sp_coverage", "Cobertura atual de Reserved Instances / Savings Plans", "select", True, {
+            "options": ["Não temos", "< 30% do compute",
+                        "30-70% do compute", "> 70% do compute", "Não sei"]}),
+
+        # Section: Services + observability
+        ("primary_services", "Serviços AWS principais em uso (chips)", "aws_services_chips", True, {
+            "help_text": "Comece a digitar pra buscar. Ex: EC2, RDS, S3..."}),
+        ("observability_stack", "Stack de observability atual (multi-select)", "multiselect", False, {
+            "options": ["CloudWatch (default)", "Datadog",
+                        "Grafana + Loki + Tempo", "New Relic", "Dynatrace",
+                        "Honeycomb", "Splunk", "Elastic Stack",
+                        "OpenTelemetry", "Outro/Nenhum"]}),
+        ("tagging_strategy", "Estratégia atual de tagging (1-2 parágrafos)", "textarea", True, {
+            "help_text": "Como vocês taggeiam recursos hoje? Ex: 'temos owner+environment em ~70% dos recursos' ou 'sem padrão'"}),
+
+        # Section: Pain + compliance
+        ("biggest_concerns", "Maiores preocupações de custo que já mapeou (uma por linha)", "textarea", True, {
+            "placeholder": "Ex: RDS sobre-provisionado\nNAT Gateway custo crescendo\nSpend imprevisível mês a mês"}),
+        ("why_now", "Por que rodar essa auditoria AGORA?", "textarea", True, {
+            "placeholder": "Ex: 'CFO pediu plano de redução 25% antes do Q4', 'bill cresceu 60% YoY sem revenue match', 'preparação pra rodada de investimento'"}),
+        ("compliance_frames", "Compliance frameworks aplicáveis (multi-select)", "multiselect", False, {
+            "options": ["LGPD", "SOC 2 Type II", "BACEN 4.658 (fintech BR)",
+                        "GxP / ANVISA / FDA", "HIPAA (US healthcare)",
+                        "ISO 27001", "PCI DSS", "Nenhum aplicável"]}),
+
+        # Section: Implementation choice
+        ("remediation_choice", "Após findings, quem implementa quick wins?", "select", True, {
+            "options": [
+                ("cliente_interno", "Time interno de vocês executa (autônomo)"),
+                ("anuvia_success_fee",
+                 "Anuvia executa via success-fee 15-20% da economia validada"),
+            ]}),
+
+        # Section: Stakeholders
+        ("stakeholders", "Stakeholders pras 4 sessões executivas (Mila apresenta ao vivo)",
+         "stakeholders_list", True, {
+             "help_text": "Adicione todos que vão participar das apresentações: CTO, Head Cloud, CFO, etc."}),
     ],
     "ai": [
-        ("executive_sponsor_name", "Nome do executivo sponsor", "text", True),
-        ("executive_sponsor_email", "Email do sponsor", "email", True),
-        ("stakeholders", "Stakeholders pro workshop (nome + área, um por linha)", "textarea", True),
-        ("past_pocs", "PoCs IA já tentados (nome + status: live / killed / stalled)", "textarea", True),
-        ("data_assets", "Datasets disponíveis (CRM, transaction logs, etc.)", "textarea", True),
-        ("compliance_constraints", "Compliance aplicável (LGPD, GxP, BACEN, SOC 2, HIPAA — separe por vírgula)", "text", True),
-        ("annual_ai_budget_brl", "Budget anual IA (R$)", "number", True),
-        ("internal_ai_capability", "Capacidade interna IA/ML (none / 1-2 engineers / dedicated team)", "select", True),
+        ("executive_sponsor_name", "Nome do executive sponsor", "text", True, {}),
+        ("executive_sponsor_email", "Email do sponsor", "email", True, {}),
+        ("company_name", "Nome da empresa", "text", True, {}),
+        ("stakeholders", "Stakeholders pro workshop", "stakeholders_list", True, {
+            "help_text": "Quem participa do workshop AI (CTO, Head Data, PMs)"}),
+        ("past_pocs", "PoCs IA já tentados (nome + status: live / killed / stalled)",
+         "textarea", True, {
+             "placeholder": "Ex:\nchatbot atendimento — stalled\nrecomendação produto — live"}),
+        ("data_assets", "Datasets disponíveis (CRM, transaction logs, etc.)", "textarea", True, {}),
+        ("compliance_frames", "Compliance frameworks aplicáveis", "multiselect", False, {
+            "options": ["LGPD", "SOC 2 Type II", "BACEN 4.658 (fintech BR)",
+                        "GxP / ANVISA / FDA", "HIPAA (US healthcare)",
+                        "ISO 27001", "PCI DSS", "Nenhum aplicável"]}),
+        ("annual_ai_budget_brl", "Budget anual IA (R$)", "currency_brl", True, {}),
+        ("internal_ai_capability", "Capacidade interna IA/ML", "select", True, {
+            "options": [
+                ("none", "Sem time IA dedicado"),
+                ("1-2 engineers", "1-2 engenheiros com tempo parcial"),
+                ("dedicated team", "Time dedicado IA/ML"),
+            ]}),
     ],
     "devops": [
-        ("executive_sponsor_name", "Nome do executivo sponsor", "text", True),
-        ("executive_sponsor_email", "Email do sponsor", "email", True),
-        ("engineering_team_size", "Tamanho time engenharia", "number", True),
-        ("squads_count", "Número de squads", "number", True),
-        ("production_services_count", "Número de serviços em produção", "number", True),
-        ("ci_tool", "CI tool (GitHub Actions, Jenkins, CircleCI, GitLab CI)", "text", True),
-        ("incident_tracker", "Incident tracker (Linear, Jira, Opsgenie)", "text", True),
-        ("self_reported_deploy_frequency", "Deploy frequency atual (daily / weekly / monthly)", "select", True),
-        ("self_reported_mttr_hours", "MTTR médio (horas)", "number", True),
-        ("self_reported_cfr_pct", "Change failure rate atual (%)", "number", True),
-        ("observability_stack", "Stack de observability (Datadog, CloudWatch, Grafana, ...)", "textarea", True),
-        ("post_mortem_culture", "Cultura post-mortem (none / some / always)", "select", True),
+        ("executive_sponsor_name", "Nome do executive sponsor", "text", True, {}),
+        ("executive_sponsor_email", "Email do sponsor", "email", True, {}),
+        ("company_name", "Nome da empresa", "text", True, {}),
+        ("engineering_team_size", "Tamanho time engenharia", "number", True, {}),
+        ("squads_count", "Número de squads", "number", True, {}),
+        ("production_services_count", "Número de serviços em produção", "number", True, {}),
+        ("ci_tool", "CI tool (GitHub Actions, Jenkins, CircleCI, GitLab CI)", "text", True, {}),
+        ("incident_tracker", "Incident tracker (Linear, Jira, Opsgenie)", "text", True, {}),
+        ("self_reported_deploy_frequency", "Deploy frequency atual", "select", True, {
+            "options": [
+                ("daily", "Diário (ou mais)"),
+                ("weekly", "Semanal"),
+                ("monthly", "Mensal"),
+                ("quarterly", "Trimestral"),
+                ("ad-hoc", "Ad-hoc / sem cadência"),
+            ]}),
+        ("self_reported_mttr_hours", "MTTR médio (horas)", "number", True, {}),
+        ("self_reported_cfr_pct", "Change failure rate atual (%)", "number", True, {}),
+        ("observability_stack", "Stack de observability atual", "multiselect", True, {
+            "options": ["CloudWatch (default)", "Datadog",
+                        "Grafana + Loki + Tempo", "New Relic", "Dynatrace",
+                        "Honeycomb", "Splunk", "Elastic Stack",
+                        "OpenTelemetry", "Outro/Nenhum"]}),
+        ("post_mortem_culture", "Cultura post-mortem", "select", True, {
+            "options": [
+                ("none", "Não fazemos post-mortems"),
+                ("some", "Fazemos quando o incidente é grande"),
+                ("always", "Sempre, com runbook documentado"),
+            ]}),
+        ("stakeholders", "Stakeholders pras sessões de delivery", "stakeholders_list", True, {
+            "help_text": "Eng leads, SRE leads, CTO — quem participa das presentations"}),
     ],
     "growth": [
-        ("executive_sponsor_name", "Nome do executivo sponsor", "text", True),
-        ("executive_sponsor_email", "Email do sponsor", "email", True),
-        ("crm_in_use", "CRM atual (HubSpot, Salesforce, Pipedrive, RD, Notion)", "text", True),
-        ("sales_team_composition", "Composição time comercial", "text", True),
-        ("sales_cycle_median_days", "Sales cycle mediano (dias)", "number", True),
-        ("avg_ticket_brl", "Ticket médio (R$)", "number", True),
-        ("lead_sources", "Canais de entrada (vírgula-separado)", "text", True),
-        ("monthly_volume", "Volume mensal (leads / qualified / closed, separado por barra)", "text", True),
-        ("response_time_sla", "SLA de resposta (goal vs atual)", "text", True),
-        ("top_pain_points", "Top 3 dores (uma por linha)", "textarea", True),
+        ("executive_sponsor_name", "Nome do executive sponsor", "text", True, {}),
+        ("executive_sponsor_email", "Email do sponsor", "email", True, {}),
+        ("company_name", "Nome da empresa", "text", True, {}),
+        ("crm_in_use", "CRM atual (HubSpot, Salesforce, Pipedrive, RD, Notion)", "text", True, {}),
+        ("sales_team_composition", "Composição time comercial", "text", True, {}),
+        ("sales_cycle_median_days", "Sales cycle mediano (dias)", "number", True, {}),
+        ("avg_ticket_brl", "Ticket médio (R$)", "currency_brl", True, {}),
+        ("lead_sources", "Canais de entrada (vírgula-separado)", "text", True, {}),
+        ("monthly_volume", "Volume mensal (leads / qualified / closed, separado por barra)", "text", True, {}),
+        ("response_time_sla", "SLA de resposta (goal vs atual)", "text", True, {}),
+        ("top_pain_points", "Top 3 dores (uma por linha)", "textarea", True, {}),
+        ("stakeholders", "Stakeholders pras sessões executivas", "stakeholders_list", True, {
+            "help_text": "Head of Sales, RevOps, SDR Lead, etc."}),
     ],
     "industry": [
-        ("executive_sponsor_name", "Nome do executivo sponsor", "text", True),
-        ("executive_sponsor_email", "Email do sponsor", "email", True),
-        ("vertical", "Vertical (manufacturing / logistics / healthcare / life_sciences / finserv)", "select", True),
-        ("company_revenue_brl", "Revenue anual (R$)", "number", True),
-        ("main_pain", "Dor principal específica do vertical", "textarea", True),
-        ("compliance_named", "Compliance frame nomeado (ISO, ANVISA, BACEN, HIPAA, LGPD-saúde, ...)", "text", True),
-        ("ai_maturity", "AI maturity (none / exploring / scaling)", "select", True),
+        ("executive_sponsor_name", "Nome do executive sponsor", "text", True, {}),
+        ("executive_sponsor_email", "Email do sponsor", "email", True, {}),
+        ("company_name", "Nome da empresa", "text", True, {}),
+        ("vertical", "Vertical", "select", True, {
+            "options": [
+                ("manufacturing", "Manufacturing / industrial"),
+                ("logistics", "Logistics / supply chain"),
+                ("healthcare", "Healthcare provider"),
+                ("life_sciences", "Life sciences / pharma"),
+                ("finserv", "Financial services"),
+            ]}),
+        ("company_revenue_brl", "Revenue anual (R$)", "currency_brl", True, {}),
+        ("main_pain", "Dor principal específica do vertical", "textarea", True, {}),
+        ("compliance_frames", "Compliance frameworks aplicáveis", "multiselect", False, {
+            "options": ["LGPD", "SOC 2 Type II", "BACEN 4.658 (fintech BR)",
+                        "GxP / ANVISA / FDA", "HIPAA (US healthcare)",
+                        "ISO 27001", "PCI DSS", "ANVISA", "Nenhum aplicável"]}),
+        ("ai_maturity", "AI maturity", "select", True, {
+            "options": [
+                ("none", "Não temos IA hoje"),
+                ("exploring", "Explorando casos isolados"),
+                ("scaling", "IA em produção, escalando"),
+            ]}),
+        ("stakeholders", "Stakeholders pras sessões executivas", "stakeholders_list", True, {
+            "help_text": "Quem participa das apresentações ao vivo"}),
     ],
 }
 
-_SELECT_OPTIONS = {
-    "internal_ai_capability": ["none", "1-2 engineers", "dedicated team"],
-    "self_reported_deploy_frequency": ["daily", "weekly", "monthly", "quarterly", "ad-hoc"],
-    "post_mortem_culture": ["none", "some", "always"],
-    "vertical": ["manufacturing", "logistics", "healthcare", "life_sciences", "finserv"],
-    "ai_maturity": ["none", "exploring", "scaling"],
-    "remediation_choice": ["cliente_interno", "anuvia_success_fee"],
+
+# Fields that submit as JSON arrays (multi-value form keys)
+_MULTI_VALUE_FIELDS = {
+    name
+    for fields in _INTAKE_FIELDS.values()
+    for (name, _label, ftype, _req, _opts) in fields
+    if ftype in ("multiselect", "aws_services_chips")
 }
+
+# Currency fields (submitted as raw integers after JS strips the formatting)
+_CURRENCY_FIELDS = {
+    name
+    for fields in _INTAKE_FIELDS.values()
+    for (name, _label, ftype, _req, _opts) in fields
+    if ftype == "currency_brl"
+}
+
+
+def _escape(s: str) -> str:
+    """Minimal HTML attribute escaping."""
+    return (
+        str(s)
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
+
+
+def _render_field(name: str, label: str, ftype: str, required: bool,
+                  opts: dict) -> str:
+    """Render a single intake field. Returns HTML fragment."""
+    req = "required" if required else ""
+    placeholder = opts.get("placeholder", "")
+    help_text = opts.get("help_text", "")
+    help_html = f'<div class="help">{_escape(help_text)}</div>' if help_text else ""
+    safe_label = _escape(label)
+    ph_attr = f'placeholder="{_escape(placeholder)}"' if placeholder else ""
+
+    if ftype == "textarea":
+        return (
+            f'<label for="{name}">{safe_label}</label>'
+            f'{help_html}'
+            f'<textarea id="{name}" name="{name}" {req} {ph_attr}></textarea>'
+        )
+
+    if ftype == "select":
+        options = opts.get("options", [])
+        opt_html = ['<option value="">Selecione...</option>']
+        for o in options:
+            if isinstance(o, (tuple, list)) and len(o) == 2:
+                value, lbl = o
+                opt_html.append(
+                    f'<option value="{_escape(value)}">{_escape(lbl)}</option>'
+                )
+            else:
+                opt_html.append(
+                    f'<option value="{_escape(o)}">{_escape(o)}</option>'
+                )
+        return (
+            f'<label for="{name}">{safe_label}</label>'
+            f'{help_html}'
+            f'<select id="{name}" name="{name}" {req}>'
+            f'{"".join(opt_html)}</select>'
+        )
+
+    if ftype == "multiselect":
+        options = opts.get("options", [])
+        items = []
+        for o in options:
+            items.append(
+                f'<label class="opt"><input type="checkbox" name="{name}" '
+                f'value="{_escape(o)}"/><span>{_escape(o)}</span></label>'
+            )
+        return (
+            f'<label>{safe_label}</label>'
+            f'{help_html}'
+            f'<div class="multi-grid">{"".join(items)}</div>'
+        )
+
+    if ftype == "currency_brl":
+        return (
+            f'<label for="{name}">{safe_label}</label>'
+            f'{help_html}'
+            f'<div class="currency-prefix">'
+            f'<input type="text" inputmode="numeric" id="{name}" '
+            f'name="{name}" data-currency-brl="1" {req} '
+            f'autocomplete="off" placeholder="0"/>'
+            f'</div>'
+        )
+
+    if ftype == "aws_services_chips":
+        datalist_opts = "".join(
+            f'<option value="{_escape(s)}"></option>'
+            for s in _AWS_SERVICES_CATALOG
+        )
+        return (
+            f'<label>{safe_label}</label>'
+            f'{help_html}'
+            f'<div class="chips-input" data-chips-field="{name}">'
+            f'<div class="chips-box" id="chips-box-{name}">'
+            f'<input type="text" class="chip-input" '
+            f'list="aws-services-list" '
+            f'placeholder="Digite e tecle Enter (ou vírgula)…" '
+            f'autocomplete="off"/>'
+            f'</div>'
+            f'<datalist id="aws-services-list">{datalist_opts}</datalist>'
+            f'</div>'
+        )
+
+    if ftype == "stakeholders_list":
+        return (
+            f'<label>{safe_label}</label>'
+            f'{help_html}'
+            f'<div id="stakeholders-rows" data-min="1" data-max="8">'
+            f'</div>'
+            f'<button type="button" class="stakeholder-add" '
+            f'onclick="addStakeholderRow()">+ Adicionar stakeholder</button>'
+        )
+
+    # Default: text/email/number/etc.
+    return (
+        f'<label for="{name}">{safe_label}</label>'
+        f'{help_html}'
+        f'<input type="{ftype}" id="{name}" name="{name}" {req} {ph_attr}/>'
+    )
+
+
+# JS for currency formatting, chips, stakeholders. Lives in the form page.
+_INTAKE_JS = r"""
+<script>
+(function(){
+  // -- Currency BR formatter (e.g. 120000 -> "120.000") --
+  function fmtBR(digits){
+    if(!digits) return "";
+    // Group every 3 digits from the right with dots.
+    return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  }
+  document.querySelectorAll("input[data-currency-brl]").forEach(function(inp){
+    inp.addEventListener("input", function(){
+      var digits = inp.value.replace(/\D/g, "");
+      inp.value = fmtBR(digits);
+    });
+  });
+
+  // -- AWS services chips --
+  // Each .chips-input has a hidden serialized JSON value injected on submit.
+  var chipFields = document.querySelectorAll(".chips-input");
+  chipFields.forEach(function(wrapper){
+    var fieldName = wrapper.getAttribute("data-chips-field");
+    var box = wrapper.querySelector(".chips-box");
+    var input = wrapper.querySelector(".chip-input");
+    var chips = [];
+
+    function render(){
+      // Clear all but the input
+      Array.from(box.querySelectorAll(".chip")).forEach(function(c){ c.remove(); });
+      chips.forEach(function(label, idx){
+        var span = document.createElement("span");
+        span.className = "chip";
+        span.innerHTML = '<span class="chip-label"></span><span class="x">×</span>';
+        span.querySelector(".chip-label").textContent = label;
+        span.querySelector(".x").addEventListener("click", function(){
+          chips.splice(idx, 1);
+          render();
+        });
+        box.insertBefore(span, input);
+      });
+    }
+    function addChip(val){
+      val = (val || "").trim();
+      if(!val) return;
+      if(chips.indexOf(val) === -1){ chips.push(val); render(); }
+      input.value = "";
+    }
+    input.addEventListener("keydown", function(e){
+      if(e.key === "Enter" || e.key === ","){
+        e.preventDefault();
+        addChip(input.value.replace(/,$/, ""));
+      } else if(e.key === "Backspace" && input.value === "" && chips.length){
+        chips.pop(); render();
+      }
+    });
+    input.addEventListener("change", function(){
+      // Triggered when user picks from datalist (and on blur sometimes).
+      if(input.value){ addChip(input.value); }
+    });
+    // Expose serializer for the form submit handler
+    wrapper.__getChipValues = function(){ return chips.slice(); };
+  });
+
+  // -- Stakeholders dynamic rows --
+  var stkContainer = document.getElementById("stakeholders-rows");
+  var stkIdx = 0;
+  function rowHtml(idx){
+    return ''
+      + '<div class="stakeholder-row" data-stk-row="' + idx + '">'
+      +   '<div><span class="field-label">Nome</span>'
+      +     '<input type="text" name="stakeholder_name_' + idx + '" placeholder="Ex: Ana Silva"/></div>'
+      +   '<div><span class="field-label">Email</span>'
+      +     '<input type="email" name="stakeholder_email_' + idx + '" placeholder="ana@empresa.com"/></div>'
+      +   '<div><span class="field-label">Papel</span>'
+      +     '<input type="text" name="stakeholder_role_' + idx + '" placeholder="CTO / Head Cloud / CFO"/></div>'
+      +   '<button type="button" class="remove-btn" onclick="removeStakeholderRow(' + idx + ')">Remover</button>'
+      + '</div>';
+  }
+  window.addStakeholderRow = function(){
+    if(!stkContainer) return;
+    var max = parseInt(stkContainer.getAttribute("data-max") || "8", 10);
+    var current = stkContainer.querySelectorAll(".stakeholder-row").length;
+    if(current >= max){ return; }
+    stkContainer.insertAdjacentHTML("beforeend", rowHtml(stkIdx++));
+  };
+  window.removeStakeholderRow = function(idx){
+    var row = stkContainer.querySelector('[data-stk-row="' + idx + '"]');
+    var min = parseInt(stkContainer.getAttribute("data-min") || "1", 10);
+    var current = stkContainer.querySelectorAll(".stakeholder-row").length;
+    if(current <= min){ return; }
+    if(row){ row.remove(); }
+  };
+  if(stkContainer && stkContainer.children.length === 0){ addStakeholderRow(); }
+
+  // -- Submit interceptor: clean currencies + chips + stakeholders --
+  var form = document.getElementById("intake-form");
+  if(form){
+    form.addEventListener("submit", function(){
+      // 1) Strip dots in currency fields (server gets "120000")
+      form.querySelectorAll("input[data-currency-brl]").forEach(function(inp){
+        inp.value = inp.value.replace(/\./g, "");
+      });
+      // 2) Serialize chips into hidden inputs
+      chipFields.forEach(function(wrapper){
+        var fieldName = wrapper.getAttribute("data-chips-field");
+        // Remove any previously injected hiddens
+        wrapper.querySelectorAll('input[type=hidden][data-chip-hidden]').forEach(function(h){h.remove();});
+        var values = wrapper.__getChipValues();
+        values.forEach(function(v){
+          var h = document.createElement("input");
+          h.type = "hidden"; h.name = fieldName; h.value = v;
+          h.setAttribute("data-chip-hidden", "1");
+          wrapper.appendChild(h);
+        });
+      });
+      // 3) Compact stakeholders: collected server-side by walking
+      //    stakeholder_name_*, stakeholder_email_*, stakeholder_role_*.
+    });
+  }
+})();
+</script>
+"""
+
+
+def _section_titles_for(practice: str) -> dict:
+    """Map (field_name -> section_title) for visual grouping.
+
+    Only finops uses richer grouping. Other practices render flat.
+    """
+    if practice != "finops":
+        return {}
+    return {
+        "executive_sponsor_name": "Identificação",
+        "industry_vertical": "Contexto de negócio",
+        "aws_spend_brl_monthly": "Ambiente AWS",
+        "primary_services": "Serviços + observability",
+        "biggest_concerns": "Dores + compliance",
+        "remediation_choice": "Após findings",
+        "stakeholders": "Apresentações executivas",
+    }
 
 
 def _render_intake_form(practice: str, engagement_id: str, token: str) -> HTMLResponse:
@@ -249,31 +739,41 @@ def _render_intake_form(practice: str, engagement_id: str, token: str) -> HTMLRe
         "industry": "Industry Assessment",
     }.get(practice, practice)
 
-    field_html = []
-    for name, label, ftype, required in fields:
-        req = "required" if required else ""
-        if ftype == "textarea":
-            field_html.append(
-                f'<label for="{name}">{label}</label><textarea id="{name}" name="{name}" {req}></textarea>'
-            )
-        elif ftype == "select":
-            opts = "".join(f'<option value="{o}">{o}</option>' for o in _SELECT_OPTIONS.get(name, []))
-            field_html.append(
-                f'<label for="{name}">{label}</label><select id="{name}" name="{name}" {req}><option value="">Selecione...</option>{opts}</select>'
-            )
+    section_starters = _section_titles_for(practice)
+
+    chunks: list[str] = []
+    open_section = False
+    for spec in fields:
+        # Support both old 4-tuple and new 5-tuple for safety
+        if len(spec) == 5:
+            name, label, ftype, required, opts = spec
         else:
-            field_html.append(
-                f'<label for="{name}">{label}</label><input type="{ftype}" id="{name}" name="{name}" {req}/>'
+            name, label, ftype, required = spec
+            opts = {}
+
+        if name in section_starters:
+            if open_section:
+                chunks.append("</div>")
+            chunks.append(
+                f'<div class="section"><div class="section-title">'
+                f'{_escape(section_starters[name])}</div>'
             )
+            open_section = True
+
+        chunks.append(_render_field(name, label, ftype, required, opts or {}))
+
+    if open_section:
+        chunks.append("</div>")
 
     body = f"""
-    <p class="muted">ANUVIA · {practice_label.upper()}</p>
+    <p class="eyebrow">Anuvia · {_escape(practice_label)}</p>
     <h1>Formulário de intake</h1>
-    <p>Esses dados destravam a análise da próxima fase. Leva ~10 minutos.</p>
-    <form method="POST" action="/api/delivery/{practice}/intake?engagement_id={engagement_id}&token={token}">
-      {''.join(field_html)}
+    <p class="muted" style="margin-bottom:8px;">Esses dados destravam a análise da próxima fase. Leva ~10 minutos. Salve só quando estiver completo.</p>
+    <form id="intake-form" method="POST" action="/api/delivery/{practice}/intake?engagement_id={engagement_id}&amp;token={token}">
+      {''.join(chunks)}
       <button type="submit">Enviar e iniciar análise →</button>
     </form>
+    {_INTAKE_JS}
     """
     return _render(f"Intake — {practice_label}", body)
 
@@ -299,6 +799,98 @@ async def intake_get(practice: str, engagement_id: str, token: str):
     return _render_intake_form(practice, engagement_id, token)
 
 
+def _parse_intake_form(form, practice: str) -> dict:
+    """Parse multi-value form data into a normalized intake dict.
+
+    - Multi-value fields (multiselect, chips) → list[str]
+    - currency_brl fields → int (digits only)
+    - stakeholder_name_*/email_*/role_* → list[{name,email,role}]
+    - Everything else → str
+    """
+    intake: dict = {}
+    # Determine field types from spec for this practice
+    field_types = {
+        name: ftype
+        for (name, _label, ftype, _req, _opts) in _INTAKE_FIELDS.get(practice, [])
+    }
+
+    # multi_items() gives every (key, value) pair in submission order; use it
+    # to collect lists for multiselect / chips.
+    try:
+        pairs = list(form.multi_items())
+    except AttributeError:  # fallback (very old Starlette)
+        pairs = [(k, form[k]) for k in form.keys()]
+
+    # Group stakeholders by index suffix
+    stakeholders_by_idx: dict[str, dict] = {}
+
+    grouped: dict[str, list[str]] = {}
+    for key, value in pairs:
+        # Stakeholder repeatables
+        if key.startswith("stakeholder_name_"):
+            idx = key.split("_", 2)[-1]
+            stakeholders_by_idx.setdefault(idx, {})["name"] = value
+            continue
+        if key.startswith("stakeholder_email_"):
+            idx = key.split("_", 2)[-1]
+            stakeholders_by_idx.setdefault(idx, {})["email"] = value
+            continue
+        if key.startswith("stakeholder_role_"):
+            idx = key.split("_", 2)[-1]
+            stakeholders_by_idx.setdefault(idx, {})["role"] = value
+            continue
+        grouped.setdefault(key, []).append(value)
+
+    for key, values in grouped.items():
+        ftype = field_types.get(key)
+        # Multi-value fields always submit as list
+        if ftype in ("multiselect", "aws_services_chips"):
+            cleaned = [v for v in values if v]
+            if cleaned:
+                intake[key] = cleaned
+            continue
+        # Currency: strip non-digits, store int
+        if ftype == "currency_brl" or key in _CURRENCY_FIELDS:
+            raw = (values[-1] or "").replace(".", "").replace(",", "").strip()
+            if raw.isdigit():
+                intake[key] = int(raw)
+            elif raw:
+                intake[key] = raw  # bad input, keep raw for debugging
+            continue
+        # Number: cast to int if possible
+        if ftype == "number":
+            raw = (values[-1] or "").strip()
+            if raw.replace("-", "").isdigit():
+                try:
+                    intake[key] = int(raw)
+                except ValueError:
+                    intake[key] = raw
+            elif raw:
+                intake[key] = raw
+            continue
+        # Default: single-value scalar (last wins)
+        v = values[-1]
+        if v not in ("", None):
+            intake[key] = v
+
+    # Collect stakeholders into a list (only keep rows with at least a name)
+    if stakeholders_by_idx:
+        stk_list = []
+        for idx in sorted(stakeholders_by_idx.keys(),
+                          key=lambda s: int(s) if s.isdigit() else 9999):
+            row = stakeholders_by_idx[idx]
+            if (row.get("name") or "").strip():
+                stk_list.append({
+                    "name": (row.get("name") or "").strip(),
+                    "email": (row.get("email") or "").strip(),
+                    "role": (row.get("role") or "").strip(),
+                })
+        if stk_list:
+            intake["stakeholders"] = stk_list
+
+    return intake
+
+
 @router.post("/{practice}/intake")
 async def intake_post(practice: str, request: Request):
     engagement_id = request.query_params.get("engagement_id", "")
@@ -308,9 +900,8 @@ async def intake_post(practice: str, request: Request):
     if not _verify_token(engagement_id, "intake", token):
         return _err_page("token inválido", 401)
 
-    # Parse form data
     form = await request.form()
-    intake = {k: v for k, v in form.items() if v}
+    intake = _parse_intake_form(form, practice)
 
     eng = await _get_engagement(engagement_id)
     if not eng:
@@ -337,14 +928,33 @@ async def intake_post(practice: str, request: Request):
             {"next_action": next_action, "next_action_at": past_iso},
         )
 
-    return _render(
-        "Intake recebido",
-        '<h1>Intake recebido ✓</h1>'
-        '<p class="ok">Tudo certo. A análise da próxima fase já entrou na fila — '
-        'orchestrator processa nas próximas horas. Você recebe o relatório '
-        'por email.</p>'
-        '<p class="muted">Sem ação adicional do teu lado por enquanto.</p>',
-    )
+    delivery_mode = (eng.get("delivery_mode") or "whiteglove").strip().lower()
+    if delivery_mode == "autonomous":
+        body = (
+            '<p class="eyebrow">Anuvia · Intake recebido</p>'
+            '<h1>Intake recebido ✓</h1>'
+            '<p class="ok">Tudo certo. A análise da próxima fase já entrou na fila — '
+            'orchestrator processa nas próximas horas. Você recebe o relatório '
+            'por email.</p>'
+            '<p class="muted">Sem ação adicional do teu lado por enquanto.</p>'
+        )
+    else:
+        # whiteglove default
+        body = (
+            '<p class="eyebrow">Anuvia · Intake recebido</p>'
+            '<h1>Intake recebido ✓</h1>'
+            '<p class="ok">Os dados chegaram em nossa equipe. Nas próximas 24h, '
+            'Mila Vernazza analisa o material e agenda uma sessão executiva para '
+            'apresentar os findings da semana 2 ao vivo (60 min). O convite '
+            'chega no email do sponsor — todos os stakeholders listados serão CC\'d.</p>'
+            '<p class="muted">Próximos passos:</p>'
+            '<ol class="muted">'
+            '<li>Anuvia gera análise + materiais (~3-5 dias)</li>'
+            '<li>Apresentação executiva da semana 2 (Mila ao vivo) — convite por email</li>'
+            '<li>Após apresentação: materiais (PDF + PPTX) enviados oficialmente</li>'
+            '</ol>'
+        )
+    return _render("Intake recebido", body)
 
 
 # -----------------------------------------------------------------------------
