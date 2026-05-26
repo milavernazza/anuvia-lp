@@ -640,10 +640,11 @@ async def _call_claude(prompt: str, *, max_tokens: int = 2500) -> str:
 
 
 async def _slack_post(payload: dict) -> bool:
-    """Post a Slack message payload (text or blocks) to the configured webhook.
+    """Post a Slack message payload to the configured webhook.
 
     Best-effort. Tries ``SLACK_ALERTS_WEBHOOK`` first, then
-    ``SLACK_NEW_LEAD_WEBHOOK``. Returns True iff the webhook responded 2xx.
+    ``SLACK_NEW_LEAD_WEBHOOK``. Returns True iff the webhook responded 2xx
+    with body == "ok" (Slack's standard success response).
     """
     webhook = os.environ.get("SLACK_ALERTS_WEBHOOK") or os.environ.get(
         "SLACK_NEW_LEAD_WEBHOOK"
@@ -657,11 +658,14 @@ async def _slack_post(payload: dict) -> bool:
     except Exception as exc:  # noqa: BLE001
         log.warning("sessions: slack post failed: %s", exc)
         return False
-    if r.status_code >= 400:
+    body = (r.text or "").strip()
+    if r.status_code >= 400 or body.lower() not in ("ok", ""):
         log.warning(
-            "sessions: slack webhook %s: %s", r.status_code, r.text[:200]
+            "sessions: slack webhook %s body=%r payload_size=%d",
+            r.status_code, body[:200], len(str(payload)),
         )
         return False
+    log.info("sessions: slack DM sent ok (%s chars)", len(str(payload)))
     return True
 
 
@@ -714,55 +718,27 @@ def _build_release_block(
     if len(brief_excerpt) > 600:
         brief_excerpt = brief_excerpt[:600].rsplit("\n", 1)[0] + "\n…"
 
-    blocks: List[dict] = [
-        {
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": header_text},
-        },
-        {"type": "divider"},
-        {
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": meet_line},
-        },
-        {
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": f":open_file_folder: *Materiais*\n{materials_block}",
-            },
-        },
-    ]
+    # Plain-text payload — works with ANY Slack incoming webhook (vs Block Kit
+    # actions which require a Slack App with workspace permission). Markdown
+    # links render as clickable in Slack desktop + mobile.
+    materials_text = "\n".join(materials_lines) or "• (sem materiais)"
+    brief_block = ""
     if brief_excerpt:
-        blocks.append({
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": f":notebook: *Pre-call brief (resumo)*\n```{brief_excerpt}```",
-            },
-        })
-    blocks.append({
-        "type": "actions",
-        "elements": [
-            {
-                "type": "button",
-                "style": "primary",
-                "text": {
-                    "type": "plain_text",
-                    "text": "Apresentei → enviar materiais ao cliente",
-                    "emoji": True,
-                },
-                "url": release_url,
-            }
-        ],
-    })
+        brief_block = f"\n\n:notebook: *Pre-call brief (resumo)*\n```{brief_excerpt}```"
 
-    # Fallback text for clients that don't render block kit (mobile push).
-    fallback_text = (
-        f"FinOps Phase {phase_label} — materiais prontos pra apresentação. "
-        f"Cliente: {client_name}. Reunião: {scheduled_at_br}. "
-        f"Liberar materiais: {release_url}"
+    text = (
+        f":warning: *FinOps Phase {phase} — Materiais prontos pra apresentação*\n\n"
+        f"*Cliente:* {client_name}\n"
+        f"*Engagement:* `{engagement_id}`\n"
+        f"{findings_summary}\n\n"
+        f"{meet_line}\n\n"
+        f":open_file_folder: *Materiais*\n{materials_text}"
+        f"{brief_block}\n\n"
+        f":white_check_mark: *Após apresentar, clique aqui pra enviar os "
+        f"materiais ao cliente:*\n<{release_url}|*→ Apresentei · Enviar "
+        f"materiais ao cliente*>"
     )
-    return {"text": fallback_text, "blocks": blocks}
+    return {"text": text, "mrkdwn": True}
 
 
 # ---------------------------------------------------------------------------
