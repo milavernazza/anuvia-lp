@@ -279,6 +279,23 @@ async def _smoke_engagement_impl(request: Request):
     practice = (body.get("practice") or "cloud_finops").strip().lower()
     max_phase = int(body.get("max_phase", 4))
     skip_phases = bool(body.get("skip_phases", False))
+    # White-glove mode (task #56): default for new engagements. When True,
+    # the smoke creates the engagement in delivery_mode='whiteglove' AND
+    # defaults skip_intake_submit=True so Mila can manually fill the
+    # intake form via the URL returned in the response (real client UX).
+    # Pass delivery_mode='autonomous' for the legacy fire-and-forget flow
+    # that drives the daily E2E smoke test.
+    delivery_mode = str(body.get("delivery_mode") or "whiteglove").strip().lower()
+    if delivery_mode not in ("whiteglove", "autonomous"):
+        delivery_mode = "whiteglove"
+    # Default skip_intake_submit: True for whiteglove (Mila fills it as
+    # a real client would), False for autonomous (smoke fills it itself).
+    skip_intake_submit = bool(
+        body.get(
+            "skip_intake_submit",
+            delivery_mode == "whiteglove",
+        )
+    )
     # Gmail-style + alias so repeated smokes don't collide on
     # (funnel_id, email) unique. Real inbox still receives.
     if "+smoke-" not in base_email and "@" in base_email:
@@ -355,10 +372,28 @@ async def _smoke_engagement_impl(request: Request):
             "intake_data": {},
             "artifacts": {},
             "total_value_brl": cfg["value_brl"],
+            "delivery_mode": delivery_mode,
         }
-        engagement = await _supa_insert(client, "engagements", engagement_row)
+        try:
+            engagement = await _supa_insert(client, "engagements", engagement_row)
+        except RuntimeError as e:
+            # Migration 2026-05-17_delivery_mode.sql not applied yet?
+            # Retry without the delivery_mode column for backward compat.
+            if "delivery_mode" in str(e):
+                engagement_row.pop("delivery_mode", None)
+                engagement = await _supa_insert(client, "engagements", engagement_row)
+                steps.append({
+                    "step": "create_engagement_warn",
+                    "warn": "delivery_mode column missing — apply migrations/2026-05-17_delivery_mode.sql",
+                })
+            else:
+                raise
         engagement_id = engagement["id"]
-        steps.append({"step": "create_engagement", "engagement_id": engagement_id})
+        steps.append({
+            "step": "create_engagement",
+            "engagement_id": engagement_id,
+            "delivery_mode": delivery_mode,
+        })
 
         # 4) Tie engagement back to lead for delivery agents' _resolve_engagement_id
         qd = dict(lead.get("qualification_data") or {})
@@ -387,6 +422,71 @@ async def _smoke_engagement_impl(request: Request):
                 "lead_id": lead_id,
                 "contract_id": contract_id,
                 "engagement_id": engagement_id,
+                "delivery_mode": delivery_mode,
+                "steps": steps,
+            }
+
+        # White-glove smoke path (default): fire phase 1 (data collection
+        # wait state) ONLY, then bail with the intake URL so Mila can fill
+        # the form manually as a real client would. The phase 1 handler is
+        # idempotent — when Mila submits the intake (via delivery_routes
+        # POST), it sets the intake_submitted_at marker AND patches
+        # lead.next_action = phase_2, so the next orchestrator tick picks
+        # up the engagement and walks the rest of the funnel autonomously.
+        if skip_intake_submit:
+            # Fire phase 1 once so the agent_history shows the "waiting for
+            # intake" entry — gives Mila a clean operational trail.
+            ph1_action = cfg["phase_actions"][0] if cfg["phase_actions"] else None
+            if ph1_action:
+                await _supa_patch(
+                    client,
+                    "leads",
+                    f"id=eq.{lead_id}",
+                    {"next_action": ph1_action, "next_action_at": past_iso},
+                )
+                lead = await _supa_get(client, "leads", f"id=eq.{lead_id}&select=*") or lead
+                ph1_result = await _run_handler_direct(ph1_action, lead)
+                steps.append({"step": "fire_phase_1_waiting", **ph1_result})
+
+            # Compute the client-facing intake URL using the same HMAC
+            # pattern as the delivery modules.
+            form_slug = {
+                "cloud_finops": "finops",
+                "ai": "ai",
+                "devops": "devops",
+                "growth_salesops": "growth",
+                "industry": "industry",
+            }.get(practice, "finops")
+            intake_token = ""
+            if HMAC_SECRET:
+                intake_token = hmac.new(
+                    HMAC_SECRET.encode("utf-8"),
+                    f"{engagement_id}:intake".encode("utf-8"),
+                    hashlib.sha256,
+                ).hexdigest()
+            base_url = (
+                os.environ.get("BASE_URL")
+                or os.environ.get("CONTRACT_HOST")
+                or "https://anuvia.com.br"
+            ).rstrip("/")
+            intake_url = (
+                f"{base_url}/api/delivery/{form_slug}/intake"
+                f"?engagement_id={engagement_id}&token={intake_token}"
+            )
+            return {
+                "ok": True,
+                "mode": "whiteglove_intake_pending",
+                "lead_id": lead_id,
+                "contract_id": contract_id,
+                "engagement_id": engagement_id,
+                "delivery_mode": delivery_mode,
+                "intake_url": intake_url,
+                "note": (
+                    "Engagement criado. Fase 1 está em waiting_for_intake. "
+                    "Abra intake_url, preencha como um cliente real, submeta. "
+                    "O tick do orchestrator vai pegar nos próximos 10 min e "
+                    "rodar as fases 2/3/4 com delivery_mode='%s'." % delivery_mode
+                ),
                 "steps": steps,
             }
 
@@ -454,6 +554,7 @@ async def _smoke_engagement_impl(request: Request):
         "contract_id": contract_id,
         "engagement_id": engagement_id,
         "practice": practice,
+        "delivery_mode": delivery_mode,
         "max_phase_requested": max_phase,
         "steps": steps,
         "engagement_final_status": eng_final.get("status"),
@@ -593,6 +694,83 @@ async def smoke_token():
         raise HTTPException(500, "CONTRACT_HMAC_SECRET not configured")
     tok = hmac.new(HMAC_SECRET.encode("utf-8"), b"admin_smoke", hashlib.sha256).hexdigest()
     return {"token": tok}
+
+
+# ---------------------------------------------------------------------------
+# Intake preview — render a blank intake form as a client would see it
+# ---------------------------------------------------------------------------
+
+# Map from the practice slugs used by smoke / engagements (cloud_finops,
+# ai, devops, growth_salesops, industry) to the slugs used by
+# ``lib.delivery_routes._render_intake_form`` (finops, ai, devops, growth,
+# industry). Mila pastes either form into the URL and we normalise.
+_PRACTICE_TO_FORM_SLUG = {
+    "cloud_finops": "finops",
+    "finops": "finops",
+    "ai": "ai",
+    "devops": "devops",
+    "growth_salesops": "growth",
+    "growth": "growth",
+    "industry": "industry",
+}
+
+
+@router.get("/intake_preview")
+async def intake_preview(request: Request):
+    """Render the blank intake form for Mila to preview as a client would see
+    it. Admin-only (token == admin_smoke hash).
+
+    Query params:
+        practice : one of cloud_finops|ai|devops|growth_salesops|industry
+        token    : admin_smoke HMAC
+
+    Returns the same HTML produced by the real intake GET endpoint but with
+    a placeholder engagement_id (``PREVIEW``) and the form action pointed
+    at ``/dev/null`` so submitting the preview is a no-op.
+    """
+    token = request.query_params.get("token", "")
+    if not _verify_admin_token(token):
+        raise HTTPException(401, "bad admin token")
+
+    practice_raw = (request.query_params.get("practice") or "cloud_finops").strip().lower()
+    form_slug = _PRACTICE_TO_FORM_SLUG.get(practice_raw)
+    if not form_slug:
+        raise HTTPException(
+            400,
+            f"unknown practice; choose from {list(_PRACTICE_TO_FORM_SLUG)}",
+        )
+
+    # Lazy import the renderer + intake schema so this module stays loadable
+    # when delivery_routes has an import-time issue.
+    try:
+        from lib.delivery_routes import _render_intake_form  # type: ignore
+    except Exception as exc:  # noqa: BLE001
+        log.exception("intake_preview: delivery_routes not importable")
+        raise HTTPException(500, f"delivery_routes unavailable: {exc}")
+
+    # Render with placeholder engagement_id + a bogus token. The form
+    # action URL will be /api/delivery/{slug}/intake?engagement_id=PREVIEW
+    # &token=PREVIEW_NO_SUBMIT — which the live POST endpoint will reject
+    # (invalid token), so submitting the preview is a no-op even if Mila
+    # accidentally clicks the button.
+    response = _render_intake_form(
+        form_slug, "PREVIEW", "PREVIEW_NO_SUBMIT"
+    )
+    # Inject a visible banner so Mila knows this is preview mode.
+    banner = (
+        '<div style="background:#fef3c7;border:1px solid #f59e0b;'
+        'padding:14px 18px;border-radius:6px;margin-bottom:18px;'
+        'font-size:14px;color:#92400e;">'
+        '<strong>PREVIEW MODE</strong> — Esta é a visualização do formulário '
+        f'de intake da prática <code>{practice_raw}</code>. '
+        'Submeter NÃO grava nada (token inválido por design).'
+        '</div>'
+    )
+    body = response.body.decode("utf-8")
+    # Inject the banner right after the opening <div class="card">.
+    body = body.replace('<div class="card">', f'<div class="card">{banner}', 1)
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse(body, status_code=200)
 
 
 async def _smoke_fire_phase_background(
