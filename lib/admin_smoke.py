@@ -685,6 +685,66 @@ async def smoke_fire_phase_sync_traced(request: Request):
         }
 
 
+@router.get("/smoke/slack_test")
+async def smoke_slack_test(request: Request):
+    """Test EVERY Slack code path to isolate where the failure is.
+
+    Returns:
+        - direct_diag_post: orchestrator-style ping (already known to work)
+        - sessions_slack_dm_text: _sessions._slack_post via slack_dm_text helper
+        - sessions_full_dm: _sessions.slack_dm_materials_ready with mock data
+
+    Each result shows status + ok flag + any error.
+    """
+    token = request.query_params.get("token", "")
+    if not _verify_admin_token(token):
+        raise HTTPException(401, "bad admin token")
+
+    results = {}
+    webhook = (
+        os.environ.get("SLACK_ALERTS_WEBHOOK", "")
+        or os.environ.get("SLACK_NEW_LEAD_WEBHOOK", "")
+    )
+    results["webhook_url_prefix"] = webhook[:50] + "..." if webhook else "(none)"
+
+    # Test 1 — direct curl to webhook with same payload diag uses
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.post(webhook, json={"text": "Anuvia slack_test #1: DIRECT POST (should arrive)"})
+        results["direct_post"] = {"status": r.status_code, "body": r.text[:100], "ok": r.status_code == 200 and r.text.strip().lower() == "ok"}
+    except Exception as e:
+        results["direct_post"] = {"error": f"{type(e).__name__}: {e}"}
+
+    # Test 2 — call _sessions.slack_dm_text helper
+    try:
+        from lib.delivery._sessions import slack_dm_text
+        ok = await slack_dm_text("Anuvia slack_test #2: via _sessions.slack_dm_text (text only)")
+        results["sessions_text"] = {"ok": ok}
+    except Exception as e:
+        results["sessions_text"] = {"error": f"{type(e).__name__}: {e}"}
+
+    # Test 3 — call full materials_ready DM
+    try:
+        from lib.delivery._sessions import slack_dm_materials_ready
+        ok = await slack_dm_materials_ready(
+            engagement_id="00000000-0000-0000-0000-000000000000",
+            phase=2,
+            client_name="Slack Test Client",
+            findings_summary="R$ 100k savings (testing only)",
+            scheduled_at_br="Test slot",
+            duration_min=60,
+            meet_url="https://meet.google.com/test-test-test",
+            materials=[("Test PDF", "https://example.com/test.pdf")],
+            brief_snippet="Test brief snippet",
+        )
+        results["sessions_full_dm"] = {"ok": ok}
+    except Exception as e:
+        import traceback
+        results["sessions_full_dm"] = {"error": f"{type(e).__name__}: {e}", "trace": traceback.format_exc()[-500:]}
+
+    return results
+
+
 @router.get("/smoke/token")
 async def smoke_token():
     """Convenience endpoint to compute the admin token. NO AUTH on purpose so
