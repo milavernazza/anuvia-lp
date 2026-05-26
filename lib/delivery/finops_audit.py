@@ -2337,8 +2337,119 @@ async def _run_phase_1(engagement: dict) -> dict:
     }
 
 
+# ---------------------------------------------------------------------------
+# White-glove delivery mode — book a session, Slack Mila, hold client email
+# ---------------------------------------------------------------------------
+#
+# When ``engagement.delivery_mode == 'whiteglove'`` (default for new
+# engagements per task #56), each phase boundary holds back the client
+# email and instead:
+#   1. Auto-books a presentation meeting on Mila's calendar (via
+#      :mod:`lib.delivery._sessions.book_phase_session`).
+#   2. Slack-DMs Mila a rich block with the materials + a button to
+#      release the email when she's done presenting.
+# The client email only fires once Mila clicks the button — handled by
+# :mod:`lib.whiteglove_routes`. ``delivery_mode='autonomous'`` keeps the
+# legacy fire-and-forget behaviour for smoke tests + backward compat.
+
+
+_DELIVERY_MODE_WHITEGLOVE = "whiteglove"
+_DELIVERY_MODE_AUTONOMOUS = "autonomous"
+
+
+def _engagement_delivery_mode(engagement: dict) -> str:
+    """Return ``'whiteglove'`` (default) or ``'autonomous'`` for a row.
+
+    Defensive: if the column doesn't exist yet (migration not applied) we
+    treat the engagement as autonomous to preserve legacy behaviour.
+    """
+    mode = engagement.get("delivery_mode")
+    if not mode:
+        # Column missing / NULL — preserve legacy email-direct behaviour
+        # until the migration lands. Once the migration is applied with
+        # DEFAULT 'whiteglove', NULL won't happen for new rows.
+        return _DELIVERY_MODE_AUTONOMOUS
+    mode_str = str(mode).strip().lower()
+    if mode_str not in (_DELIVERY_MODE_WHITEGLOVE, _DELIVERY_MODE_AUTONOMOUS):
+        return _DELIVERY_MODE_AUTONOMOUS
+    return mode_str
+
+
+async def _whiteglove_hold_for_presentation(
+    *,
+    engagement_id: str,
+    phase: int,
+    client_name: str,
+    findings_summary: str,
+    materials: List[Tuple[str, str]],
+) -> dict:
+    """Book the presentation meeting + Slack DM Mila. Used by phases 2/3/4
+    when ``delivery_mode='whiteglove'``.
+
+    Returns ``{ok, session, slack_sent}``. Best-effort — failures don't
+    cascade (we still record ``phase_N_pending_presentation_at`` so the
+    operator timeline reflects state).
+    """
+    # Lazy import so this module loads even when _sessions has a syntax
+    # issue (the other delivery modules need to import unaffected).
+    try:
+        from lib.delivery import _sessions as _sess  # type: ignore
+    except Exception:  # noqa: BLE001
+        log.exception(
+            "finops.whiteglove: _sessions module not importable eng=%s",
+            engagement_id,
+        )
+        return {"ok": False, "reason": "sessions_module_unavailable"}
+
+    # 1) Book the slot + Gcal events. Idempotent inside book_phase_session.
+    session = await _sess.book_phase_session(
+        engagement_id, phase, practice="cloud_finops"
+    )
+
+    # 2) Mark engagement as pending presentation. The Slack alert + button
+    # come next — but if any of that fails we want the operator to see the
+    # pending state.
+    pending_key = f"phase_{phase}_pending_presentation_at"
+    await _engagement_merge_artifacts(
+        engagement_id,
+        {pending_key: _now_iso()},
+    )
+
+    # 3) Slack DM Mila with the block + button.
+    slack_sent = False
+    try:
+        slack_sent = await _sess.slack_dm_materials_ready(
+            engagement_id=engagement_id,
+            phase=phase,
+            client_name=client_name,
+            findings_summary=findings_summary,
+            scheduled_at_br=session.get("scheduled_at_br")
+                or (session.get("scheduled_at") or "horário pendente"),
+            duration_min=session.get("duration_min")
+                or _sess.PHASE_DURATIONS_MIN.get(phase, 60),
+            meet_url=session.get("meet_url"),
+            materials=materials,
+            brief_snippet="",  # full brief is in the private Gcal event description
+        )
+    except Exception:  # noqa: BLE001
+        log.exception(
+            "finops.whiteglove: slack DM failed eng=%s phase=%s",
+            engagement_id, phase,
+        )
+
+    return {"ok": True, "session": session, "slack_sent": slack_sent}
+
+
 async def _run_phase_2(engagement: dict) -> dict:
-    """Phase 2 — Claude composes findings narrative, ship PDF + email."""
+    """Phase 2 — Claude composes findings narrative, ship PDF.
+
+    Branches on ``delivery_mode``:
+      * ``'whiteglove'`` (default) → book presentation + Slack DM Mila
+        with the materials and the ``Apresentei`` button. NO client email
+        until Mila clicks the button.
+      * ``'autonomous'`` → legacy fire-and-forget: send the findings email
+        to the client right after PDF upload.
+    """
     engagement_id = str(engagement.get("id") or "")
     lead, email, first_name = await _lead_for_engagement(engagement)
     intake = engagement.get("intake_data") or {}
@@ -2365,7 +2476,33 @@ async def _run_phase_2(engagement: dict) -> dict:
         },
     )
 
-    if email:
+    mode = _engagement_delivery_mode(engagement)
+    if mode == _DELIVERY_MODE_WHITEGLOVE:
+        low, high = _findings_total_savings(findings)
+        client_name = (
+            (lead or {}).get("company")
+            or (lead or {}).get("name")
+            or "Cliente"
+        )
+        findings_count = len(
+            [f for f in (findings.get("findings") or []) if isinstance(f, dict)]
+        )
+        findings_summary = (
+            f"Findings totais: R$ {_brl(low)} – R$ {_brl(high)}/ano "
+            f"({findings_count} oportunidades em 8 vetores)"
+        )
+        await _whiteglove_hold_for_presentation(
+            engagement_id=engagement_id,
+            phase=2,
+            client_name=client_name,
+            findings_summary=findings_summary,
+            materials=[("Findings PDF", pdf_url)],
+        )
+        # IMPORTANT: still advance to phase 3 — the orchestrator continues
+        # to compose phase-3 deliverables in parallel with Mila's phase-2
+        # presentation. The client email release is async (Slack button),
+        # not blocking on the phase machine.
+    elif email:
         top = _top_findings_for_email(findings)
         html = _phase2_email_html(
             first_name=first_name,
@@ -2379,6 +2516,10 @@ async def _run_phase_2(engagement: dict) -> dict:
                 subject="Findings da semana 2 — FinOps Audit",
                 html=html,
                 kind="finops_phase_2_findings",
+            )
+            await _engagement_merge_artifacts(
+                engagement_id,
+                {"phase_2_email_sent_at": _now_iso()},
             )
         except Exception:  # noqa: BLE001
             log.exception(
@@ -2400,6 +2541,7 @@ async def _run_phase_2(engagement: dict) -> dict:
         "advanced_to_phase": 3,
         "next_action": "finops_phase_3_quickwins",
         "next_action_at": next_at,
+        "delivery_mode": mode,
     }
 
 
@@ -2466,7 +2608,29 @@ async def _run_phase_3(engagement: dict) -> dict:
         )
 
         low, high = _findings_total_savings(findings)
-        if email:
+        mode = _engagement_delivery_mode(engagement)
+        if mode == _DELIVERY_MODE_WHITEGLOVE:
+            client_name = (
+                (lead or {}).get("company")
+                or (lead or {}).get("name")
+                or "Cliente"
+            )
+            quick_wins_count = len([
+                f for f in (findings.get("findings") or [])
+                if isinstance(f, dict) and f.get("priority") == "quick_win"
+            ])
+            findings_summary = (
+                f"Quick wins: {quick_wins_count or 'todos os top findings'} "
+                f"| Economia anualizada R$ {_brl(low)} – R$ {_brl(high)}"
+            )
+            await _whiteglove_hold_for_presentation(
+                engagement_id=engagement_id,
+                phase=3,
+                client_name=client_name,
+                findings_summary=findings_summary,
+                materials=[("Change log PDF (quick wins)", change_log_url)],
+            )
+        elif email:
             token = _hmac_token(engagement_id, "approval")
             approval_url = (
                 f"{BASE_URL}/api/delivery/finops/approve"
@@ -2498,6 +2662,10 @@ async def _run_phase_3(engagement: dict) -> dict:
                     subject=subject,
                     html=html,
                     kind="finops_phase_3_approval",
+                )
+                await _engagement_merge_artifacts(
+                    engagement_id,
+                    {"phase_3_email_sent_at": _now_iso()},
                 )
             except Exception:  # noqa: BLE001
                 log.exception(
@@ -2590,6 +2758,28 @@ async def _run_phase_4(engagement: dict) -> dict:
             "ok": True,
             "skipped_already_delivered": True,
             "delivered": True,
+        }
+
+    # White-glove mode: if we've already booked the phase-4 presentation
+    # and Slack-DM'd Mila, don't re-compose every tick. The orchestrator
+    # is still scheduled but should idle until Mila releases (which sets
+    # phase_4_email_sent_at). Re-runs only happen via explicit smoke fire.
+    if (
+        _engagement_delivery_mode(engagement) == _DELIVERY_MODE_WHITEGLOVE
+        and artifacts.get("phase_4_pending_presentation_at")
+    ):
+        log.info(
+            "finops.phase_4: whiteglove pending Mila release eng=%s since %s",
+            engagement_id,
+            artifacts.get("phase_4_pending_presentation_at"),
+        )
+        return {
+            "ok": True,
+            "waiting_for": "mila_button_click",
+            "delivered": False,
+            "delivery_mode": _DELIVERY_MODE_WHITEGLOVE,
+            "next_action": None,
+            "next_action_at": None,
         }
 
     findings = artifacts.get("phase_2_findings") or {}
@@ -2737,8 +2927,29 @@ async def _run_phase_4(engagement: dict) -> dict:
         f"{BASE_URL}/api/delivery/finops/nps"
         f"?engagement_id={engagement_id}&token={_hmac_token(engagement_id, 'nps')}"
     )
+    mode = _engagement_delivery_mode(engagement)
     email_sent = False
-    if email:
+
+    if mode == _DELIVERY_MODE_WHITEGLOVE:
+        # White-glove path: book the final handoff (90 min) + Slack DM Mila
+        # with all three deliverables + the release button. Client email is
+        # held until Mila clicks "Apresentei → enviar materiais".
+        findings_summary_wg = (
+            f"Economia anualizada identificada: R$ {savings_str}/ano · "
+            f"3 deliverables prontos (relatório + deck + roadmap)"
+        )
+        await _whiteglove_hold_for_presentation(
+            engagement_id=engagement_id,
+            phase=4,
+            client_name=client_name,
+            findings_summary=findings_summary_wg,
+            materials=[
+                ("Relatório executivo (PDF)", report_url),
+                ("Apresentação executiva (PPTX)", deck_url),
+                ("Roadmap 12 meses (PDF)", roadmap_url),
+            ],
+        )
+    elif email:
         html = _phase4_email_html(
             first_name=first_name,
             report_url=report_url,
@@ -2763,6 +2974,9 @@ async def _run_phase_4(engagement: dict) -> dict:
             )
 
     # Stamp idempotency marker AFTER successful email (or if email skipped).
+    # White-glove mode stamps via the Slack button release path; here we
+    # only stamp for autonomous mode so the invoice / NPS flow can still
+    # finalise even when the client email is deferred.
     if email_sent:
         await _engagement_merge_artifacts(
             engagement_id,
