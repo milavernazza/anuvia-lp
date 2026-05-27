@@ -687,7 +687,7 @@ def _wrap_email(title: str, body_html: str) -> str:
 <p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;margin:0 0 6px;">Anuvia · FinOps Audit</p>
 <h1 style="font-family:Georgia,serif;font-size:24px;margin:0 0 14px;color:#0f172a;">{title}</h1>
 {body_html}
-<p style="color:#78716c;font-size:13px;line-height:1.6;margin-top:28px;border-top:1px solid #f0eeec;padding-top:18px;">Qualquer dúvida, é só responder este email.<br><br>Mila Vernazza · Founder Anuvia</p>
+<p style="color:#78716c;font-size:13px;line-height:1.6;margin-top:28px;border-top:1px solid #f0eeec;padding-top:18px;">Qualquer dúvida, é só responder este email.<br><br>Anuvia</p>
 </div></body></html>"""
 
 
@@ -2612,6 +2612,37 @@ async def _run_phase_3(engagement: dict) -> dict:
     # (autonomous mode) the email sender is idempotent. Re-fires resume here.
     if True:
         low, high = _findings_total_savings(findings)
+
+        # GUARD: refuse to surface R$ 0,00 – 0,00 to the client. If phase 2
+        # ran into the Claude fallback path (or any other failure that left
+        # savings empty), every individual finding has ``savings_brl_low/high
+        # = 0`` by design. Sending a "Economia anualizada: R$ 0,00 – 0,00"
+        # email destroys trust. Escalate to operator and exit early; Mila
+        # can re-fire phase 2 manually to regenerate findings.
+        findings_list = findings.get("findings") or []
+        has_fallback = any(
+            isinstance(f, dict)
+            and _CLAUDE_FALLBACK_TAG in str(f.get("hypothesis", ""))
+            for f in findings_list
+        )
+        if has_fallback or (low <= 0 and high <= 0):
+            await _send_slack_alert(
+                ":warning: *FinOps phase 3 segurou email* — engagement "
+                f"`{engagement_id}` produziu R$ 0,00 ou findings em "
+                "fallback. Email NÃO foi enviado pro cliente. "
+                "Re-firar phase 2 (`finops_phase_2_analysis`) pra "
+                "regenerar findings antes de avançar."
+            )
+            return {
+                "ok": False,
+                "reason": "zero_savings_or_fallback_findings",
+                "low": low,
+                "high": high,
+                "fallback_detected": has_fallback,
+                "next_action": "finops_phase_2_analysis",
+                "next_action_at": _now() + timedelta(minutes=10),
+            }
+
         mode = _engagement_delivery_mode(engagement)
         if mode == _DELIVERY_MODE_WHITEGLOVE:
             client_name = (
