@@ -192,6 +192,47 @@
         try {
           document.cookie = 'anuvia_booked=1; path=/; max-age=' + (60*24*60*60) + '; samesite=lax';
         } catch (e) { /* non-fatal */ }
+        // Patch the embedded booking widget into "lead-known" mode so the
+        // user doesn't see the PII form a SECOND time. The widget HTML was
+        // rendered server-side at page load (anonymous), but we now know
+        // the visitor's name / email / company / whatsapp — hide those
+        // inputs and surface the "Booking as ..." notice instead.
+        try {
+          const bookingForm = bookingSection.querySelector('.bw-booking-form');
+          if (bookingForm) {
+            const piiFields = {
+              name: data.name || '',
+              email: data.email || '',
+              whatsapp: data.whatsapp || '+0000000000',
+              company: data.company || '',
+            };
+            Object.entries(piiFields).forEach(([key, val]) => {
+              const input = bookingForm.querySelector('input[name="' + key + '"]:not([type="hidden"])');
+              if (input) {
+                const wrapper = input.closest('div');
+                const hidden = document.createElement('input');
+                hidden.type = 'hidden';
+                hidden.name = key;
+                hidden.value = val;
+                if (wrapper && wrapper.parentElement) {
+                  wrapper.parentElement.replaceChild(hidden, wrapper);
+                } else {
+                  input.replaceWith(hidden);
+                }
+              }
+            });
+            bookingForm.setAttribute('data-lead-known', '1');
+            const noticeLang = (LANG === 'en') ? 'Booking as' : 'Agendando como';
+            const notice = document.createElement('div');
+            notice.className = 'mb-6 p-4 border-l-2 border-accent bg-white';
+            notice.innerHTML = '<p class="eyebrow mb-1">' + noticeLang + '</p>' +
+              '<p class="text-sm text-ink/80"><strong>' + (data.name || '') + '</strong>' +
+              (data.email ? ' <span class="text-ink/50">(' + data.email + ')</span>' : '') + '</p>';
+            bookingForm.parentElement.insertBefore(notice, bookingForm);
+          }
+        } catch (e) {
+          console.warn('booking widget lead-known patch failed:', e);
+        }
       } else {
         alert((result && result.detail && (Array.isArray(result.detail) ? STR.checkFields : result.detail)) || STR.errRegister);
         btn.disabled = false;
