@@ -77,6 +77,8 @@ try:
     from lib.admin_dashboard import router as _admin_dashboard_router  # noqa: E402,F401
     # Gcal health monitoring — proactive token expiry alerts
     from lib.gcal_health import router as _gcal_health_router  # noqa: E402,F401
+    # Operator routes — manual conversions Mila does between autonomous phases
+    from lib.operator_routes import router as _operator_router  # noqa: E402,F401
     app.include_router(_sessions_router)
     app.include_router(_orchestrator_router)
     app.include_router(_track_b_router)
@@ -88,6 +90,7 @@ try:
     app.include_router(_whiteglove_router)
     app.include_router(_admin_dashboard_router)
     app.include_router(_gcal_health_router)
+    app.include_router(_operator_router)
     _AUTONOMOUS_FUNNEL_ENABLED = True
     log.info(
         "Autonomous funnel v2 mounted: /api/session, /api/orchestrator, /api/track-b, "
