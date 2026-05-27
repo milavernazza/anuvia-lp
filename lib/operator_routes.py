@@ -196,6 +196,240 @@ async def _slack_alert(text: str) -> None:
         log.exception("operator slack alert failed")
 
 
+@router.post("/send_contract")
+async def operator_send_contract(request: Request):
+    """Generate + email a contract for the lead.
+
+    This is the *production* path. Versus ``/convert_lead_to_engagement``
+    (which assumes the contract is signed + paid outside the system),
+    this endpoint runs the full real flow:
+
+    1. Call :func:`lib.contract.generate_contract` to mint a contract
+       row (status='pending'), render the PDF via Gotenberg, attach a
+       sign-link (HMAC or Google eSign) and a payment URL (Pix for BRL,
+       Stripe US for USD).
+    2. Call :func:`lib.contract.send_contract_email` to email the lead
+       with the PDF + sign link + ROI guarantee blurb.
+    3. Patch the lead's ``current_stage`` to ``contract_sent`` and
+       record ``qualification_data.contract_sent_at`` for the operator
+       timeline.
+    4. Slack alert the operator with the contract URLs so Mila can
+       monitor / re-send / chase manually if needed.
+
+    The CLIENT side handles the rest automatically:
+        * /sign → review the contract online
+        * /accept → mark contract signed, redirect to payment
+        * /pix/{id} or Stripe Checkout → pay
+        * On payment confirmation (Stripe webhook for cards, manual
+          /pix/confirm for Pix), :func:`lib.contract._kickoff_engagement`
+          fires automatically: creates engagement + queues the kickoff
+          handler, which sends the intake form email to the client.
+
+    Body:
+        lead_id (str, required) — UUID of the lead in supabase.leads
+        practice (str, optional) — defaults to "cloud_finops"
+        value_brl (int, optional) — overrides practice default ticket
+        payment_method (str, optional) — 'auto' (default) | 'pix' |
+            'stripe_br' | 'stripe_us'. 'auto' picks Pix for BRL when
+            PIX_NUBANK_KEY is set, else Stripe BR.
+        currency (str, optional) — 'BRL' (default) or 'USD'
+        scope_overrides (dict, optional) — per-engagement scope tweaks
+            (e.g. extra sessions, custom deliverables)
+
+    Returns ``{ok, contract_id, lead_id, pdf_url, sign_url, payment_url,
+    payment_method, status, email_sent, message_id?, intake_url?}``.
+
+    The intake_url is included only after payment confirmation triggers
+    ``_kickoff_engagement`` (won't be present in the initial response).
+    """
+    token = request.query_params.get("token", "")
+    if not _verify_admin_token(token):
+        raise HTTPException(401, "bad admin token")
+
+    body = await request.json()
+    lead_id = (body.get("lead_id") or "").strip()
+    if not lead_id:
+        raise HTTPException(400, "lead_id required")
+    practice = (body.get("practice") or "cloud_finops").strip()
+    if practice not in _PRACTICE_CONFIG:
+        raise HTTPException(
+            400, f"unknown practice {practice}"
+        )
+    cfg = _PRACTICE_CONFIG[practice]
+    value_brl = int(body.get("value_brl") or cfg["value_brl"])
+    payment_method = (body.get("payment_method") or "auto").strip().lower()
+    currency = (body.get("currency") or "BRL").strip().upper()
+    scope_overrides = body.get("scope_overrides") or {}
+
+    # Lazy import: lib.contract has heavy module-load side effects (Stripe SDK,
+    # Google Workspace SDK probing) so we keep it out of the top-level imports.
+    try:
+        from lib.contract import (  # noqa: WPS433
+            generate_contract as _generate_contract,
+            send_contract_email as _send_contract_email,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.exception("operator: contract module import failed")
+        raise HTTPException(500, f"contract module unavailable: {exc}")
+
+    # 1) Generate the contract (PDF + sign URL + payment URL persisted)
+    gen = await _generate_contract(
+        lead_id=lead_id,
+        practice=practice,
+        value_brl=value_brl,
+        scope_overrides=scope_overrides,
+        payment_method=payment_method,
+        currency=currency,
+    )
+    if not gen.get("ok"):
+        return {
+            "ok": False,
+            "stage": "generate_contract",
+            "error": gen.get("reason") or "unknown",
+            "detail": gen,
+        }
+    contract_id = gen.get("contract_id")
+    pdf_url = gen.get("pdf_url") or ""
+    sign_url = gen.get("sign_url") or ""
+    payment_url = gen.get("payment_url") or ""
+
+    # 2) Patch the lead so the admin dashboard reflects "contract_sent"
+    async with httpx.AsyncClient(timeout=15) as client:
+        lead = await _supa_get(
+            client, "leads", f"id=eq.{lead_id}&select=*"
+        )
+        if lead:
+            qd = dict(lead.get("qualification_data") or {})
+            qd["contract_sent_at"] = datetime.now(timezone.utc).isoformat()
+            qd["active_contract_id"] = contract_id
+            await _supa_patch(
+                client,
+                "leads",
+                f"id=eq.{lead_id}",
+                {
+                    "qualification_data": qd,
+                    "current_stage": "contract_sent",
+                },
+            )
+
+    # 3) Send the contract email via Resend
+    email_result = await _send_contract_email(contract_id)
+    email_sent = bool(email_result.get("ok"))
+
+    # 4) Slack alert the operator with the URLs (so Mila can re-send or
+    # confirm Pix manually if needed)
+    base_url = (
+        os.environ.get("BASE_URL")
+        or os.environ.get("CONTRACT_HOST")
+        or "https://anuvia.com.br"
+    ).rstrip("/")
+    client_name = (lead or {}).get("name") or "?"
+    client_email = (lead or {}).get("email") or "?"
+    client_company = (lead or {}).get("company") or ""
+    payment_label = gen.get("payment_method") or payment_method
+    value_label = f"R$ {value_brl:,}".replace(",", ".") if currency == "BRL" else f"$ {value_brl:,}"
+    await _slack_alert(
+        ":scroll: *Contrato enviado* — "
+        f"`{client_name}` ({client_email})"
+        + (f" · *{client_company}*" if client_company else "")
+        + f" · *{practice}* {value_label} · `{payment_label}`\n"
+        f"• PDF: <{pdf_url}|abrir>\n"
+        f"• Sign URL: <{sign_url}|enviar manualmente se precisar>\n"
+        f"• Email enviado: {'sim' if email_sent else 'FALHOU — checar logs'}"
+    )
+
+    return {
+        "ok": True,
+        "contract_id": contract_id,
+        "lead_id": lead_id,
+        "pdf_url": pdf_url,
+        "sign_url": sign_url,
+        "payment_url": payment_url,
+        "payment_method": payment_label,
+        "currency": currency,
+        "value_brl": value_brl,
+        "status": gen.get("status"),
+        "email_sent": email_sent,
+        "message_id": email_result.get("message_id"),
+        "note": (
+            "Cliente recebeu email com PDF + sign link. "
+            "Quando assinar + pagar, engagement starts automaticamente "
+            "via lib.contract._kickoff_engagement."
+        ),
+    }
+
+
+@router.get("/check_contract_status")
+async def operator_check_contract_status(request: Request):
+    """Poll the lifecycle state of a contract.
+
+    Returns the contract's current status + any downstream engagement
+    pointer so the operator can see at a glance:
+
+        contract.status: pending | sent | signed | paid | refunded
+        engagement_id: present once :func:`_kickoff_engagement` fired
+        intake_submitted_at: present once the client submitted the intake
+        current_phase: 0..4 (FinOps) — where the engagement is now
+
+    Query: ``?contract_id=<UUID>&token=<HMAC>``.
+    """
+    token = request.query_params.get("token", "")
+    if not _verify_admin_token(token):
+        raise HTTPException(401, "bad admin token")
+
+    contract_id = (request.query_params.get("contract_id") or "").strip()
+    if not contract_id:
+        raise HTTPException(400, "contract_id required")
+
+    async with httpx.AsyncClient(timeout=15) as client:
+        contract = await _supa_get(
+            client,
+            "contracts",
+            f"id=eq.{contract_id}&select=id,status,signed_at,paid_at,"
+            "lead_id,practice,value_brl,currency,payment_method,pdf_url,"
+            "sign_url,payment_url",
+        )
+        if not contract:
+            raise HTTPException(404, "contract not found")
+
+        engagement = await _supa_get(
+            client,
+            "engagements",
+            f"contract_id=eq.{contract_id}&select=id,status,current_phase,"
+            "delivery_mode,intake_data,artifacts",
+        )
+
+    eng_summary = None
+    if engagement:
+        intake = engagement.get("intake_data") or {}
+        artifacts = engagement.get("artifacts") or {}
+        eng_summary = {
+            "engagement_id": engagement.get("id"),
+            "status": engagement.get("status"),
+            "current_phase": engagement.get("current_phase"),
+            "delivery_mode": engagement.get("delivery_mode"),
+            "intake_submitted": bool(intake.get("intake_submitted_at")),
+            "phase_2_findings_ready": bool(artifacts.get("phase_2_findings")),
+            "phase_3_change_log_ready": bool(artifacts.get("phase_3_change_log_md")),
+            "final_report_ready": bool(artifacts.get("final_report_url")),
+        }
+
+    return {
+        "ok": True,
+        "contract_id": contract_id,
+        "contract_status": contract.get("status"),
+        "signed_at": contract.get("signed_at"),
+        "paid_at": contract.get("paid_at"),
+        "payment_method": contract.get("payment_method"),
+        "value_brl": contract.get("value_brl"),
+        "currency": contract.get("currency"),
+        "pdf_url": contract.get("pdf_url"),
+        "sign_url": contract.get("sign_url"),
+        "payment_url": contract.get("payment_url"),
+        "engagement": eng_summary,
+    }
+
+
 @router.post("/convert_lead_to_engagement")
 async def operator_convert_lead_to_engagement(request: Request):
     """Convert a qualified lead into a signed contract + kickoff engagement.
