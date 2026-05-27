@@ -704,7 +704,7 @@ def _proposal_html(lead: dict) -> str:
         )
         terms = "3-month minimum, then month-to-month. Cancel anytime with 30 days notice."
         cta = "Accept proposal"
-        sig = "Mila Vernazza · Founder Anuvia"
+        sig = "Anuvia"
         footer = "Ex-AWS Solutions Architect · Ex-Google · 15+ AWS certifications"
     else:
         title = "Anuvia · Proposta Growth"
@@ -727,7 +727,7 @@ def _proposal_html(lead: dict) -> str:
         )
         terms = "Mínimo 3 meses, depois mensal. Cancelamento com 30 dias de aviso."
         cta = "Aceitar proposta"
-        sig = "Mila Vernazza · Founder Anuvia"
+        sig = "Anuvia"
         footer = "Ex-Solutions Architect AWS · Ex-Google · 15+ certificações AWS"
 
     company_line = (
@@ -887,7 +887,7 @@ async def h_generate_proposal_v1(lead: Dict[str, Any]) -> Dict[str, Any]:
 <p style="margin:24px 0;"><a href="{hosted_url}" style="display:inline-block;background:#0f172a;color:#ffffff;padding:14px 26px;border-radius:8px;text-decoration:none;font-weight:600;">Read the proposal -></a></p>
 <p style="color:#475569;line-height:1.65;">Ready to start? One click below and we kick off this week.</p>
 <p style="margin:24px 0;"><a href="{accept_url}" style="display:inline-block;background:#16a34a;color:#ffffff;padding:14px 26px;border-radius:8px;text-decoration:none;font-weight:600;">Accept proposal -></a></p>
-<p style="color:#78716c;font-size:13px;margin-top:32px;">Mila Vernazza · Founder Anuvia<br>Reply to this email if anything is unclear — I read every one.</p>
+<p style="color:#78716c;font-size:13px;margin-top:32px;">Anuvia<br>Reply to this email if anything is unclear.</p>
 </div></body></html>"""
     else:
         subject = "Sua proposta Anuvia Growth"
@@ -899,7 +899,7 @@ async def h_generate_proposal_v1(lead: Dict[str, Any]) -> Dict[str, Any]:
 <p style="margin:24px 0;"><a href="{hosted_url}" style="display:inline-block;background:#0f172a;color:#ffffff;padding:14px 26px;border-radius:8px;text-decoration:none;font-weight:600;">Ler a proposta -></a></p>
 <p style="color:#475569;line-height:1.65;">Topa começar? Um clique abaixo e a gente arranca essa semana.</p>
 <p style="margin:24px 0;"><a href="{accept_url}" style="display:inline-block;background:#16a34a;color:#ffffff;padding:14px 26px;border-radius:8px;text-decoration:none;font-weight:600;">Aceitar proposta -></a></p>
-<p style="color:#78716c;font-size:13px;margin-top:32px;">Mila Vernazza · Founder Anuvia<br>Responde esse email se algo estiver confuso — leio todos.</p>
+<p style="color:#78716c;font-size:13px;margin-top:32px;">Anuvia<br>Responde esse email se algo estiver confuso.</p>
 </div></body></html>"""
 
     to = fresh.get("email")
@@ -1184,7 +1184,7 @@ def _practice_proposal_html(lead: dict, practice: str) -> str:
         )
         terms = "50% upfront, 50% on delivery. Includes one revision round."
         cta = "Accept proposal"
-        sig = "Mila Vernazza · Founder Anuvia"
+        sig = "Anuvia"
         footer = "Ex-AWS Solutions Architect · Ex-Google · 15+ AWS certifications"
         headline = deliverable
     else:
@@ -1202,7 +1202,7 @@ def _practice_proposal_html(lead: dict, practice: str) -> str:
         )
         terms = "50% na assinatura, 50% na entrega. Inclui uma rodada de revisão."
         cta = "Aceitar proposta"
-        sig = "Mila Vernazza · Founder Anuvia"
+        sig = "Anuvia"
         footer = "Ex-Solutions Architect AWS · Ex-Google · 15+ certificações AWS"
         headline = deliverable
 
@@ -1338,7 +1338,7 @@ async def _practice_generate_proposal(lead: Dict[str, Any], practice: str) -> Di
 <p style="margin:24px 0;"><a href="{hosted_url}" style="display:inline-block;background:#0f172a;color:#ffffff;padding:14px 26px;border-radius:8px;text-decoration:none;font-weight:600;">Read the proposal -></a></p>
 <p style="color:#475569;line-height:1.65;">Ready to start? One click below and we kick off this week.</p>
 <p style="margin:24px 0;"><a href="{accept_url}" style="display:inline-block;background:#16a34a;color:#ffffff;padding:14px 26px;border-radius:8px;text-decoration:none;font-weight:600;">Accept proposal -></a></p>
-<p style="color:#78716c;font-size:13px;margin-top:32px;">Mila Vernazza · Founder Anuvia<br>Reply to this email if anything is unclear — I read every one.</p>
+<p style="color:#78716c;font-size:13px;margin-top:32px;">Anuvia<br>Reply to this email if anything is unclear.</p>
 </div></body></html>"""
     else:
         subject = f"Sua proposta Anuvia {deliverable}"
@@ -1350,7 +1350,7 @@ async def _practice_generate_proposal(lead: Dict[str, Any], practice: str) -> Di
 <p style="margin:24px 0;"><a href="{hosted_url}" style="display:inline-block;background:#0f172a;color:#ffffff;padding:14px 26px;border-radius:8px;text-decoration:none;font-weight:600;">Ler a proposta -></a></p>
 <p style="color:#475569;line-height:1.65;">Topa começar? Um clique abaixo e a gente arranca essa semana.</p>
 <p style="margin:24px 0;"><a href="{accept_url}" style="display:inline-block;background:#16a34a;color:#ffffff;padding:14px 26px;border-radius:8px;text-decoration:none;font-weight:600;">Aceitar proposta -></a></p>
-<p style="color:#78716c;font-size:13px;margin-top:32px;">Mila Vernazza · Founder Anuvia<br>Responde esse email se algo estiver confuso — leio todos.</p>
+<p style="color:#78716c;font-size:13px;margin-top:32px;">Anuvia<br>Responde esse email se algo estiver confuso.</p>
 </div></body></html>"""
 
     to = fresh.get("email")
@@ -1820,6 +1820,6 @@ async def accept(lead_id: str, token: str) -> HTMLResponse:
 <h1 style="font-family:Georgia,serif;font-size:32px;margin:0 0 20px 0;color:#0f172a;">{title}</h1>
 <p style="color:#475569;line-height:1.65;font-size:16px;">{line1}</p>
 <p style="color:#475569;line-height:1.65;font-size:16px;">{line2}</p>
-<p style="color:#78716c;font-size:13px;margin-top:32px;">Mila Vernazza · Founder Anuvia</p>
+<p style="color:#78716c;font-size:13px;margin-top:32px;">Anuvia</p>
 </div></body></html>"""
     return HTMLResponse(content=html, status_code=200)
