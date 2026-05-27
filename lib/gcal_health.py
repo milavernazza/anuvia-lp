@@ -1,4 +1,3 @@
-# test paste line
 """Gcal health check — proactive monitoring so refresh-token expiry never
 breaks the booking workflow silently.
 
