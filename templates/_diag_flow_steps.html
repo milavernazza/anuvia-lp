@@ -200,6 +200,18 @@
         try {
           const bookingForm = bookingSection.querySelector('.bw-booking-form');
           if (bookingForm) {
+            // CRITICAL: the page might have been server-rendered with a STALE
+            // cookie pointing at a PREVIOUS lead. Sweep out existing notices
+            // and hidden PII before patching new lead data.
+            const noticeSelector = 'div.mb-6.p-4.border-l-2.border-accent.bg-white';
+            bookingForm.parentElement
+              .querySelectorAll(':scope > ' + noticeSelector)
+              .forEach(n => n.remove());
+            ['name', 'email', 'whatsapp', 'company'].forEach(key => {
+              bookingForm
+                .querySelectorAll('input[type="hidden"][name="' + key + '"]')
+                .forEach(h => h.remove());
+            });
             const piiFields = {
               name: data.name || '',
               email: data.email || '',
@@ -219,6 +231,12 @@
                 } else {
                   input.replaceWith(hidden);
                 }
+              } else {
+                const hidden = document.createElement('input');
+                hidden.type = 'hidden';
+                hidden.name = key;
+                hidden.value = val;
+                bookingForm.insertBefore(hidden, bookingForm.firstChild);
               }
             });
             bookingForm.setAttribute('data-lead-known', '1');
