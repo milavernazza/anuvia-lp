@@ -2479,14 +2479,44 @@ async def _run_phase_2(engagement: dict) -> dict:
     mode = _engagement_delivery_mode(engagement)
     if mode == _DELIVERY_MODE_WHITEGLOVE:
         low, high = _findings_total_savings(findings)
+
+        # GUARD: if findings are clearly junk (Claude fallback path triggered,
+        # or every individual finding sums to R$ 0), do NOT book a Gcal session
+        # or Slack-DM the operator. Booking a client presentation with empty
+        # findings ruins the relationship. Escalate; Mila re-fires phase 2
+        # manually after fixing whatever broke (rate limit, prompt overflow,
+        # etc) and only THEN we book.
+        findings_list = findings.get("findings") or []
+        has_fallback = any(
+            isinstance(f, dict)
+            and _CLAUDE_FALLBACK_TAG in str(f.get("hypothesis", ""))
+            for f in findings_list
+        )
+        if has_fallback or (low <= 0 and high <= 0):
+            await _send_slack_alert(
+                ":warning: *FinOps phase 2 segurou white-glove* — engagement "
+                f"`{engagement_id}` produziu findings em fallback ou "
+                "R$ 0,00 total. Gcal NÃO foi bookado, Slack DM com "
+                "materials NÃO foi enviado. Re-firar phase 2 "
+                "(`finops_phase_2_analysis`) com prompt ajustado antes de "
+                "envolver o cliente na reunião."
+            )
+            return {
+                "ok": False,
+                "reason": "zero_savings_or_fallback_findings",
+                "low": low,
+                "high": high,
+                "fallback_detected": has_fallback,
+                "next_action": "finops_phase_2_analysis",
+                "next_action_at": _now() + timedelta(minutes=15),
+            }
+
         client_name = (
             (lead or {}).get("company")
             or (lead or {}).get("name")
             or "Cliente"
         )
-        findings_count = len(
-            [f for f in (findings.get("findings") or []) if isinstance(f, dict)]
-        )
+        findings_count = len(findings_list)
         findings_summary = (
             f"Findings totais: R$ {_brl(low)} – R$ {_brl(high)}/ano "
             f"({findings_count} oportunidades em 8 vetores)"
