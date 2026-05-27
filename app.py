@@ -75,6 +75,8 @@ try:
     from lib.whiteglove_routes import router as _whiteglove_router  # noqa: E402,F401
     # Engagement lifecycle dashboard (read-only admin view)
     from lib.admin_dashboard import router as _admin_dashboard_router  # noqa: E402,F401
+    # Gcal health monitoring — proactive token expiry alerts
+    from lib.gcal_health import router as _gcal_health_router  # noqa: E402,F401
     app.include_router(_sessions_router)
     app.include_router(_orchestrator_router)
     app.include_router(_track_b_router)
@@ -85,6 +87,7 @@ try:
     app.include_router(_delivery_routes_router)
     app.include_router(_whiteglove_router)
     app.include_router(_admin_dashboard_router)
+    app.include_router(_gcal_health_router)
     _AUTONOMOUS_FUNNEL_ENABLED = True
     log.info(
         "Autonomous funnel v2 mounted: /api/session, /api/orchestrator, /api/track-b, "
@@ -1166,9 +1169,13 @@ def _slot_conflicts_with_busy(
 # ---------------------- Admin OAuth flow endpoints ----------------------
 
 @app.get("/api/admin/gcal/connect")
-async def admin_gcal_connect(request: Request, email: str):
+async def admin_gcal_connect(request: Request, email: str = "mila@anuvia.com.br"):
     """Start OAuth flow. Mila visits this URL once per Google account she wants tracked.
-    Example: /api/admin/gcal/connect?key=XXX&email=milavernazza@gmail.com"""
+    Example: /api/admin/gcal/connect?key=XXX&email=milavernazza@gmail.com
+
+    Default email is mila@anuvia.com.br so a single click via Slack alert
+    reconnects the primary booking calendar without needing query params.
+    """
     _admin_auth(request)
     if not GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=503, detail="GOOGLE_CLIENT_ID not set in env")
