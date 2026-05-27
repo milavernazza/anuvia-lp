@@ -2045,7 +2045,202 @@ router = APIRouter(prefix="/api/contract", tags=["contract"])
 
 
 @router.get("/sign")
-undefineddef _simple_error_html(pt: str, en: str) -> str:
+async def sign_page(contract_id: str, token: str) -> HTMLResponse:
+    """Render a bilingual sign page (PT + EN side-by-side).
+
+    HMAC-verified. Renders contract summary + an "Eu aceito os termos" /
+    "I accept the terms" button that POSTs to ``/api/contract/accept`` via
+    inline JS. The actual signature flip happens in the POST handler.
+    """
+    if not _verify_contract_token(contract_id, token):
+        return HTMLResponse(
+            content=_simple_error_html(
+                "Link inválido ou expirado",
+                "Invalid or expired link",
+            ),
+            status_code=403,
+        )
+
+    contract = await _get_contract(contract_id)
+    if not contract:
+        return HTMLResponse(
+            content=_simple_error_html(
+                "Contrato não encontrado",
+                "Contract not found",
+            ),
+            status_code=404,
+        )
+
+    # Mark as viewed (best effort, idempotent-ish).
+    if contract.get("status") == "sent":
+        await _patch_contract(contract_id, {"status": "viewed"})
+
+    lead_id = contract.get("lead_id")
+    lead = await session_get(lead_id) if lead_id else {}
+    lead = lead or {}
+
+    practice = contract.get("practice") or "growth"
+    cfg = _practice_config(practice)
+    deliverable = cfg.get("deliverable_name") or practice.title()
+    duration = cfg.get("duration_weeks") or "—"
+    value_str = _brl(float(contract.get("value_brl") or 0))
+    pdf_url = contract.get("pdf_url") or ""
+    already_signed = contract.get("status") in ("signed", "paid")
+
+    client_name = (lead.get("name") or "—").strip()
+    client_company = (lead.get("company") or "—").strip()
+
+    # Locale-aware rendering — strict, no bilingual mixing on a transactional
+    # page. Currency drives the language: BRL → PT, USD → EN.
+    is_en = (contract.get("currency") or "BRL").upper() == "USD"
+
+    if is_en:
+        t = {
+            "lang_attr": "en-US",
+            "title": "Sign contract — Anuvia",
+            "eyebrow": "Anuvia · Contract",
+            "h1": "Electronic signature",
+            "already_signed_html": (
+                '<div style="background:#dcfce7;color:#166534;border:1px solid #86efac;'
+                'border-radius:8px;padding:14px 16px;margin:0 0 20px;font-size:14px;">'
+                '<strong>Contract already signed.</strong> You may close this page.'
+                "</div>"
+            ) if already_signed else "",
+            "k_service": "Service",
+            "k_duration": "Duration",
+            "k_value": "Value",
+            "k_client": "Client",
+            "duration_label": f"{duration} weeks",
+            "value_label": f"US$ {value_str}",
+            "body": (
+                'By clicking <strong>"I accept the terms"</strong> you confirm '
+                "you have read the contract in full and accept its terms. "
+                "The document is available as a PDF via the button below. "
+                "After accepting, you will be redirected to the payment page."
+            ),
+            "btn_pdf": "Read the contract (PDF) →",
+            "btn_accept": "I accept the terms →",
+        }
+    else:
+        t = {
+            "lang_attr": "pt-BR",
+            "title": "Assinar contrato — Anuvia",
+            "eyebrow": "Anuvia · Contrato",
+            "h1": "Assinatura eletrônica",
+            "already_signed_html": (
+                '<div style="background:#dcfce7;color:#166534;border:1px solid #86efac;'
+                'border-radius:8px;padding:14px 16px;margin:0 0 20px;font-size:14px;">'
+                '<strong>Contrato já assinado.</strong> Você pode fechar esta página.'
+                "</div>"
+            ) if already_signed else "",
+            "k_service": "Serviço",
+            "k_duration": "Duração",
+            "k_value": "Valor",
+            "k_client": "Cliente",
+            "duration_label": f"{duration} semanas",
+            "value_label": f"R$ {value_str}",
+            "body": (
+                'Ao clicar em <strong>"Eu aceito os termos"</strong> você '
+                "confirma a leitura integral do contrato e manifesta sua "
+                "aceitação. O documento foi gerado em formato PDF e está "
+                "acessível pelo botão abaixo. Após a aceitação, você será "
+                "redirecionado para a tela de pagamento."
+            ),
+            "btn_pdf": "Ler o contrato (PDF) →",
+            "btn_accept": "Eu aceito os termos →",
+        }
+
+    accept_btn_disabled = "disabled" if already_signed else ""
+
+    return HTMLResponse(content=f"""<!DOCTYPE html>
+<html lang="{t['lang_attr']}"><head><meta charset="utf-8">
+<title>{t['title']}</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  body {{ background:#fafaf9; font-family:-apple-system,Inter,Arial,sans-serif; color:#0f172a; margin:0; padding:48px 20px; }}
+  .card {{ max-width:680px; margin:0 auto; background:#ffffff; border:1px solid #e7e5e4; border-radius:12px; padding:36px 32px; }}
+  h1 {{ font-family:Georgia,serif; font-size:28px; margin:0 0 6px; }}
+  .small {{ color:#64748b; font-size:12px; }}
+  .meta {{ background:#fafaf9; border:1px solid #e7e5e4; border-radius:8px; padding:14px 16px; margin:18px 0 20px; font-size:14px; }}
+  .meta-row {{ display:flex; justify-content:space-between; gap:12px; padding:4px 0; }}
+  .meta-row .k {{ color:#64748b; }}
+  .actions {{ display:flex; gap:12px; flex-wrap:wrap; margin:28px 0 12px; }}
+  .btn {{ display:inline-block; padding:14px 24px; border-radius:8px; font-weight:600; text-decoration:none; font-size:15px; border:0; cursor:pointer; }}
+  .btn-primary {{ background:#16a34a; color:#ffffff; }}
+  .btn-primary:disabled {{ background:#a3a3a3; cursor:not-allowed; }}
+  .btn-secondary {{ background:#0f172a; color:#ffffff; }}
+  #status {{ margin-top:18px; font-size:14px; }}
+  #status.ok {{ color:#166534; }}
+  #status.err {{ color:#b91c1c; }}
+</style></head>
+<body>
+<div class="card">
+  <p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;margin:0 0 4px;">{t['eyebrow']}</p>
+  <h1>{t['h1']}</h1>
+
+  {t['already_signed_html']}
+
+  <div class="meta">
+    <div class="meta-row"><span class="k">{t['k_service']}</span><strong>{deliverable}</strong></div>
+    <div class="meta-row"><span class="k">{t['k_duration']}</span><strong>{t['duration_label']}</strong></div>
+    <div class="meta-row"><span class="k">{t['k_value']}</span><strong>{t['value_label']}</strong></div>
+    <div class="meta-row"><span class="k">{t['k_client']}</span><strong>{client_name} · {client_company}</strong></div>
+  </div>
+
+  <p style="color:#475569;line-height:1.65;">{t['body']}</p>
+
+  <div class="actions">
+    <a class="btn btn-secondary" href="{pdf_url}" target="_blank" rel="noopener">{t['btn_pdf']}</a>
+    <button id="accept-btn" class="btn btn-primary" onclick="acceptContract()" {accept_btn_disabled}>{t['btn_accept']}</button>
+  </div>
+
+  <div id="status"></div>
+
+  <p class="small" style="margin-top:28px;">{ANUVIA_LEGAL_NAME}<br>CNPJ: {ANUVIA_CNPJ}</p>
+</div>
+
+<script>
+async function acceptContract() {{
+  const btn = document.getElementById('accept-btn');
+  const status = document.getElementById('status');
+  btn.disabled = true;
+  status.className = '';
+  status.textContent = 'Processando / Processing...';
+  try {{
+    const resp = await fetch('/api/contract/accept', {{
+      method: 'POST',
+      headers: {{ 'Content-Type': 'application/json' }},
+      body: JSON.stringify({{ contract_id: {json.dumps(contract_id)}, token: {json.dumps(token)} }}),
+      redirect: 'follow',
+    }});
+    if (resp.redirected) {{
+      window.location.href = resp.url;
+      return;
+    }}
+    const data = await resp.json().catch(function() {{ return {{}}; }});
+    if (resp.ok && data.checkout_url) {{
+      window.location.href = data.checkout_url;
+      return;
+    }}
+    if (resp.ok) {{
+      status.className = 'ok';
+      status.textContent = 'Contrato assinado. Obrigada! / Contract signed. Thank you!';
+      return;
+    }}
+    status.className = 'err';
+    status.textContent = (data && data.reason) ? data.reason : ('Erro ' + resp.status);
+    btn.disabled = false;
+  }} catch (e) {{
+    status.className = 'err';
+    status.textContent = 'Erro de rede / Network error: ' + e;
+    btn.disabled = false;
+  }}
+}}
+</script>
+</body></html>""", status_code=200)
+
+
+def _simple_error_html(pt: str, en: str) -> str:
     return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>{pt}</title></head>
 <body style="background:#fafaf9;font-family:-apple-system,sans-serif;color:#0f172a;padding:64px 24px;text-align:center;">
@@ -2393,7 +2588,128 @@ async def stripe_webhook_legacy(request: Request):
 
 
 @router.get("/pix/{contract_id}")
-undefined@router.post("/pix/confirm/{contract_id}")
+async def pix_page(contract_id: str, token: str) -> HTMLResponse:
+    """Render the Pix payment page for a signed contract.
+
+    HMAC-verified via the same sign-link token. Shows the QR (rendered from
+    ``pix_payload``), the Pix key, the value, and instructions for sending
+    proof of payment to Mila.
+    """
+    if not _verify_contract_token(contract_id, token):
+        return HTMLResponse(
+            content=_simple_error_html(
+                "Link inválido ou expirado", "Invalid or expired link"
+            ),
+            status_code=403,
+        )
+
+    contract = await _get_contract(contract_id)
+    if not contract:
+        return HTMLResponse(
+            content=_simple_error_html(
+                "Contrato não encontrado", "Contract not found"
+            ),
+            status_code=404,
+        )
+
+    if (contract.get("payment_method") or "").lower() != "pix":
+        # Not a Pix contract — direct the user to /sign instead.
+        return RedirectResponse(
+            url=f"{CONTRACT_HOST}/api/contract/sign?contract_id={contract_id}&token={token}",
+            status_code=302,
+        )
+
+    practice = _normalize_practice(contract.get("practice"))
+    cfg = _practice_config(practice)
+    deliverable = cfg.get("deliverable_name") or practice.title()
+    value_str = _brl(float(contract.get("value_brl") or 0))
+    payload = contract.get("pix_payload") or ""
+    qr_url = contract.get("pix_qr_image_url") or ""
+    is_paid = contract.get("status") == "paid"
+
+    # Pix is BRL-only by definition (Brazilian Central Bank instant payment
+    # rail) — this page is always rendered in PT-BR. We keep a fully
+    # monolingual surface to match brand voice rules. USD clients never
+    # land here (the contract page redirects them straight to Stripe).
+    qr_unavailable_msg = "QR indisponível — use a chave Pix abaixo."
+
+    # Render the QR <img> from the stored URL, or — if we never rendered to
+    # disk — embed a client-side fallback using the payload string. Use a
+    # lightweight 3rd-party QR generator URL as the client-side path so we
+    # don't need to ship a JS library.
+    if qr_url:
+        qr_img_tag = (
+            f'<img src="{qr_url}" alt="Pix QR" '
+            'style="width:220px;height:220px;display:block;margin:12px auto;">'
+        )
+    elif payload:
+        from urllib.parse import quote as _q
+        qr_img_tag = (
+            f'<img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={_q(payload)}" '
+            'alt="Pix QR" style="width:220px;height:220px;display:block;margin:12px auto;">'
+        )
+    else:
+        qr_img_tag = f'<p class="small">{qr_unavailable_msg}</p>'
+
+    paid_banner = ""
+    if is_paid:
+        paid_banner = (
+            '<div style="background:#dcfce7;color:#166534;border:1px solid #86efac;'
+            'border-radius:8px;padding:14px 16px;margin:0 0 20px;font-size:14px;">'
+            "<strong>Pagamento já confirmado.</strong> Pode fechar esta página."
+            "</div>"
+        )
+
+    payments_email = os.environ.get(
+        "ANUVIA_PAYMENTS_EMAIL", "pagamentos@anuvia.com.br"
+    )
+
+    return HTMLResponse(content=f"""<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<title>Pagamento via Pix — Anuvia</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  body {{ background:#fafaf9; font-family:-apple-system,Inter,Arial,sans-serif; color:#0f172a; margin:0; padding:48px 20px; }}
+  .card {{ max-width:600px; margin:0 auto; background:#ffffff; border:1px solid #e7e5e4; border-radius:12px; padding:36px 32px; }}
+  h1 {{ font-family:Georgia,serif; font-size:26px; margin:0 0 6px; }}
+  .small {{ color:#64748b; font-size:12px; }}
+  .copy {{ display:flex; gap:8px; margin:12px 0 18px; }}
+  .copy input {{ flex:1; padding:10px 12px; border:1px solid #e7e5e4; border-radius:6px; font-family:ui-monospace,Menlo,monospace; font-size:12px; }}
+  .copy button {{ padding:10px 14px; background:#0f172a; color:#fff; border:0; border-radius:6px; cursor:pointer; }}
+  .meta {{ background:#fafaf9; border:1px solid #e7e5e4; border-radius:8px; padding:14px 16px; margin:18px 0 22px; font-size:14px; }}
+  .meta-row {{ display:flex; justify-content:space-between; gap:12px; padding:4px 0; }}
+  .meta-row .k {{ color:#64748b; }}
+</style></head>
+<body>
+<div class="card">
+  <p style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#78716c;margin:0 0 4px;">Anuvia · Pagamento</p>
+  <h1>Pagamento via Pix</h1>
+  {paid_banner}
+  <div class="meta">
+    <div class="meta-row"><span class="k">Serviço</span><strong>{deliverable}</strong></div>
+    <div class="meta-row"><span class="k">Valor</span><strong>R$ {value_str}</strong></div>
+    <div class="meta-row"><span class="k">Beneficiário</span><strong>{PIX_NUBANK_DISPLAY_NAME}</strong></div>
+  </div>
+
+  <h3 style="margin:18px 0 8px;font-size:14px;">1. Pague pelo QR</h3>
+  {qr_img_tag}
+
+  <h3 style="margin:18px 0 8px;font-size:14px;">2. Ou copie e cole o código Pix</h3>
+  <div class="copy">
+    <input id="pixcode" value="{payload}" readonly>
+    <button onclick="navigator.clipboard.writeText(document.getElementById('pixcode').value);this.textContent='Copiado!'">Copiar</button>
+  </div>
+
+  <p class="small">Chave Pix: <strong>{PIX_NUBANK_KEY or '—'}</strong></p>
+
+  <h3 style="margin:24px 0 8px;font-size:14px;">3. Confirmação</h3>
+  <p style="color:#475569;line-height:1.65;margin:0 0 8px;">Após o pagamento, envie o comprovante para <a href="mailto:{payments_email}">{payments_email}</a> ou aguarde até 24h pra confirmação automática via extrato Nubank. Você receberá um email assim que o pagamento for reconciliado.</p>
+  <p class="small" style="margin-top:24px;">{ANUVIA_LEGAL_NAME}</p>
+</div>
+</body></html>""", status_code=200)
+
+
+@router.post("/pix/confirm/{contract_id}")
 async def pix_confirm(contract_id: str, request: Request):
     """Admin-only: mark a Pix payment as received.
 
