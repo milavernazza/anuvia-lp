@@ -1982,6 +1982,13 @@ async def _kickoff_engagement(contract: dict) -> Optional[str]:
     except Exception:  # noqa: BLE001
         log.exception("contract: engagement idempotency check failed contract=%s", contract_id)
 
+    # delivery_mode='whiteglove' is the safe default for senior-ticket
+    # practices (FinOps/AI/DevOps/Industry/Growth). The white-glove gate
+    # holds every phase deliverable behind the operator's "Apresentei"
+    # Slack button so client only receives materials AFTER the live
+    # presentation. NEVER default to autonomous — that bypasses the gate
+    # and sends findings/quick-wins/final-report direct to the client
+    # before Mila can present.
     row = {
         "id": str(uuid.uuid4()),
         "lead_id": lead_id,
@@ -1994,8 +2001,19 @@ async def _kickoff_engagement(contract: dict) -> Optional[str]:
         "total_value_brl": value_brl,
         "intake_data": {},
         "artifacts": [],
+        "delivery_mode": "whiteglove",
     }
     inserted = await _insert_engagement(row)
+    if not inserted:
+        # Backward-compat: migration 2026-05-17_delivery_mode.sql might
+        # not be applied yet. Retry without the delivery_mode column so
+        # legacy schemas still work.
+        log.warning(
+            "contract._kickoff_engagement: first insert failed — "
+            "retrying without delivery_mode (legacy schema?)"
+        )
+        row.pop("delivery_mode", None)
+        inserted = await _insert_engagement(row)
     engagement_id = inserted.get("id") if inserted else None
 
     if lead_id:
