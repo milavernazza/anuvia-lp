@@ -127,10 +127,12 @@ async def _run_gcal_health(send_alerts: bool = False) -> dict:
 
     Returns ``{ok, overall, summary, accounts, alerts_sent}``.
     """
+    # Match the names app.py uses (SUPABASE_URL / SUPABASE_KEY). Fall back
+    # to the older SUPABASE_SERVICE_KEY for safety.
     supa_url = os.environ.get("SUPABASE_URL", "")
     supa_key = (
-        os.environ.get("SUPABASE_SERVICE_KEY", "")
-        or os.environ.get("SUPABASE_KEY", "")
+        os.environ.get("SUPABASE_KEY", "")
+        or os.environ.get("SUPABASE_SERVICE_KEY", "")
     )
     if not (supa_url and supa_key):
         return {
@@ -143,9 +145,17 @@ async def _run_gcal_health(send_alerts: bool = False) -> dict:
         "Authorization": f"Bearer {supa_key}",
         "Content-Type": "application/json",
     }
+    # SUPABASE_URL on Coolify already includes /rest/v1 (matches app.py SUPA_URL
+    # default). Strip any trailing /rest/v1 just in case Mila ever overrides
+    # without the suffix, then re-append so this works in both shapes.
+    supa_url = supa_url.rstrip("/")
+    if supa_url.endswith("/rest/v1"):
+        rest_url = supa_url
+    else:
+        rest_url = f"{supa_url}/rest/v1"
     async with httpx.AsyncClient(timeout=15) as client:
         r = await client.get(
-            f"{supa_url}/rest/v1/admin_gcal_accounts"
+            f"{rest_url}/admin_gcal_accounts"
             "?select=id,email,refresh_token,calendar_id,is_active",
             headers=headers,
         )
