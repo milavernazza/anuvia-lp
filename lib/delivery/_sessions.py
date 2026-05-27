@@ -918,6 +918,35 @@ async def book_phase_session(
         {"sessions": sessions_map},
     )
 
+    # Gcal booking failure handling — surface immediately so the operator
+    # workflow never silently degrades. This is the last-resort alert when
+    # the daily health check missed a token expiry between runs.
+    if gcal_result.get("error"):
+        try:
+            err_code = gcal_result.get("error")
+            base_url = (os.environ.get("BASE_URL") or "https://anuvia.com.br").rstrip("/")
+            admin_key = os.environ.get("ADMIN_API_KEY", "")
+            reconnect = (
+                f"{base_url}/api/admin/gcal/connect"
+                f"?key={admin_key}&email=mila@anuvia.com.br"
+            ) if admin_key else (
+                f"{base_url}/api/admin/gcal/connect?email=mila@anuvia.com.br"
+            )
+            health_url = (
+                f"{base_url}/api/admin/gcal/health/view"
+                f"?key={admin_key}"
+            ) if admin_key else f"{base_url}/api/admin/gcal/health/view"
+            msg = (
+                ":rotating_light: *Gcal booking failed* — phase "
+                f"{phase} engagement `{engagement_id}` retornou erro "
+                f"`{err_code}`. "
+                f"Reconectar agora: <{reconnect}|/api/admin/gcal/connect> · "
+                f"Health: <{health_url}|view>"
+            )
+            await _slack_post(msg)
+        except Exception:  # noqa: BLE001 — alert must never crash booking
+            log.exception("sessions: slack alert on gcal_error failed")
+
     return {
         "ok": bool(gcal_result.get("public_event_id")) or bool(gcal_result.get("error") in (None, "")),
         "session_id": session_id,
