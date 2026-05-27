@@ -918,6 +918,66 @@ _DASHBOARD_JS = r"""
       row.classList.add("active");
     }
   };
+
+  // Operator action: fire /api/_admin/operator/send_contract for a qualified
+  // lead. Reads the value + practice fields from the same detail row, posts
+  // with the admin HMAC token already in the page URL, surfaces the result
+  // inline (contract_id + PDF + sign URL) so Mila can hand it off / verify.
+  window.sendContract = async function(btn){
+    var leadId = btn.getAttribute("data-lead-id");
+    var token = btn.getAttribute("data-token");
+    var valueEl = document.getElementById("ct-value-" + leadId);
+    var practiceEl = document.getElementById("ct-practice-" + leadId);
+    var resultEl = document.getElementById("ct-result-" + leadId);
+    if(!leadId || !token){ alert("Missing lead id or admin token"); return; }
+    var value_brl = parseInt(valueEl && valueEl.value || "60000", 10);
+    var practice = (practiceEl && practiceEl.value || "cloud_finops").trim();
+    if(!confirm("Confirmar envio do contrato?\\n\\nLead: " + leadId + "\\nPractice: " + practice + "\\nValor: R$ " + value_brl)){
+      return;
+    }
+    btn.disabled = true;
+    var origLabel = btn.textContent;
+    btn.textContent = "Enviando...";
+    try {
+      var url = "/api/_admin/operator/send_contract?token=" + encodeURIComponent(token);
+      var resp = await fetch(url, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          lead_id: leadId,
+          practice: practice,
+          value_brl: value_brl,
+          currency: "BRL",
+          payment_method: "auto"
+        }),
+      });
+      var data = await resp.json().catch(function(){ return {}; });
+      if(resp.ok && data.ok){
+        var html = '<div style="background:#dcfce7;border:1px solid #86efac;border-radius:6px;padding:10px 12px;color:#166534;">'
+          + '<strong>Contrato enviado ✓</strong><br>'
+          + 'contract_id: <code>' + (data.contract_id || "—") + '</code><br>'
+          + 'status: <strong>' + (data.status || "—") + '</strong><br>'
+          + 'pagamento: <strong>' + (data.payment_method || "—") + '</strong><br>'
+          + 'email enviado: <strong>' + (data.email_sent ? "sim" : "não") + '</strong><br>'
+          + '<a href="' + (data.pdf_url || "#") + '" target="_blank">PDF do contrato ↗</a> · '
+          + '<a href="' + (data.sign_url || "#") + '" target="_blank">Sign URL ↗</a>'
+          + (data.payment_url ? ' · <a href="' + data.payment_url + '" target="_blank">Payment URL ↗</a>' : '')
+          + '</div>'
+          + '<p style="margin-top:8px;font-size:12px;color:#475569;">Recarregue a página pra ver o estado atualizado do lead (current_stage → contract_sent).</p>';
+        resultEl.innerHTML = html;
+        btn.textContent = "Enviado";
+      } else {
+        var msg = (data && (data.detail || data.error || data.reason)) || ("Erro " + resp.status);
+        resultEl.innerHTML = '<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;padding:10px 12px;color:#b91c1c;"><strong>Falha:</strong> ' + msg + '</div>';
+        btn.disabled = false;
+        btn.textContent = origLabel;
+      }
+    } catch (e) {
+      resultEl.innerHTML = '<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;padding:10px 12px;color:#b91c1c;"><strong>Erro de rede:</strong> ' + e + '</div>';
+      btn.disabled = false;
+      btn.textContent = origLabel;
+    }
+  };
 })();
 </script>
 """
@@ -1198,6 +1258,76 @@ def _render_lead_row(lead: dict, token: str) -> str:
         except Exception:
             return f'<pre class="json-block">{_html.escape(str(blob))}</pre>'
 
+    # Operator actions — only render the "Send contract" affordance when the
+    # lead is at the right stage AND no active contract is queued yet.
+    # Practice is derived from funnel_id via track_b's mapping, but the
+    # _PRACTICE_CONFIG in operator_routes.py uses the practice key directly,
+    # so we resolve once here and let the JS pass it through.
+    funnel_id = str(lead.get("funnel_id") or "").upper()
+    practice_map = {
+        "BR_FINOPS": "cloud_finops", "US_FINOPS": "cloud_finops",
+        "BR_AWS_WA": "cloud_finops", "BR_AWS_MIG": "cloud_finops",
+        "BR_AWS_LZ": "cloud_finops", "BR_AWS_SP": "cloud_finops",
+        "BR_GCP_MIG": "cloud_finops",
+        "BR_AI": "ai", "US_AI": "ai",
+        "BR_DEVOPS": "devops", "US_DEVOPS": "devops",
+        "BR_GROWTH": "growth_salesops", "US_GROWTH": "growth_salesops",
+        "BR_INDUSTRY": "industry", "US_INDUSTRY": "industry",
+    }
+    derived_practice = practice_map.get(funnel_id, "cloud_finops")
+    ticket_default_map = {
+        "cloud_finops": 60000, "ai": 40000, "devops": 50000,
+        "growth_salesops": 35000, "industry": 55000,
+    }
+    ticket_default = ticket_default_map.get(derived_practice, 60000)
+    has_active_contract = bool(
+        isinstance(qd, dict) and qd.get("active_contract_id")
+    )
+    operator_section = ""
+    if not has_active_contract and bucket in ("qualified", "discovery_scheduled", "discovery_done"):
+        operator_section = (
+            f'<div class="detail-section" style="margin-top:18px;'
+            f'background:#fafaf9;border:1px solid #e7e5e4;border-radius:8px;'
+            f'padding:14px 16px;">'
+            f'<h3 style="margin:0 0 8px;font-size:13px;letter-spacing:0.08em;'
+            f'text-transform:uppercase;color:#0c4a6e;">Operator actions</h3>'
+            f'<p style="margin:0 0 12px;font-size:13px;color:#475569;">'
+            f'Após a discovery call, dispara o contrato pro cliente. '
+            f'Cria contract row + envia email com PDF + sign link + Pix QR. '
+            f'Engagement starts automaticamente após o cliente pagar.'
+            f'</p>'
+            f'<div class="op-row" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">'
+            f'<label style="font-size:12px;color:#64748b;">Valor (R$)</label>'
+            f'<input type="number" id="ct-value-{_html.escape(lid)}" '
+            f'value="{ticket_default}" style="width:110px;padding:6px 8px;'
+            f'border:1px solid #e7e5e4;border-radius:6px;font-size:13px;">'
+            f'<label style="font-size:12px;color:#64748b;">Practice</label>'
+            f'<input type="text" id="ct-practice-{_html.escape(lid)}" '
+            f'value="{derived_practice}" style="width:140px;padding:6px 8px;'
+            f'border:1px solid #e7e5e4;border-radius:6px;font-size:13px;">'
+            f'<button class="btn-primary" type="button" '
+            f'data-lead-id="{_html.escape(lid)}" '
+            f'data-token="{_html.escape(token)}" '
+            f'onclick="sendContract(this)">Enviar contrato</button>'
+            f'</div>'
+            f'<div id="ct-result-{_html.escape(lid)}" style="margin-top:10px;'
+            f'font-size:12px;color:#475569;"></div>'
+            f'</div>'
+        )
+    elif has_active_contract:
+        active_cid = qd.get("active_contract_id", "")
+        operator_section = (
+            f'<div class="detail-section" style="margin-top:18px;'
+            f'background:#dcfce7;border:1px solid #86efac;border-radius:8px;'
+            f'padding:14px 16px;">'
+            f'<h3 style="margin:0 0 4px;font-size:13px;letter-spacing:0.08em;'
+            f'text-transform:uppercase;color:#166534;">Contract sent</h3>'
+            f'<p style="margin:0;font-size:13px;color:#15803d;">'
+            f'Contract <code>{_html.escape(str(active_cid)[:8])}</code> '
+            f'enviado. Aguardando assinatura + pagamento do cliente.'
+            f'</p></div>'
+        )
+
     detail_inner = (
         f'<div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:12px;">'
         f'<div><strong>{_html.escape(name)}</strong>'
@@ -1206,6 +1336,7 @@ def _render_lead_row(lead: dict, token: str) -> str:
         f'lead: {_html.escape(str(lid))}</div>'
         f'</div>'
         f'{links_strip}'
+        f'{operator_section}'
         f'<div class="detail-grid" style="grid-template-columns:1fr 1fr;">'
         f'<div class="detail-section">'
         f'<h3>Qualification data</h3>{_pretty(qd)}'
