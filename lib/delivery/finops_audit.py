@@ -1932,10 +1932,16 @@ async def kickoff(engagement_id: str, intake_data: dict) -> dict:
     if not engagement:
         return {"ok": False, "reason": "engagement_not_found"}
 
-    # Idempotency — re-runs don't reset the phase counter.
-    already_kicked = (
-        engagement.get("status") in ("kickoff", "running", "delivered")
-        and engagement.get("current_phase")
+    # Idempotency — the intake email is the side-effect we DON'T want to
+    # duplicate. ``contract.py::_kickoff_engagement`` pre-sets
+    # status='kickoff' + current_phase=1 before this handler runs, so we
+    # cannot key idempotency off those fields (that would skip the email
+    # on the first real run — exactly the bug we saw in engagement
+    # f7cf6f78). Instead we read a sentinel inside artifacts.
+    artifacts_now = await _engagement_get_artifacts(engagement_id)
+    already_kicked = bool(
+        artifacts_now.get("kickoff_email_msg_id")
+        or artifacts_now.get("kickoff_email_sent_at")
     )
 
     patch = {
@@ -1954,7 +1960,13 @@ async def kickoff(engagement_id: str, intake_data: dict) -> dict:
 
     lead, email, first_name = await _lead_for_engagement(engagement)
 
-    # Email the intake form link.
+    # Email the intake form link. ``email_actually_sent`` is True only
+    # when Resend returned 2xx and we have a msg_id to stamp on the
+    # engagement; we use this to drive the agent_history line so it
+    # never lies about delivery again.
+    email_actually_sent = False
+    email_msg_id: Optional[str] = None
+    email_error: Optional[str] = None
     if email and not already_kicked:
         token = _hmac_token(engagement_id, "intake")
         intake_url = (
@@ -1968,16 +1980,50 @@ async def kickoff(engagement_id: str, intake_data: dict) -> dict:
             value_str=value_str,
         )
         try:
-            await _send_email(
+            email_msg_id = await _send_email(
                 engagement_id=engagement_id,
                 to=email,
                 subject="FinOps Audit começou — primeiro passo (intake)",
                 html=html,
                 kind="finops_kickoff",
             )
-        except Exception:  # noqa: BLE001
+            email_actually_sent = bool(email_msg_id)
+        except Exception as _exc:  # noqa: BLE001
+            email_error = f"{type(_exc).__name__}: {_exc}"
             log.exception(
                 "finops.kickoff: email send failed eng=%s", engagement_id
+            )
+
+        # Always stamp the engagement with what happened — success OR
+        # failure. This is the idempotency sentinel for future runs.
+        try:
+            await _engagement_merge_artifacts(
+                engagement_id,
+                {
+                    "kickoff_email_sent_at": _now_iso(),
+                    "kickoff_email_msg_id": email_msg_id,
+                    "kickoff_email_to": email,
+                    "kickoff_email_ok": email_actually_sent,
+                    **(
+                        {"kickoff_email_error": email_error}
+                        if email_error else {}
+                    ),
+                },
+            )
+        except Exception:  # noqa: BLE001
+            log.exception(
+                "finops.kickoff: stamp kickoff_email artifact failed eng=%s",
+                engagement_id,
+            )
+
+        # Loud alert if Resend rejected — Mila will see this in Slack
+        # within seconds instead of finding out from a client complaint.
+        if not email_actually_sent:
+            await _send_slack_alert(
+                f":rotating_light: *FinOps kickoff email FAILED* — "
+                f"engagement `{engagement_id}` → `{email}` · "
+                f"erro: `{email_error or 'no msg_id returned'}`. "
+                f"Cliente NÃO recebeu o intake form."
             )
 
     # Schedule the phase 1 handler on the lead.
@@ -1988,30 +2034,56 @@ async def kickoff(engagement_id: str, intake_data: dict) -> dict:
             next_action="finops_phase_1_data_collection",
             next_action_at=next_at,
         )
+        # Truthful agent_history — only claims the email was sent when
+        # we have an msg_id from Resend. Otherwise records the failure
+        # so the operator dashboard surfaces the real state.
+        if already_kicked:
+            history_detail = (
+                f"engagement {engagement_id} kickoff re-run (idempotent, "
+                f"intake email already sent); phase 1 scheduled at "
+                f"{next_at.isoformat()}"
+            )
+        elif email_actually_sent:
+            history_detail = (
+                f"engagement {engagement_id} kickoff; intake email sent "
+                f"(msg_id={email_msg_id}); phase 1 scheduled at "
+                f"{next_at.isoformat()}"
+            )
+        else:
+            history_detail = (
+                f"engagement {engagement_id} kickoff; intake email "
+                f"FAILED ({email_error or 'no msg_id'}); phase 1 "
+                f"scheduled at {next_at.isoformat()}"
+            )
         await session_append_history(
             lead_id=str(lead["id"]),
             agent="delivery.finops",
             action="finops_kickoff",
-            result="ok",
-            detail=(
-                f"engagement {engagement_id} kickoff; intake email sent; "
-                f"phase 1 scheduled at {next_at.isoformat()}"
-            ),
+            result="ok" if (already_kicked or email_actually_sent) else "warn",
+            detail=history_detail,
         )
 
     # Slack ping with the engagement summary.
     company = (lead or {}).get("company") or "—"
     value_str = _brl(engagement.get("total_value_brl") or PRACTICE_TICKET_BRL)
+    if already_kicked:
+        slack_line = "intake já tinha sido enviado (idempotent re-run)"
+    elif email_actually_sent:
+        slack_line = f"Intake enviado pra {email or 'n/a'}"
+    else:
+        slack_line = f":warning: Intake email FALHOU pra {email or 'n/a'}"
     await _send_slack_alert(
         f":rocket: *FinOps Audit kickoff* — engagement `{engagement_id}` "
-        f"({company}) · R$ {value_str} · 4 semanas. "
-        f"Intake enviado pra {email or 'n/a'}."
+        f"({company}) · R$ {value_str} · 4 semanas. {slack_line}."
     )
 
     return {
         "ok": True,
         "engagement_id": engagement_id,
         "next_action_at": next_at,
+        "email_sent": email_actually_sent,
+        "email_msg_id": email_msg_id,
+        "email_error": email_error,
     }
 
 
