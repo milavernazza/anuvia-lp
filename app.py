@@ -1457,6 +1457,11 @@ async def admin_gcal_delete(account_id: str, request: Request):
 
 
 # ---------------------------------------------------------------------------
+# Gcal health monitoring lives in lib/gcal_health.py — registered below.
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
 # Admin bookings view — replaces the cal.anuvia.com.br dashboard.
 # Mila uses these two endpoints to scan upcoming/recent discoveries.
 #   GET /api/admin/bookings           -> JSON, last 100 qualified+scheduled+done leads
@@ -2160,11 +2165,13 @@ async def api_contact_book(form: ContactBookForm, request: Request) -> JSONRespo
     service_id = int(os.environ.get("EASYAPPOINTMENTS_SERVICE_ID_BR_SMB", "2"))
     duration_min = 30
 
-    # Cookie-driven: only trust the cookie if the lead row actually exists.
+    # Cookie-driven: only trust the cookie if the lead row actually exists
+    # AND it's the same person (same email).
     cookie_lead_id = request.cookies.get(LEAD_ID_COOKIE) or ""
 
     async with httpx.AsyncClient(timeout=30) as client:
         existing_lead_id: Optional[str] = None
+        existing_row: Optional[dict] = None
         if cookie_lead_id:
             try:
                 lr = await client.get(
@@ -2174,8 +2181,26 @@ async def api_contact_book(form: ContactBookForm, request: Request) -> JSONRespo
                 if lr.status_code == 200:
                     rows = lr.json() or []
                     if rows:
-                        existing_lead_id = rows[0].get("id")
-                        existing_row = rows[0]
+                        candidate = rows[0]
+                        # Identity check: the cookie can survive across test
+                        # sessions (or across genuinely different people on a
+                        # shared device). If the form's email differs from
+                        # the cookie-lead's email, the cookie is stale —
+                        # we MUST NOT merge, otherwise the Gcal invite below
+                        # picks up the prior lead's email and the new client
+                        # never gets the invite. Treat mismatched-email as a
+                        # fresh INSERT.
+                        existing_email = (candidate.get("email") or "").strip().lower()
+                        submitted_email = (form.email or "").strip().lower()
+                        if existing_email and submitted_email and existing_email != submitted_email:
+                            log.info(
+                                "contact_book: cookie lead %s has email=%s but form submitted %s — "
+                                "treating as new identity (cookie ignored)",
+                                cookie_lead_id, existing_email, submitted_email,
+                            )
+                        else:
+                            existing_lead_id = candidate.get("id")
+                            existing_row = candidate
             except Exception:
                 log.exception("contact_book cookie-lead lookup failed (non-fatal)")
 
