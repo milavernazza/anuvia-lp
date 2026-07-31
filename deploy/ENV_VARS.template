@@ -1,0 +1,90 @@
+# =============================================================================
+# ANUVIA — Env vars template (rebuild 2026-07-30)
+# =============================================================================
+# Copiar pra `deploy/.env` e preencher. NUNCA commitar o .env preenchido.
+# Colunas: [OBRIGATÓRIA agora | DEPOIS | OPCIONAL]
+#
+# Como TODAS as keys antigas foram perdidas com o VPS, tudo aqui é
+# re-gerado do zero. Instruções de onde gerar em cada bloco.
+# =============================================================================
+
+# --- Core [OBRIGATÓRIA] ------------------------------------------------------
+BASE_URL=https://anuvia.com.br
+LOG_LEVEL=INFO
+
+# --- Supabase (supabase.com → Settings → API) [OBRIGATÓRIA] ------------------
+# Criar projeto novo em supabase.com (free tier). Rodar schema_v2_full.sql.
+# SUPABASE_URL = Project URL + "/rest/v1"
+# SUPABASE_KEY = service_role key (NÃO a anon key — o app precisa bypassar RLS)
+SUPABASE_URL=https://SEU-PROJETO.supabase.co/rest/v1
+SUPABASE_KEY=
+SUPABASE_SERVICE_KEY=
+
+# --- Anthropic (console.anthropic.com → API keys) [OBRIGATÓRIA] --------------
+ANTHROPIC_API_KEY=
+ANTHROPIC_MODEL=claude-sonnet-4-6
+
+# --- Resend (resend.com → API keys; re-verificar domínio send.anuvia.com.br)
+# [OBRIGATÓRIA] ---------------------------------------------------------------
+RESEND_API_KEY=
+RESEND_FROM_EMAIL=diagnostico@send.anuvia.com.br
+RESEND_FROM_NAME=Anuvia
+RESEND_REPLY_TO_EMAIL=mila@anuvia.com.br
+RESEND_REPLY_TO_NAME=Anuvia
+RESEND_WEBHOOK_SECRET=
+
+# --- Secrets HMAC (gerar: openssl rand -hex 32) [OBRIGATÓRIA] ----------------
+CONTRACT_HMAC_SECRET=
+TRACK_B_HMAC_SECRET=
+ORCHESTRATOR_SECRET=
+ADMIN_API_KEY=
+INBOUND_WEBHOOK_SECRET=
+
+# --- Google Calendar OAuth (console.cloud.google.com) [OBRIGATÓRIA] ----------
+# Reusar o projeto GCP antigo (anuvia-easyappointments) se ainda existir,
+# ou criar novo OAuth client id (Web application).
+# Depois do deploy: acessar /api/admin/gcal/connect pra re-conectar a conta.
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# --- Slack webhooks (api.slack.com → apps → incoming webhooks) [OBRIGATÓRIA] -
+SLACK_ALERTS_WEBHOOK=
+SLACK_NEW_LEAD_WEBHOOK=
+SLACK_MILA_HANDLE=@mila
+
+# --- Pagamento Pix manual (fase M0-M3) [OBRIGATÓRIA] -------------------------
+PIX_NUBANK_KEY=
+PIX_MERCHANT_CITY=SAO PAULO
+ANUVIA_CNPJ=
+
+# --- Stripe (só quando tiver cliente US/global) [DEPOIS] ---------------------
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+
+# --- Storage [OBRIGATÓRIA] ---------------------------------------------------
+ANUVIA_DELIVERABLES_BUCKET=anuvia-deliverables
+
+# --- Gotenberg (resolvido pelo docker-compose, não mexer) --------------------
+GOTENBERG_URL=http://gotenberg:3000
+
+# --- Orchestrator [OBRIGATÓRIA] ----------------------------------------------
+ORCHESTRATOR_SCHEDULER_ENABLED=1
+ORCHESTRATOR_SCHEDULER_INTERVAL_S=600
+
+# --- Smoke diário [OPCIONAL — desligado no começo] ---------------------------
+SMOKE_DAILY_ENABLED=0
+SMOKE_DAILY_HOUR_BRT=7
+
+# --- Enrichment/outbound (só na fase de prospecting M4+) [DEPOIS] ------------
+APOLLO_API_KEY=
+BUILTWITH_API_KEY=
+OUTBOUND_DAILY_CAP=20
+OUTBOUND_RATE_LIMIT_SECONDS=90
+
+# --- Conta Azul NF-e (defer até 1º cliente real pedir NF) [DEPOIS] -----------
+CONTA_AZUL_TOKEN=
+
+# --- Misc [OPCIONAL] ---------------------------------------------------------
+ANUVIA_MILA_EMAIL=mila@anuvia.com.br
+CALENDAR_URL=
+UNSUB_URL=

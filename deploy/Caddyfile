@@ -1,0 +1,11 @@
+# Anuvia — Caddy reverse proxy (TLS automático via Let's Encrypt)
+# Troca DOMINIO se decidir consolidar em outro domínio.
+
+anuvia.com.br {
+    reverse_proxy app:8000
+    encode gzip
+}
+
+www.anuvia.com.br {
+    redir https://anuvia.com.br{uri} permanent
+}

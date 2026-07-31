@@ -1,0 +1,56 @@
+# =============================================================================
+# ANUVIA — Stack v2 simplificada (rebuild 2026-07-30)
+# =============================================================================
+# 2 containers: app FastAPI + Gotenberg (PDF).
+# Supabase agora é managed (supabase.com) — sem container local.
+# Sem Coolify, sem n8n, sem dashboard service, sem PPTX sidecar.
+#
+# Deploy: docker compose up -d --build
+# Logs:   docker compose logs -f app
+# =============================================================================
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file:
+      - .env          # copiar de ENV_VARS.template e preencher
+    environment:
+      GOTENBERG_URL: "http://gotenberg:3000"
+    depends_on:
+      - gotenberg
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    restart: unless-stopped
+    # sem ports públicos — só a app fala com ele na rede interna
+    command:
+      - "gotenberg"
+      - "--api-timeout=60s"
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy_data:
+  caddy_config:
